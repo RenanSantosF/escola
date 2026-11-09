@@ -644,7 +644,7 @@ func _process(delta: float) -> void:
 		for n in npcs:
 			if n.active and n.visual.visible and not n.talking_to_player and n.global_position.distance_to(player.global_position) < 14.0:
 				near.append(n)
-		if not near.is_empty() and not (phase == "class" and rng.randf() < 0.85):
+		if not near.is_empty() and not (phase == "class" and rng.randf() < 0.85) and not player.input_enabled == false:
 			var pick: NPC = near.pick_random()
 			pick.say(NPCRoster.ambient_line(pick.personality if pick.role == "student" else pick.role))
 
@@ -677,6 +677,18 @@ func end_talk(npc: NPC) -> void:
 	npc.visual.stop_upper()
 	if phase == "recess" and npc.role == "student" and npc.activity in ["chat", "wander"] and not npc.moving:
 		pass
+
+
+signal npc_hit_by_object(npc: NPC, obj: Node)
+
+
+func on_npc_hit_by_object(npc: NPC, obj: Node) -> void:
+	if npc.talking_to_player or npc.activity == "minigame":
+		return
+	if not npc.sitting:
+		npc.visual.play("hit")
+	npc.say(["Ei! Quem jogou isso?", "Aiii!", "Para com isso!"].pick_random(), 2.0)
+	npc_hit_by_object.emit(npc, obj)
 
 
 ## Reação a esbarrões do jogador (o sistema disciplinar usa o sinal).

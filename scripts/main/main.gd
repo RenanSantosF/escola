@@ -10,6 +10,8 @@ var npcs: NPCManager
 var nav: NavGraph
 var school_day: SchoolDay
 var minigames: MinigameManager
+var discipline: DisciplineSystem
+var events: SchoolEvents
 var _day_started := false
 var ui_layer: CanvasLayer
 var _loading: Control
@@ -80,6 +82,17 @@ func _ready() -> void:
 	minigames.name = "Minigames"
 	add_child(minigames)
 	minigames.setup(world, npcs, player, hud, school_day)
+	discipline = DisciplineSystem.new()
+	discipline.name = "Discipline"
+	add_child(discipline)
+	discipline.setup(npcs, player, hud, school_day, world)
+	minigames.discipline = discipline
+	player.picked_up.connect(discipline.on_player_picked)
+	events = SchoolEvents.new()
+	events.name = "Events"
+	add_child(events)
+	events.setup(npcs, player, hud, school_day, world, minigames, discipline)
+	school_day.events = events
 	ui_layer.move_child(_loading, -1)
 
 	_build_menu()

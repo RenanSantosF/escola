@@ -276,8 +276,7 @@ static func _director(sb: SchoolBuilder, b: WorldBatcher, r: Rect2, rng: RandomN
 		for lx: float in [-0.2, 0.2]:
 			for lz: float in [-0.2, 0.2]:
 				b.box("wood", co + Vector3(lx, 0.21, lz), Vector3(0.04, 0.42, 0.04), Color("4e342e"))
-		b.box("plain", co + Vector3(0, 0.8, -0.24), Vector3(0.48, 0.6, 0.08), Color("7b241c"), PI)
-		Props.add_seat(co, PI, Vector3.ZERO, FY + 0.49, "Sentar")
+		Props.add_seat(co, 0.0, Vector3.ZERO, FY + 0.49, "Sentar")
 	var sh: Array = wp(r, "e", r.get_center().y, FY, 0.22)
 	Props.bookshelf(b, sh[0], sh[1], rng, 2.2, 2.2)
 	# bandeira e quadros

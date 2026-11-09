@@ -45,6 +45,7 @@ var _marker: Node3D
 var _marker_target: Variant = null
 var _board_label: Label3D
 var _gen: ClassroomTasks
+var events: Node = null  # SchoolEvents
 
 
 func setup(w: SchoolWorld, m: NPCManager, p: PlayerController, h: HUD) -> void:
@@ -319,12 +320,18 @@ var _waiting_for_return_after_find := false
 
 
 func npc_prompt(npc: NPC, p: Node) -> String:
+	if events:
+		var e: String = events.npc_prompt(npc)
+		if e != "":
+			return e
 	if npc == npcs.teacher and not _find_task.is_empty() and p.get("held_item") and p.held_item == _find_item:
 		return "Entregar à professora"
 	return ""
 
 
 func npc_interact(npc: NPC, p: Node) -> bool:
+	if events and events.npc_interact(npc):
+		return true
 	if npc == npcs.teacher and not _find_task.is_empty() and p.get("held_item") and p.held_item == _find_item:
 		npc.say("Obrigada! Pode sentar.", 2.2)
 		_finish_find(true)

@@ -51,6 +51,9 @@ func _ready() -> void:
 	await _test_full_day()
 	# ---- FASE 3
 	await _test_minigames()
+	# ---- FASE 4
+	await _test_discipline()
+	await _test_events_missions()
 	_finish()
 
 
@@ -826,6 +829,146 @@ func _test_minigames() -> void:
 	check(mm.active == null, "minijogos: sinal do fim do recreio encerra a partida")
 	mm.game_finished.disconnect(rc)
 	check(results.all(func(r): return r.has("coins")), "minijogos: todos devolvem recompensas")
+
+
+# --------------------------------------------------------------- FASE 4
+
+func _adults_away() -> void:
+	for a in [main.npcs.teacher, main.npcs.director, main.npcs.inspector]:
+		a.stop()
+		a.teleport(Vector3(-80, 0.05, 60), 0)
+
+
+func _test_discipline() -> void:
+	var disc: DisciplineSystem = main.discipline
+	await _recess()
+	SaveManager.section("discipline").clear()
+	SaveManager.section("discipline")["reputation"] = 60
+	disc.strikes_today = 0.0
+	disc._cooldown.clear()
+	_adults_away()
+	_place(Vector3(10, 0.05, -15), 0)
+	await _frames(2)
+	GameManager.report_behavior("correr_corredor")
+	check(disc.strikes_today == 0.0, "disciplina: sem testemunha adulta, nada acontece")
+	main.npcs.inspector.teleport(Vector3(12, 0.05, -12), 0)
+	await _frames(2)
+	GameManager.report_behavior("esbarrao_forte")
+	check(disc.strikes_today == 1.0, "disciplina: adulto viu e chamou atenção")
+	disc._cooldown.clear()
+	GameManager.report_behavior("bolinha_em_colega")
+	await _wait(0.6)
+	check(disc.in_cutscene, "disciplina: 2ª falta leva à diretoria")
+	var dlg: DialogueUI = main.school_day.dialogue
+	for i in 40:
+		await _wait(0.1)
+		if dlg.is_open():
+			dlg.advance()
+			dlg.advance()
+		if not disc.in_cutscene:
+			break
+	await _wait(1.2)
+	check(not disc.in_cutscene and DisciplineSystem.occurrences() == 1, "ocorrência 1: advertência registrada")
+	check(player.input_enabled and GameManager.current_zone != "Diretoria", "ocorrência 1: jogador volta ao jogo")
+	check(DisciplineSystem.reputation() < 60, "ocorrência: reputação diminui", str(DisciplineSystem.reputation()))
+	# 2ª ocorrência: pais + ajudar a Dona Cida
+	disc.start_occurrence("esbarrao_forte")
+	await _wait(0.9)
+	check(disc._parent != null, "ocorrência 2: responsável aparece na cena")
+	for i in 60:
+		await _wait(0.1)
+		if dlg.is_open():
+			dlg.advance()
+			dlg.advance()
+		if not disc.in_cutscene:
+			break
+	await _wait(1.2)
+	check(disc.restricted and disc._cleanup_left == 5, "ocorrência 2: consequência leve (ajudar a recolher papel)")
+	check(not main.minigames.start("futebol"), "ocorrência 2: minijogos bloqueados até cumprir")
+	var balls := get_tree().get_nodes_in_group("cleanup")
+	for b in balls.slice(0, 5):
+		disc.on_player_picked(b)
+	check(not disc.restricted, "ocorrência 2: cumprir a tarefa libera o recreio")
+	# 3ª: banco do hall
+	disc.start_occurrence("correr_corredor")
+	for i in 60:
+		await _wait(0.1)
+		if dlg.is_open():
+			dlg.advance()
+			dlg.advance()
+		if not disc.in_cutscene:
+			break
+	await _wait(1.2)
+	check(disc.restricted and disc._bench_t > 0.0, "ocorrência 3: pensar no banco do hall")
+	var bench: Seat = null
+	for s in main.world.seats:
+		if s.room == "Hall de Entrada" or (s.global_position.z > 29 and s.global_position.z < 32 and absf(s.global_position.x) > 7):
+			bench = s
+			break
+	if bench:
+		_place(bench.interact_point(), 0)
+		player.sit_on(bench)
+	disc._bench_t = 0.5
+	await _wait(1.5)
+	check(not disc.restricted, "ocorrência 3: castigo termina após o tempo sentado")
+	player.force_stand()
+	# dia limpo perdoa
+	var active_before := int(DisciplineSystem.data().active)
+	disc._clean_day = true
+	SaveManager.section("discipline")["reputation"] = 80
+	disc._on_day_finished({})
+	check(int(DisciplineSystem.data().active) == active_before - 1, "reputação: dia tranquilo perdoa uma ocorrência")
+
+
+func _test_events_missions() -> void:
+	var ev: SchoolEvents = main.events
+	await _recess()
+	_place(Vector3(0, 0.05, -5), 0)
+	for id in SchoolEvents.EVENTS:
+		if id in ["ajuda", "recado"]:
+			continue
+		ev.trigger(id)
+		await _frames(3)
+	check(main.minigames.reward_mult == 2.0, "eventos: torneio relâmpago dobra recompensas")
+	check(ev.special_snack, "eventos: lanche especial na cantina")
+	check(not ev._extra_balls.is_empty(), "eventos: bola nova aparece no pátio")
+	# figurinha rara com a Júlia
+	var julia: NPC = ev._named("julia")
+	if julia:
+		var before := Stickers.count_unique()
+		julia.activity_data["rare_sticker"] = true
+		julia.interact(player)
+		await _frames(2)
+		var dlg: DialogueUI = main.school_day.dialogue
+		for i in 6:
+			dlg.advance()
+		check(Stickers.count_unique() > before or Stickers.owned().size() > 0, "eventos: figurinha rara entra no álbum")
+	# missão: achar objeto
+	ev.mission = {}
+	ev._start_fetch_mission()
+	check(not ev.mission.is_empty() and ev.mission.type == "fetch", "missão: colega pede ajuda para achar objeto")
+	var item: PickupItem = ev.mission.item_node
+	item.attach_to(player.visual.hand_slot(), player)
+	player.held_item = item
+	var giver: NPC = ev.mission.giver
+	check(giver.get_prompt(player).begins_with("Devolver"), "missão: prompt para devolver")
+	var coins := GameManager.coins()
+	giver.interact(player)
+	await _frames(2)
+	check(ev.mission.is_empty() and GameManager.coins() > coins, "missão: devolver dá recompensa")
+	# missão: recado
+	ev._start_deliver_mission()
+	if not ev.mission.is_empty():
+		var tgt: NPC = ev.mission.target_npc
+		tgt.interact(player)
+		await _frames(2)
+		check(ev.mission.is_empty(), "missão: bilhete entregue")
+	# cantina
+	GameManager.add_rewards(0, 20)
+	var c0 := GameManager.coins()
+	main.npcs.cook.interact(player)
+	await _frames(2)
+	check(GameManager.coins() < c0, "cantina: comprar lanche gasta moedas")
 
 
 func _finish() -> void:

@@ -58,9 +58,25 @@ recompensas próprias; estações com placa no mapa (só no recreio) e convites 
 - [x] Câmera dedicada para enquadramentos de minijogo, barra de força, placar na HUD
 - [x] 122 testes automatizados
 
-## Fase 4 — Personalidade
-Diretor e professores, ocorrências progressivas e leves, pais, amizades, eventos
-espontâneos. A detecção de esbarrões já diferencia trombada correndo de contato leve.
+## ✅ Fase 4 — Personalidade (concluída)
+
+- [x] **Sistema disciplinar** (`systems/discipline.gd`): só conta o que um adulto vê
+      (distância + linha de visão). Esbarrão andando = acidente; correndo ou repetido no
+      mesmo colega = imprudência. Também: correr no corredor, jogar bolinha nos colegas,
+      levantar na aula.
+- [x] 1ª falta do dia: o adulto chama atenção. 2ª: **ocorrência** com cena na diretoria
+      (durante a aula fica pendente para o recreio).
+- [x] Ocorrência 1: advertência. Ocorrência 2: **pais chamados** (cena com mãe/pai) e
+      ajudar a Dona Cida a recolher papel antes de brincar. 3ª+: conversas diferentes e
+      bem-humoradas + 45 s no banco do hall. Minijogos bloqueados enquanto há castigo.
+- [x] **Reputação** (0–100): cai com faltas, sobe com dias tranquilos, missões e boas
+      ações; dias limpos perdoam ocorrências antigas; conquista "aluno exemplar".
+- [x] **Eventos espontâneos** (variam por dia): bola nova, torneio relâmpago (recompensa
+      em dobro), inspetora dando bronca, figurinha rara, diretor no pátio, lanche especial
+      na cantina, recados e pedidos de ajuda.
+- [x] **Missões de colegas**: achar e devolver objeto perdido, entregar bilhete.
+- [x] Amizades com falas que mudam com o nível; comprar lanche com a Tia Rosa.
+- [x] 144 testes automatizados
 
 ## Fase 5 — Progressão
 Economia, loja (a aparência já é serializável e trocável em tempo real), coleções,

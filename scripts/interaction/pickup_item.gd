@@ -7,6 +7,7 @@ extends RigidBody3D
 @export var item_kind := "paper_ball"
 
 var held_by: Node = null
+var thrower: Node = null
 var _home_parent: Node = null
 var _spawn := Vector3.ZERO
 var _sleep_timer := 0.0
@@ -160,5 +161,7 @@ func _physics_process(_delta: float) -> void:
 
 
 func _on_body_entered(body: Node) -> void:
-	if linear_velocity.length() > 3.0 and body.has_method("on_hit_by_object"):
+	if linear_velocity.length() > 3.0 and body.has_method("on_hit_by_object") and body != thrower:
 		body.on_hit_by_object(self)
+	if body is StaticBody3D:
+		thrower = null

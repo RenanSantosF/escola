@@ -184,6 +184,11 @@ func say(text: String, duration := 2.6) -> void:
 	_speech_t = duration
 
 
+func hush() -> void:
+	_speech.visible = false
+	_speech_t = 0.0
+
+
 func hop() -> void:
 	_hop_t = 0.0
 
@@ -219,8 +224,20 @@ func interact(player: Node) -> void:
 		manager.on_npc_interact(self, player)
 
 
+func on_hit_by_object(obj: Node) -> void:
+	if manager and manager.has_method("on_npc_hit_by_object"):
+		manager.on_npc_hit_by_object(self, obj)
+
+
 func lines_for_talk() -> Array:
-	return NPCRoster.talk_lines(personality)
+	var lines: Array = NPCRoster.talk_lines(personality).duplicate()
+	if role == "student":
+		var lv := Friendship.level(data.get("id", ""))
+		if lv >= 4:
+			lines.push_front("Meu melhor amigo! Bora fazer alguma coisa juntos?")
+		elif lv >= 2:
+			lines.push_front(["E aí, parceiro!", "Opa, chegou quem faltava!", "Oi de novo!"].pick_random())
+	return lines
 
 
 # ------------------------------------------------------------- atualização

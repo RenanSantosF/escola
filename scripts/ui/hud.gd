@@ -29,6 +29,8 @@ var _summary: Control
 var _mg_panel: PanelContainer
 var _mg_label: Label
 var _meter: ProgressBar
+var _fade: ColorRect
+var _mission: Label
 
 
 func _ready() -> void:
@@ -92,6 +94,12 @@ func _ready() -> void:
 	_build_status()
 	_build_minigame_hud()
 	_build_pause()
+	_fade = ColorRect.new()
+	_fade.color = Color(0, 0, 0, 0)
+	_fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fade.visible = false
+	add_child(_fade)
 
 	controls.pause_pressed.connect(open_pause)
 	controls.emote_pressed.connect(func(): _emote_panel.visible = not _emote_panel.visible)
@@ -122,6 +130,8 @@ func _layout() -> void:
 	if _objective:
 		_objective.size = Vector2(vs.x - 600, 34)
 		_objective.position = Vector2(300, 60)
+		_mission.size = Vector2(vs.x - 600, 28)
+		_mission.position = Vector2(300, 90)
 		_wallet.size = Vector2(420, 30)
 		_wallet.position = Vector2(vs.x - 220 - 420, 32)
 
@@ -142,6 +152,15 @@ func _build_status() -> void:
 	_objective.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_objective.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_objective)
+	_mission = Label.new()
+	_mission.add_theme_font_size_override("font_size", 19)
+	_mission.add_theme_color_override("font_color", Color("ffe08a"))
+	_mission.add_theme_constant_override("outline_size", 7)
+	_mission.add_theme_color_override("font_outline_color", Color(0.1, 0.12, 0.25, 0.85))
+	_mission.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_mission.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mission.visible = false
+	add_child(_mission)
 	# Moedas e nível
 	_wallet = Label.new()
 	_wallet.add_theme_font_override("font", UITheme.bold_font())
@@ -227,6 +246,21 @@ func show_banner(title: String, subtitle := "") -> void:
 	_banner_tween.tween_property(_banner, "scale", Vector2.ONE, 0.4)
 	_banner_tween.chain().tween_interval(2.2)
 	_banner_tween.chain().tween_property(_banner, "modulate:a", 0.0, 0.5)
+
+
+func set_mission(text: String) -> void:
+	_mission.text = text
+	_mission.visible = text != ""
+
+
+## Escurece (1) ou clareia (0) a tela; retorna o tween para aguardar.
+func fade(to: float, time := 0.45) -> Tween:
+	_fade.visible = true
+	var tw := create_tween()
+	tw.tween_property(_fade, "color:a", to, time)
+	if to <= 0.0:
+		tw.tween_callback(func(): _fade.visible = false)
+	return tw
 
 
 func set_objective(text: String) -> void:

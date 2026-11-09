@@ -74,7 +74,12 @@ func open(speaker: String, lines: Array, options: Array = []) -> void:
 
 
 func _show_line() -> void:
-	_text.text = str(_lines[_i])
+	var line = _lines[_i]
+	if line is Array:
+		_name.text = str(line[0])
+		_text.text = str(line[1])
+	else:
+		_text.text = str(line)
 	_chars = 0.0
 	_text.visible_characters = 0
 	_typing = true

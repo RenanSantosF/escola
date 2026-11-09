@@ -103,6 +103,9 @@ func end_game(won: int, summary: String, coins: int, xp: int, extra := {}) -> vo
 	player.movement_locked = false
 	if player.camera_rig:
 		player.camera_rig.set_override(null)
+	var mult: float = mgr.get("reward_mult") if mgr and mgr.get("reward_mult") != null else 1.0
+	coins = int(coins * mult)
+	xp = int(xp * mult)
 	GameManager.add_rewards(xp, coins)
 	var head := "Vitória!" if won > 0 else ("Empate!" if won == 0 else "Não foi dessa vez!")
 	hud.show_banner(head, "%s  (+%d moedas, +%d XP)" % [summary, coins, xp])

@@ -4,7 +4,7 @@ Simulador casual de vida escolar em 3D, feito em **Godot 4.3** para **Android (p
 Ambientado numa escola pública brasileira grande — com murada, pátio ao sol, quadra,
 cantina, salas de aula, biblioteca, parquinho e muito mais.
 
-> Status: **Fases 1 (Fundação), 2 (Vida escolar) e 3 (Diversão) concluídas.** Veja [docs/ROADMAP.md](docs/ROADMAP.md).
+> Status: **Fases 1 (Fundação), 2 (Vida escolar) 3 (Diversão) e 4 (Personalidade) concluídas.** Veja [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Como abrir e jogar
 
@@ -55,7 +55,7 @@ scripts/
   npc/           NPCs, elenco, gerenciador (rotinas/atividades), grafo de navegação
   school/        ciclo do dia escolar e gerador de tarefas da aula
   minigames/     futebol, queimada, gude, aviãozinho, corrida, corda, pontaria, guerra de papel
-  systems/       amizades (e futuros sistemas de jogo)
+  systems/       disciplina, eventos e missões, amizades, figurinhas
   ui/            tema, controles de toque, HUD, minimapa, menus, aula, diálogo
   main/          fluxo carregamento → menu → jogo
 assets/          texturas e sons gerados (ver tools/)

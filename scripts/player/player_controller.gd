@@ -8,6 +8,7 @@ signal context_changed(interact_label: String, play_label: String)
 signal emote_started(emote: String)
 signal sat(seat: Seat)
 signal stood
+signal picked_up(item: Node)
 
 enum Mode { FREE, SITTING, BUSY }
 
@@ -384,6 +385,7 @@ func _on_action_event(action: String, event: String) -> void:
 			if held_item:
 				var item := held_item
 				held_item = null
+				item.thrower = self
 				var aim := fwd
 				var vel := aim * 11.0 + Vector3.UP * 3.2
 				item.throw_from(_world_parent(), visual.hand_position() + fwd * 0.15, vel + Vector3(velocity.x, 0, velocity.z) * 0.5)
@@ -395,6 +397,7 @@ func _on_action_event(action: String, event: String) -> void:
 			if it and is_instance_valid(it) and it.held_by == null and it.global_position.distance_to(global_position) < 2.0:
 				it.attach_to(visual.hand_slot(), self)
 				held_item = it
+				picked_up.emit(it)
 				AudioManager.play_3d("pickup", global_position + Vector3.UP, -4.0)
 				_emit_context(true)
 		["drink", "use"]:

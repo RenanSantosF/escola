@@ -29,6 +29,9 @@ var player: PlayerController
 var hud: HUD
 var day: SchoolDay
 var active: Minigame = null
+var discipline: Node = null
+## Multiplicador de recompensa (eventos como "torneio relâmpago").
+var reward_mult := 1.0
 var stations := {}
 var _invite_t := 35.0
 var _inviter: NPC
@@ -82,10 +85,15 @@ func _on_phase(_p: int) -> void:
 
 
 func can_start() -> bool:
+	if discipline and discipline.restricted:
+		return false
 	return active == null and is_recess() and player.mode != PlayerController.Mode.SITTING
 
 
 func start(gid: String) -> bool:
+	if discipline and discipline.restricted:
+		GameManager.show_toast(discipline.restriction_text)
+		return false
 	if not can_start() or not GAMES.has(gid):
 		return false
 	var script: GDScript = load(GAMES[gid].script)

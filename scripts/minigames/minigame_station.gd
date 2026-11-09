@@ -12,7 +12,7 @@ func _ready() -> void:
 
 
 func can_interact(_player: Node) -> bool:
-	return mgr != null and mgr.can_start()
+	return mgr != null and mgr.active == null and mgr.is_recess()
 
 
 func interact(_player: Node) -> void:
