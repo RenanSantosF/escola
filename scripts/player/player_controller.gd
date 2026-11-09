@@ -29,6 +29,8 @@ var world: Node  # SchoolWorld (opcional)
 var mode := Mode.FREE
 var yaw := 0.0
 var run_active := false
+## Direção forçada (mundo) usada por minijogos como a corrida.
+var forced_dir := Vector3.ZERO
 var input_enabled := true
 ## Minijogo ativo: recebe os botões antes do comportamento padrão.
 var minigame: Node = null
@@ -108,6 +110,13 @@ func _physics_process(delta: float) -> void:
 	# Direção desejada relativa à câmera
 	var cam_yaw: float = camera_rig.get_yaw() if camera_rig and camera_rig.has_method("get_yaw") else 0.0
 	var wish := Vector3(move.x, 0, move.y).rotated(Vector3.UP, cam_yaw)
+	if forced_dir != Vector3.ZERO and mode == Mode.FREE:
+		# corrida: segue a raia; o joystick só corrige para os lados
+		var side := Vector3(-forced_dir.z, 0, forced_dir.x)
+		var raw := _read_move_input() if input_enabled else Vector2.ZERO
+		var rel := Vector3(raw.x, 0, raw.y).rotated(Vector3.UP, cam_yaw)
+		wish = (forced_dir + side * rel.dot(side) * 0.35).normalized()
+		run_active = true
 	var mag := clampf(wish.length(), 0.0, 1.0)
 	if mag < 0.1:
 		_stop_timer += delta

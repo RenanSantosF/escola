@@ -10,7 +10,7 @@ extends RefCounted
 
 const FLOOR2 := 3.85
 const BAR := Color("7b4fb0")
-const WALL := Color("f3c6a5")
+const WALL := Color("a9dbe8")
 
 
 static func build(sb: SchoolBuilder) -> void:

@@ -60,6 +60,7 @@ func _ready() -> void:
 	await _test_polish()
 	# ---- Revisão 1
 	await _test_revisao1()
+	await _test_revisao2()
 	_finish()
 
 
@@ -596,11 +597,11 @@ func _test_full_day() -> void:
 	await _wait(2.5)
 	check(day.phase == SchoolDay.Phase.CLASS_1, "dia: sentar na carteira inicia a aula")
 	# troca a aula por tarefas de escolha e responde (3 certas, 1 errada)
-	day.lesson = [day._gen.make("math"), day._gen.make("quiz"), day._gen.make("word"), day._gen.make("math")]
+	day.lesson = [day._gen.make("math"), day._gen.make("quiz"), day._gen.make("word"), day._gen.make("math"), day._gen.make("problem")]
 	day.lesson_index = 0
 	day.lesson_results = []
 	await _wait(2.5)
-	var answers := [true, false, true, true]
+	var answers := [true, false, true, true, true]
 	for a in answers:
 		day.classroom_ui.hide_panel()
 		day._on_answered(a)
@@ -621,11 +622,11 @@ func _test_full_day() -> void:
 	player.sit_on(desk)
 	await _wait(2.5)
 	check(day.phase == SchoolDay.Phase.CLASS_2, "dia: segunda aula começa ao sentar")
-	day.lesson = [day._gen.make("math"), day._gen.make("quiz")]
+	day.lesson = [day._gen.make("math"), day._gen.make("quiz"), day._gen.make("order")]
 	day.lesson_index = 0
 	day.lesson_results = []
 	await _wait(2.5)
-	for a in [true, true]:
+	for a in [true, true, true]:
 		day.classroom_ui.hide_panel()
 		day._on_answered(a)
 		await _wait(1.5)
@@ -773,15 +774,21 @@ func _test_minigames() -> void:
 	check(pp.step == 1 and pp.fold_quality > 0.9, "aviãozinho: 3 dobras perfeitas", "%.2f" % pp.fold_quality)
 	pp.on_play()
 	pp._power = 1.0
-	pp.on_play()
+	pp.on_play_release()
 	check(pp.step == 2, "aviãozinho: lançado")
 	var max_d := 0.0
+	var max_h := 0.0
+	var went_back := false
 	for i in 600:
 		await get_tree().process_frame
 		max_d = maxf(max_d, pp._distance())
+		max_h = maxf(max_h, pp.pos.y)
+		if pp.vel.z > 0.5:
+			went_back = true
 		if pp.step != 2:
 			break
 	check(max_d > 10.0, "aviãozinho: física de voo plana", "%.1f m" % max_d)
+	check(max_h < 5.0 and not went_back, "aviãozinho: sem looping nem voo para trás", "h=%.1f" % max_h)
 	pp._finish()
 	await _frames(2)
 
@@ -807,11 +814,11 @@ func _test_minigames() -> void:
 			counted = true
 			break
 	check(counted, "corda: pulos no tempo certo contam", "%d" % jr.jumps)
-	for i in 200:
+	for i in 900:
 		await get_tree().physics_frame
 		if mm.active == null:
 			break
-	check(mm.active == null, "corda: ficar no chão quando a corda passa encerra")
+	check(mm.active == null, "corda: ficar no chão 3 vezes encerra (3 vidas)")
 
 	# Pontaria e guerra de papel
 	await _recess()
@@ -1080,9 +1087,10 @@ func _test_polish() -> void:
 	_place(Vector3(0, 0.05, -5), 0)
 	await _wait(0.5)
 	check(AudioManager._ambient_current == "ambient_recreio", "áudio: burburinho de crianças no pátio durante o recreio")
+	var c_before: int = Effects._next.get("confetti", 0)
 	Effects.burst(Vector3(0, 1, 0), "confetti")
 	Effects.burst(Vector3(0, 1, 0), "dust")
-	check(Effects._pools.has("confetti") and Effects._next.confetti == 1 and Effects._pools.confetti.size() == Effects.POOL, "efeitos: confete com pool de partículas")
+	check(Effects._pools.has("confetti") and Effects._next.confetti == (c_before + 1) % Effects.POOL and Effects._pools.confetti.size() == Effects.POOL, "efeitos: confete com pool de partículas")
 	# anúncios: desligados por padrão, sem botões falsos
 	check(not AdsManager.enabled and not AdsManager.can_show_rewarded(), "anúncios: desativados por padrão")
 	main.hud.show_day_summary({"day": 1, "correct": 2, "total": 4, "coins": 20, "xp": 40}, func(): pass)
@@ -1116,6 +1124,45 @@ func _finish() -> void:
 		print(l)
 	print("Total: %d ok, %d falhas" % [passed, failed])
 	get_tree().quit(0 if failed == 0 else 1)
+
+
+func _test_revisao2() -> void:
+	# explicação quando errar
+	var gen := ClassroomTasks.new(5, 4)
+	var all_explained := true
+	for t in ["math", "quiz", "word", "order", "problem"]:
+		for k in 5:
+			var task := gen.make(t, "Ciências")
+			if str(task.get("explain", "")) == "":
+				all_explained = false
+	check(all_explained, "aula: toda pergunta tem explicação para o erro")
+	check(gen.make_lesson(7, true, "Matemática").size() == 7, "aula: aulas mais longas (7 tarefas)")
+	check(SchoolDay.RECESS_SECONDS >= 420.0, "recreio: bem maior (%d s)" % int(SchoolDay.RECESS_SECONDS))
+	# missão: nenhuma oferta nova durante uma missão
+	await _recess()
+	var qs: QuestSystem = main.quests
+	qs.start("horta_plantar")
+	await _frames(2)
+	var any_offer := false
+	for n in main.npcs.npcs:
+		if qs.available_for(n) != "":
+			any_offer = true
+	check(not any_offer, "missões: sem novas ofertas durante uma missão")
+	qs.abandon()
+	# quem oferece para de andar
+	var giver: NPC = qs._giver_node("jardineiro")
+	if giver:
+		giver.go_to(giver.global_position + Vector3(6, 0, 0))
+		_place(giver.global_position + Vector3(0, 0, 1.2), 180)
+		qs.offer(qs.available_for(giver) if qs.available_for(giver) != "" else "plantar_arvore", giver)
+		await _frames(3)
+		check(not giver.moving and giver.talking_to_player and not player.input_enabled, "missões: quem oferece para e conversa")
+		main.school_day.dialogue._close(1)
+		await _frames(2)
+		check(not giver.talking_to_player and player.input_enabled, "missões: conversa termina e libera")
+	# cantina: dá para comprar do lado de fora do balcão
+	check(main.npcs.cook.interact_radius >= 3.0, "cantina: atende de mais longe")
+	_place(Vector3(0, 0.05, 66), 0)
 
 
 func _test_revisao1() -> void:

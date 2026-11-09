@@ -97,6 +97,8 @@ function createServer(opts = {}) {
   }
 
   wss.on('connection', (ws) => {
+    ws.isAlive = true;
+    ws.on('pong', () => { ws.isAlive = true; });
     let player = null;
     let room = null;
     ws.on('message', (raw) => {
@@ -181,9 +183,17 @@ function createServer(opts = {}) {
       if (list.length) broadcast(r, { t: 'states', list });
     }
   }, TICK_MS);
-  server.on('close', () => clearInterval(timer));
+  // mantém a conexão viva no Railway e derruba quem caiu sem avisar
+  const heartbeat = setInterval(() => {
+    for (const ws of wss.clients) {
+      if (ws.isAlive === false) { ws.terminate(); continue; }
+      ws.isAlive = false;
+      ws.ping();
+    }
+  }, 25000);
+  server.on('close', () => { clearInterval(timer); clearInterval(heartbeat); });
 
-  return { server, wss, rooms, accounts, safety, close: () => { clearInterval(timer); wss.close(); server.close(); } };
+  return { server, wss, rooms, accounts, safety, close: () => { clearInterval(timer); clearInterval(heartbeat); wss.close(); server.close(); } };
 }
 
 if (require.main === module) {

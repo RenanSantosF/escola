@@ -159,23 +159,32 @@ static func level_for_age(age: int) -> int:
 func make_lesson(count: int, allow_find := true, subject := "") -> Array:
 	if subject == "":
 		subject = SUBJECTS[rng.randi() % SUBJECTS.size()]
-	var plan := ["quiz", "quiz", "match", "order"]
+	var plan := ["quiz", "quiz", "match", "order", "quiz"]
 	if subject == "Matemática":
-		plan = ["math", "math", "match", "order"]
+		plan = ["math", "math", "match", "order", "problem", "math"]
 	elif subject == "Português":
-		plan = ["word", "quiz", "order", "match"]
+		plan = ["word", "quiz", "order", "match", "word", "quiz"]
+	elif subject in ["Física", "Química"]:
+		plan = ["quiz", "quiz", "match", "problem", "quiz"]
 	if allow_find:
 		plan.append("find")
 	plan.shuffle()
 	var out := []
+	var prompts := {}
 	var last := ""
 	var i := 0
-	while out.size() < count and i < 50:
+	while out.size() < count and i < 120:
 		var t: String = plan[i % plan.size()]
 		i += 1
 		if t == last or (t == "find" and out.any(func(x): return x.type == "find")):
 			continue
-		out.append(make(t, subject))
+		var task := make(t, subject)
+		var key := str(task.get("prompt", "")) + str(task.get("left", ""))
+		# evita pergunta repetida na mesma aula (se ainda houver opções)
+		if prompts.has(key) and i < 90:
+			continue
+		prompts[key] = true
+		out.append(task)
 		last = t
 	return out
 
@@ -188,6 +197,7 @@ func make(type: String, subject := "") -> Dictionary:
 		"order": return _order(subject)
 		"match": return _match(subject)
 		"find": return _find()
+		"problem": return _problem()
 	return _math()
 
 
@@ -212,6 +222,7 @@ func _math() -> Dictionary:
 	var b: int
 	var res: int
 	var prompt := ""
+	var explain := ""
 	var kind := rng.randi() % 4
 	var who: String = NAMES[rng.randi() % NAMES.size()]
 	if lv <= 2:
@@ -220,71 +231,124 @@ func _math() -> Dictionary:
 		if kind % 2 == 0:
 			res = a + b
 			prompt = "%s tem %d figurinhas e ganhou %d. Quantas tem agora?" % [who, a, b] if kind == 0 else "Quanto é %d + %d?" % [a, b]
+			explain = "Ganhar é somar: %d + %d = %d. Dica: comece do %d e conte mais %d nos dedos." % [a, b, res, a, b]
 		else:
 			a += b
 			res = a - b
 			prompt = "Havia %d bolinhas de gude. %s perdeu %d. Quantas sobraram?" % [a, who, b] if kind == 1 else "Quanto é %d - %d?" % [a, b]
+			explain = "Perder é tirar: %d - %d = %d. Dica: conte para trás %d vezes a partir do %d." % [a, b, res, b, a]
 	elif lv <= 4:
 		if kind == 0:
 			a = rng.randi_range(12, 60)
 			b = rng.randi_range(5, 39)
 			res = a + b
 			prompt = "Quanto é %d + %d?" % [a, b]
+			explain = "Some as dezenas e depois as unidades: %d + %d = %d." % [a, b, res]
 		elif kind == 1:
 			a = rng.randi_range(2, 6)
 			b = rng.randi_range(2, 9)
 			res = a * b
 			prompt = "%s comprou %d coxinhas a R$ %d cada. Quanto gastou?" % [who, a, b]
+			explain = "São %d vezes R$ %d: %d × %d = %d reais." % [a, b, a, b, res]
 		elif kind == 2:
 			a = rng.randi_range(2, 9)
 			b = rng.randi_range(2, 9)
 			res = a * b
 			prompt = "Quanto é %d × %d?" % [a, b]
+			explain = "%d × %d é somar o %d, %d vezes. Resultado: %d." % [a, b, b, a, res]
 		else:
 			res = rng.randi_range(3, 15)
 			a = res * 2
 			prompt = "Qual é a metade de %d?" % a
+			explain = "Metade é dividir por 2: %d ÷ 2 = %d (porque %d + %d = %d)." % [a, res, res, res, a]
 	elif lv <= 6:
 		if kind == 0:
 			b = rng.randi_range(2, 9)
 			res = rng.randi_range(2, 12)
 			a = b * res
 			prompt = "%d alunos em %d times iguais. Quantos em cada time?" % [a, b]
+			explain = "Dividir em times iguais: %d ÷ %d = %d, porque %d × %d = %d." % [a, b, res, b, res, a]
 		elif kind == 1:
 			a = rng.randi_range(11, 25)
 			b = rng.randi_range(3, 9)
 			res = a * b
 			prompt = "Quanto é %d × %d?" % [a, b]
+			explain = "Separe: %d × %d = %d e %d × %d = %d. Some: %d." % [(a / 10) * 10, b, (a / 10) * 10 * b, a % 10, b, (a % 10) * b, res]
 		elif kind == 2:
 			a = rng.randi_range(2, 10) * 10
 			res = a / 10 * 3
 			prompt = "Quanto é 30%% de %d?" % a
+			explain = "10%% de %d é %d (divida por 10). 30%% é 3 vezes isso: %d." % [a, a / 10, res]
 		else:
 			a = rng.randi_range(3, 9)
 			res = a * a
 			prompt = "Quanto é %d ao quadrado (%d²)?" % [a, a]
+			explain = "Ao quadrado é o número vezes ele mesmo: %d × %d = %d." % [a, a, res]
 	else:
 		if kind == 0:
 			res = rng.randi_range(2, 15)
 			b = rng.randi_range(2, 20)
 			prompt = "Se x + %d = %d, quanto vale x?" % [b, res + b]
+			explain = "Passe o %d para o outro lado subtraindo: x = %d - %d = %d." % [b, res + b, b, res]
 		elif kind == 1:
 			res = rng.randi_range(2, 9)
 			b = rng.randi_range(2, 6)
 			prompt = "Se %dx = %d, quanto vale x?" % [b, b * res]
+			explain = "%dx quer dizer %d vezes x. Divida: x = %d ÷ %d = %d." % [b, b, b * res, b, res]
 		elif kind == 2:
 			a = rng.randi_range(-9, -1)
 			b = rng.randi_range(2, 12)
 			res = a + b
 			prompt = "Quanto é (%d) + %d?" % [a, b]
+			explain = "Na reta numérica, saia do %d e ande %d casas para a direita: chega em %d." % [a, b, res]
 		else:
 			a = rng.randi_range(2, 12)
 			b = rng.randi_range(2, 5)
 			res = a * a - b
 			prompt = "Quanto é %d² - %d?" % [a, b]
+			explain = "Primeiro a potência: %d² = %d. Depois tire %d: %d." % [a, a * a, b, res]
 	var wrong := [str(res + 1), str(res - 1), str(res + rng.randi_range(2, 6)), str(res - rng.randi_range(2, 5)), str(res * 2)]
 	var t := _shuffle_options(str(res), wrong)
-	t.merge({"type": "math", "subject": "Matemática", "prompt": prompt})
+	t.merge({"type": "math", "subject": "Matemática", "prompt": prompt, "explain": explain})
+	return t
+
+
+## Problema mais longo, em duas etapas (desafio da aula).
+func _problem() -> Dictionary:
+	var who: String = NAMES[rng.randi() % NAMES.size()]
+	var prompt := ""
+	var explain := ""
+	var res := 0
+	var kind := rng.randi() % 3
+	if level <= 3:
+		var a := rng.randi_range(5, 15)
+		var b := rng.randi_range(2, 9)
+		var c := rng.randi_range(1, mini(a + b - 1, 8))
+		res = a + b - c
+		prompt = "%s tinha %d figurinhas. Ganhou %d do primo e depois deu %d para a Bia.\nCom quantas ficou?" % [who, a, b, c]
+		explain = "Etapa 1: %d + %d = %d. Etapa 2: %d - %d = %d." % [a, b, a + b, a + b, c, res]
+	elif level <= 6 or kind == 0:
+		var n := rng.randi_range(3, 6)
+		var price := rng.randi_range(3, 8)
+		var paid := (n * price / 10 + 1) * 10
+		res = paid - n * price
+		prompt = "%s comprou %d pastéis de R$ %d na cantina e pagou com R$ %d.\nQuanto recebeu de troco?" % [who, n, price, paid]
+		explain = "Etapa 1: %d × %d = %d reais gastos. Etapa 2: %d - %d = %d de troco." % [n, price, n * price, paid, n * price, res]
+	elif kind == 1:
+		var v := rng.randi_range(3, 8)
+		var tm := rng.randi_range(4, 12)
+		var extra := rng.randi_range(5, 30)
+		res = v * tm + extra
+		prompt = "Uma bicicleta anda %d metros por segundo durante %d segundos e depois mais %d metros.\nQuantos metros andou ao todo?" % [v, tm, extra]
+		explain = "Etapa 1: distância = velocidade × tempo = %d × %d = %d m. Etapa 2: %d + %d = %d m." % [v, tm, v * tm, v * tm, extra, res]
+	else:
+		var total := rng.randi_range(4, 9) * 6
+		res = total / 3 - total / 6
+		prompt = "A turma tem %d alunos. 1/3 joga futebol e 1/6 joga queimada.\nQuantos alunos a mais jogam futebol?" % total
+		explain = "1/3 de %d = %d. 1/6 de %d = %d. Diferença: %d - %d = %d." % [total, total / 3, total, total / 6, total / 3, total / 6, res]
+	var wrong := [str(res + 1), str(res - 1), str(res + rng.randi_range(2, 6)), str(res + 10), str(maxi(res - rng.randi_range(2, 5), 0))]
+	var t := _shuffle_options(str(res), wrong)
+	t.merge({"type": "math", "subject": "Matemática", "prompt": prompt, "explain": explain, "long": true})
 	return t
 
 
@@ -301,7 +365,7 @@ func _word() -> Dictionary:
 		if l != letter and not l in wrong:
 			wrong.append(l)
 	var t := _shuffle_options(letter, wrong)
-	t.merge({"type": "word", "subject": "Português", "prompt": "Complete a palavra:\n%s" % masked, "word": w})
+	t.merge({"type": "word", "subject": "Português", "prompt": "Complete a palavra:\n%s" % masked, "word": w, "explain": "A palavra completa é %s (a letra que faltava era %s)." % [w, letter]})
 	return t
 
 
@@ -322,7 +386,7 @@ func _quiz(subject: String) -> Dictionary:
 	var fit := _bank_for(subject)
 	var q: Array = fit[rng.randi() % fit.size()]
 	var t := _shuffle_options(q[3], q.slice(4))
-	t.merge({"type": "quiz", "subject": subject, "prompt": q[2]})
+	t.merge({"type": "quiz", "subject": subject, "prompt": q[2], "explain": Explanations.for_quiz(q[2], q[3])})
 	return t
 
 
@@ -339,7 +403,8 @@ func _order(subject: String) -> Dictionary:
 		var sorted_nums := nums.duplicate()
 		sorted_nums.sort()
 		var order := sorted_nums.map(func(x): return items.find(str(x)))
-		return {"type": "order", "subject": "Matemática", "prompt": "Toque nos números do MENOR para o MAIOR", "items": items, "answer_order": order}
+		return {"type": "order", "subject": "Matemática", "prompt": "Toque nos números do MENOR para o MAIOR", "items": items, "answer_order": order,
+			"explain": "Do menor para o maior: %s.%s" % [", ".join(sorted_nums.map(func(x): return str(x))), " Lembre: números negativos são menores que zero!" if sorted_nums[0] < 0 else ""]}
 	var pool := SENTENCES.filter(func(s): return (s.size() <= 4) == (level <= 3) or level > 3)
 	var sentence: Array = pool[rng.randi() % pool.size()]
 	var items2 := sentence.duplicate()
@@ -352,7 +417,8 @@ func _order(subject: String) -> Dictionary:
 				used[i] = true
 				order2.append(i)
 				break
-	return {"type": "order", "subject": "Português", "prompt": "Toque nas palavras para formar a frase", "items": items2, "answer_order": order2}
+	return {"type": "order", "subject": "Português", "prompt": "Toque nas palavras para formar a frase", "items": items2, "answer_order": order2,
+		"explain": "A frase certa é: \"%s.\" Dica: a frase começa com a palavra de letra maiúscula." % " ".join(sentence)}
 
 
 func _match(subject: String) -> Dictionary:

@@ -1,6 +1,7 @@
 extends Minigame
 ## Pular corda: dois colegas batem a corda, que acelera aos poucos.
-## Pule (botão azul) quando a corda passar pelo chão. Cada pulo vale ponto.
+## Pule quando a corda passar pelo chão. Cada pulo vale ponto.
+## Barra de ritmo mostra quando pular; 3 vidas; a corda é grossa e visível.
 
 const CENTER := Vector3(-24, 0.05, -2)
 const HALF := 1.7
@@ -12,6 +13,9 @@ var jumps := 0
 var _was_low := false
 var _rope: MeshInstance3D
 var _fail_t := 0.0
+var lives := 3
+var _jump_t := 99.0  # segundos desde o último pulo
+var _rope_mat: StandardMaterial3D
 
 
 func begin() -> void:
@@ -44,8 +48,9 @@ func on_play() -> bool:
 
 
 func on_jump() -> bool:
-	if player.is_on_floor() and _countdown <= 0.0:
-		player.velocity.y = 3.8
+	if player.is_on_floor() and _countdown <= 0.0 and _fail_t <= 0.0:
+		player.velocity.y = 3.9
+		_jump_t = 0.0
 	return true
 
 
@@ -58,19 +63,32 @@ func _rope_point(t: float) -> Vector3:
 
 
 func _draw_rope() -> void:
+	# corda grossa (tubo simples de 4 lados) para ver bem no celular
 	var im := ImmediateMesh.new()
-	im.surface_begin(Mesh.PRIMITIVE_LINES)
-	for k in 16:
-		im.surface_set_color(Color("e04a3a"))
-		im.surface_add_vertex(_rope_point(k / 16.0))
-		im.surface_add_vertex(_rope_point((k + 1) / 16.0))
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	var w := 0.035
+	var offs := [Vector3(0, w, 0), Vector3(0, 0, w), Vector3(0, -w, 0), Vector3(0, 0, -w)]
+	for k in 20:
+		var p0 := _rope_point(k / 20.0)
+		var p1 := _rope_point((k + 1) / 20.0)
+		for j in 4:
+			var a0: Vector3 = offs[j]
+			var a1: Vector3 = offs[(j + 1) % 4]
+			im.surface_set_color(Color("ff3d6e") if j % 2 == 0 else Color("d81b4f"))
+			im.surface_add_vertex(p0 + a0)
+			im.surface_add_vertex(p1 + a0)
+			im.surface_add_vertex(p1 + a1)
+			im.surface_add_vertex(p0 + a0)
+			im.surface_add_vertex(p1 + a1)
+			im.surface_add_vertex(p0 + a1)
 	im.surface_end()
 	_rope.mesh = im
-	if _rope.material_override == null:
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.vertex_color_use_as_albedo = true
-		_rope.material_override = m
+	if _rope_mat == null:
+		_rope_mat = StandardMaterial3D.new()
+		_rope_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_rope_mat.vertex_color_use_as_albedo = true
+		_rope_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_rope.material_override = _rope_mat
 
 
 func tick(delta: float) -> void:
@@ -79,8 +97,16 @@ func tick(delta: float) -> void:
 	_draw_rope()
 	if counting(delta):
 		return
+	if _fail_t > 0.0:
+		_fail_t -= delta
+		_was_low = false
+		return
 	_angle += _speed * delta
-	_speed = minf(_speed + delta * 0.06, 7.5)
+	_speed = minf(_speed + delta * 0.05, 7.0)
+	_jump_t += delta
+	# barra de ritmo: enche até a corda chegar no chão
+	var to_low := fposmod(1.5 * PI - _angle, TAU)
+	hud.set_meter(1.0 - to_low / TAU)
 	for t in turners:
 		t.face(CENTER)
 		if t.visual.animator.upper_action == "":
@@ -89,7 +115,8 @@ func tick(delta: float) -> void:
 	var low := sin(_angle) < -0.93
 	if low and not _was_low:
 		var feet_y := player.global_position.y
-		if feet_y > 0.2:
+		# perdoa um pouquinho: pulou há pouco ou está no ar
+		if feet_y > 0.14 or (_jump_t < 0.12 and not player.is_on_floor()):
 			jumps += 1
 			AudioManager.play_ui("ui_click", -6.0, 0.1)
 			if jumps % 10 == 0:
@@ -97,15 +124,29 @@ func tick(delta: float) -> void:
 				for t in turners:
 					t.say(["Isso!", "Não para!", "Mais rápido!"].pick_random(), 1.2)
 		else:
-			_fail()
+			_trip()
 			return
 	_was_low = low
-	hud.set_minigame_text("Pular corda  ·  %d pulos  ·  pule quando a corda tocar o chão" % jumps)
+	hud.set_minigame_text("Pular corda  ·  %d pulos  ·  Vidas: %d  ·  pule quando a barra encher" % [jumps, lives])
+
+
+func _trip() -> void:
+	lives -= 1
+	player.visual.play("hit")
+	AudioManager.play_ui("bonk", -6.0)
+	if lives <= 0:
+		_fail()
+		return
+	GameManager.show_toast("A corda bateu no pé! Restam %d vidas" % lives)
+	for t in turners:
+		t.say(["Ops!", "De novo!", "Quase!"].pick_random(), 1.2)
+	_fail_t = 1.2
+	_speed = maxf(_speed - 0.8, 3.6)
+	_angle = PI * 0.5
 
 
 func _fail() -> void:
-	player.visual.play("hit")
-	AudioManager.play_ui("bonk", -6.0)
+	hud.set_meter(-1.0)
 	var won := 1 if jumps >= 15 else (0 if jumps >= 7 else -1)
 	if jumps >= 30:
 		GameManager.unlock_achievement("corda_30")

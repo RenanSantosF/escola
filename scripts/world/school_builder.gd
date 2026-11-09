@@ -28,12 +28,12 @@ var spawn_yaw := PI
 var rng := RandomNumberGenerator.new()
 
 # Cores
-const CREAM := Color("f6d68f")
-const WHITE_WALL := Color("f4f1ea")
+const CREAM := Color("e3edf5")
+const WHITE_WALL := Color("f2f5f8")
 const BLUE_BAR := Color("3d78c2")
 const GREEN_BAR := Color("3f9a5a")
 const ROOF_RED := Color("c2643c")
-const CONCRETE := Color("c9b58f")
+const CONCRETE := Color("98a3b1")
 const RED_FLOOR := Color("b8442c")
 
 
@@ -217,12 +217,12 @@ func build_building(def: Dictionary) -> void:
 			interior_chunks[id].append(inner_chunk_name)
 		var fmat: String = room.get("floor", "tile")
 		if not room.get("no_floor", false):
-			shell.slab(fmat, Vector3(r.get_center().x, FLOOR_TOP - 0.03, r.get_center().y), Vector3(r.size.x, 0.06, r.size.y), room.get("floor_col", Color("e9e4da")))
+			shell.slab(fmat, Vector3(r.get_center().x, FLOOR_TOP - 0.03, r.get_center().y), Vector3(r.size.x, 0.06, r.size.y), room.get("floor_col", Color("dfe5ec")))
 		# teto (visto de dentro) com luminárias; também segura a câmera
 		if def.get("floor_collider", false) and not room.get("no_floor", false):
 			shell.collider(Vector3(r.get_center().x, FLOOR_TOP - 0.1, r.get_center().y), Vector3(r.size.x, 0.2, r.size.y))
 		if (not "n" in room.get("open", []) or room.get("kind", "") == "hall") and not room.get("no_ceiling", false):
-			var ceil_col: Color = room.get("ceil_col", Color("f3ead2"))
+			var ceil_col: Color = room.get("ceil_col", Color("f4f6f9"))
 			ib.box("paint", Vector3(r.get_center().x, H - 0.04, r.get_center().y), Vector3(r.size.x, 0.08, r.size.y), ceil_col, 0.0, false)
 			ib.collider(Vector3(r.get_center().x, H + 0.05, r.get_center().y), Vector3(r.size.x, 0.2, r.size.y))
 			var lx: float = r.position.x + 2.5
@@ -523,10 +523,10 @@ func _wall_perimeter() -> void:
 			w.box("metal", Vector3(3.6 * sx, 1.1, z1 - 0.2 - i * 0.26), Vector3(0.06, 2.0, 0.04), Color("244c88"))
 		w.collider(Vector3(3.6 * sx, 1.1, z1 - 1.1), Vector3(0.1, 2.0, 2.0))
 	w.box("paint", Vector3(0, 4.2, z1), Vector3(10.0, 0.9, 0.35), Color("2f5fa8"))
-	w.box("paint", Vector3(0, 4.2, z1 + 0.19), Vector3(9.6, 0.7, 0.02), Color("f7f3e8"))
+	w.box("paint", Vector3(0, 4.2, z1 + 0.19), Vector3(9.6, 0.7, 0.02), Color("f4f7fa"))
 	add_label("E. E. RECREIO", Vector3(0, 4.22, z1 + 0.21), 0.0, 96, Color("2f5fa8"), Color(1, 1, 1, 0), 0.006, 90.0)
 	add_label("ESCOLA ESTADUAL RECREIO", Vector3(0, 4.22, z1 - 0.19), PI, 64, Color("2f5fa8"), Color(1, 1, 1, 0), 0.006, 60.0)
-	w.box("paint", Vector3(0, 4.2, z1 - 0.19), Vector3(9.6, 0.7, 0.02), Color("f7f3e8"))
+	w.box("paint", Vector3(0, 4.2, z1 - 0.19), Vector3(9.6, 0.7, 0.02), Color("f4f7fa"))
 	# Portão de carros (fechado)
 	for i in 14:
 		w.box("metal", Vector3(40.25 + i * 0.5, 1.1, z1), Vector3(0.05, 2.1, 0.05), Color("2f5fa8"))
@@ -547,7 +547,7 @@ func _murada_segment(b: WorldBatcher, axis: String, coord: float, a0: float, a1:
 	var len := a1 - a0
 	var mid := (a0 + a1) * 0.5
 	var bar := Color("3d78c2")
-	var top := Color("f4f1ea")
+	var top := Color("f2f5f8")
 	if axis == "h":
 		b.box("paint", Vector3(mid, 0.5, coord), Vector3(len, 1.0, T), bar)
 		b.box("paint", Vector3(mid, 1.0 + (H - 1.0) * 0.5, coord), Vector3(len, H - 1.0, T), top)
@@ -564,13 +564,13 @@ func _murada_segment(b: WorldBatcher, axis: String, coord: float, a0: float, a1:
 	var a := a0
 	while a <= a1 + 0.01:
 		var p := Vector3(a, H * 0.5 + 0.05, coord) if axis == "h" else Vector3(coord, H * 0.5 + 0.05, a)
-		b.box("paint", p, Vector3(0.45, H + 0.1, 0.45), Color("e9e2d2"))
+		b.box("paint", p, Vector3(0.45, H + 0.1, 0.45), Color("dfe5ec"))
 		a += 5.0
 
 
 func _mural(b: WorldBatcher, base: Vector3, rot: float, width: float, text: String, cols: Array) -> void:
 	var right := Vector3(1, 0, 0).rotated(Vector3.UP, rot)
-	b.box("paint", base + Vector3(0, 1.45, 0), (Vector3(width, 1.9, 0.02) if absf(sin(rot)) < 0.5 else Vector3(0.02, 1.9, width)), Color("fdf6e3"))
+	b.box("paint", base + Vector3(0, 1.45, 0), (Vector3(width, 1.9, 0.02) if absf(sin(rot)) < 0.5 else Vector3(0.02, 1.9, width)), Color("f5f8fb"))
 	# formas coloridas (sol, ondas, flores)
 	for i in 7:
 		var t := (i + 0.5) / 7.0 - 0.5
@@ -625,8 +625,8 @@ func _outside() -> void:
 # =====================================================================
 
 func _building_a() -> void:
-	var cls_inner := [Color("6fae7f"), Color("f3ecd6"), 1.1]
-	var cor_inner := [Color("3d78c2"), Color("f4efe1"), 1.1]
+	var cls_inner := [Color("6fae7f"), Color("eef3f7"), 1.1]
+	var cor_inner := [Color("3d78c2"), Color("eef3f7"), 1.1]
 	var rooms: Array = []
 	var names_back := ["Sala 1", "Sala 2", "Sala 3", "Sala 4", "Sala 5"]
 	var names_back_e := ["Sala 6", "Sala 7", "Sala 8", "Sala 9", "Sala 10"]
@@ -635,21 +635,21 @@ func _building_a() -> void:
 	for i in 5:
 		var x0 := -60.0 + i * 10.0
 		rooms.append({"name": names_back[i], "rect": R(x0, 24, x0 + 10, 34), "kind": "classroom",
-			"doors": [["s", x0 + 8.4, 1.1]], "auto_windows": ["n"], "inner": [cls_colors[i], Color("f3ecd6"), 1.1], "grade": i})
+			"doors": [["s", x0 + 8.4, 1.1]], "auto_windows": ["n"], "inner": [cls_colors[i], Color("eef3f7"), 1.1], "grade": i})
 		var x1 := 10.0 + i * 10.0
 		rooms.append({"name": names_back_e[i], "rect": R(x1, 24, x1 + 10, 34), "kind": "classroom",
-			"doors": [["s", x1 + 8.4, 1.1]], "auto_windows": ["n"], "inner": [cls_colors[i + 5], Color("f3ecd6"), 1.1], "grade": i + 5})
+			"doors": [["s", x1 + 8.4, 1.1]], "auto_windows": ["n"], "inner": [cls_colors[i + 5], Color("eef3f7"), 1.1], "grade": i + 5})
 	rooms.append({"name": "Biblioteca", "rect": R(-60, 38, -40, 48), "kind": "library", "floor": "wood", "floor_col": Color("d9a066"),
-		"doors": [["n", -42.0, 1.6]], "auto_windows": ["s"], "inner": [Color("8a5a32"), Color("f6efdc"), 1.0]})
+		"doors": [["n", -42.0, 1.6]], "auto_windows": ["s"], "inner": [Color("8a5a32"), Color("eef3f7"), 1.0]})
 	rooms.append({"name": "Sala dos Professores", "rect": R(-40, 38, -30, 48), "kind": "teachers",
-		"doors": [["n", -32.0, 1.1]], "auto_windows": ["s"], "inner": [Color("b39b72"), Color("f4efe1"), 1.1]})
+		"doors": [["n", -32.0, 1.1]], "auto_windows": ["s"], "inner": [Color("b39b72"), Color("eef3f7"), 1.1]})
 	rooms.append({"name": "Diretoria", "rect": R(-30, 38, -20, 48), "kind": "director", "floor": "wood", "floor_col": Color("b5794a"),
-		"doors": [["n", -22.0, 1.1]], "auto_windows": ["s"], "inner": [Color("7c5a3c"), Color("efe6d2"), 1.1]})
+		"doors": [["n", -22.0, 1.1]], "auto_windows": ["s"], "inner": [Color("7c5a3c"), Color("eaf0f5"), 1.1]})
 	rooms.append({"name": "Secretaria", "rect": R(-20, 38, -10, 48), "kind": "office",
-		"doors": [["n", -12.0, 1.1]], "windows": [["n", -16.5, 2.2]], "auto_windows": ["s"], "inner": [Color("6a8caf"), Color("f4efe1"), 1.1]})
+		"doors": [["n", -12.0, 1.1]], "windows": [["n", -16.5, 2.2]], "auto_windows": ["s"], "inner": [Color("6a8caf"), Color("eef3f7"), 1.1]})
 	rooms.append({"name": "Hall de Entrada", "rect": R(-10, 24, 10, 48), "kind": "hall", "always_visible": true,
 		"doors": [["s", 0.0, 6.0, 3.0], ["w", 36.0, 4.0, 3.0], ["e", 36.0, 4.0, 3.0]], "open": ["n"],
-		"inner": [Color("3d78c2"), Color("f4efe1"), 1.1], "floor_col": Color("e6dfd0")})
+		"inner": [Color("3d78c2"), Color("eef3f7"), 1.1], "floor_col": Color("dde4ec")})
 	rooms.append({"name": "Sala de Informática", "rect": R(10, 38, 22, 48), "kind": "computer",
 		"doors": [["n", 20.0, 1.1]], "auto_windows": ["s"], "inner": [Color("4a6fa5"), Color("eef1f4"), 1.1]})
 	rooms.append({"name": "Sala de Artes", "rect": R(22, 38, 34, 48), "kind": "art",
@@ -679,13 +679,13 @@ func _building_b() -> void:
 		{"name": "Laboratório de Ciências", "rect": R(70, -28, 82, -16), "kind": "lab",
 			"doors": [["w", -18.0, 1.2]], "auto_windows": ["e"], "inner": [Color("4aa3a2"), Color("eef7f6"), 1.1]},
 		{"name": "Sala 11", "rect": R(70, -16, 82, -4), "kind": "classroom", "grade": 10,
-			"doors": [["w", -6.0, 1.1]], "auto_windows": ["e"], "inner": [Color("e9a35b"), Color("f3ecd6"), 1.1]},
+			"doors": [["w", -6.0, 1.1]], "auto_windows": ["e"], "inner": [Color("e9a35b"), Color("eef3f7"), 1.1]},
 		{"name": "Sala 12", "rect": R(70, -4, 82, 8), "kind": "classroom", "grade": 11,
-			"doors": [["w", 6.0, 1.1]], "auto_windows": ["e"], "inner": [Color("5d9bd5"), Color("f3ecd6"), 1.1]},
+			"doors": [["w", 6.0, 1.1]], "auto_windows": ["e"], "inner": [Color("5d9bd5"), Color("eef3f7"), 1.1]},
 		{"name": "Sala de Música", "rect": R(70, 8, 82, 20), "kind": "music",
 			"doors": [["w", 18.0, 1.2]], "auto_windows": ["e"], "inner": [Color("8e44ad"), Color("f6eefa"), 1.1]},
 		{"name": "Varanda do Bloco B", "rect": R(66, -28, 70, 20), "kind": "corridor", "always_visible": true,
-			"open": ["w", "n", "s"], "colonnade": ["w"], "inner": [GREEN_BAR, Color("f4efe1"), 1.1], "label": "Bloco B"},
+			"open": ["w", "n", "s"], "colonnade": ["w"], "inner": [GREEN_BAR, Color("eef3f7"), 1.1], "label": "Bloco B"},
 	]
 	build_building({"id": "B", "title": "Bloco B", "height": 3.5, "wall": Color("f6eccf"), "bar": GREEN_BAR, "bar_h": 1.1,
 		"trim": Color("f4f4f4"), "rooms": rooms,

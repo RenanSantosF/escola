@@ -1,6 +1,7 @@
 extends Minigame
 ## Corrida na pista pintada do pátio: 80 m contra dois colegas.
-## Use o botão Correr! Os adversários têm fôlego e arrancadas variadas.
+## O personagem corre sozinho na raia: TOQUE RÁPIDO no botão "Correr!" para
+## ganhar velocidade (barra de energia). Pular (na hora certa) dá impulso.
 
 const START_X := -42.0
 const FINISH_X := 38.0
@@ -11,6 +12,8 @@ var _speeds := {}
 var _finished_order: Array = []
 var _player_done := false
 var _elapsed := 0.0
+var energy := 0.3
+var _base_run := 5.0
 
 
 func begin() -> void:
@@ -47,7 +50,11 @@ func play_label() -> String:
 
 
 func on_play() -> bool:
-	player.run_active = true
+	if _countdown <= 0.0:
+		energy = minf(energy + 0.11, 1.0)
+	else:
+		# largada: tocar antes do "Já" queima um pouco
+		energy = maxf(energy - 0.05, 0.0)
 	return true
 
 
@@ -62,9 +69,10 @@ func tick(delta: float) -> void:
 		return
 	if player.movement_locked:
 		player.movement_locked = false
-		player.run_active = true
+		_base_run = player.run_speed
+		player.forced_dir = Vector3(1, 0, 0)
 		for i in rivals.size():
-			var base := randf_range(4.55, 5.05)
+			var base := randf_range(4.7, 5.3)
 			if rivals[i].personality == "competitivo":
 				base += 0.15
 			_speeds[rivals[i]] = base
@@ -72,6 +80,9 @@ func tick(delta: float) -> void:
 			rivals[i].run_speed = base
 			rivals[i].go_to(Vector3(FINISH_X + 3.0, 0.05, LANES[i + 1]), true)
 	_elapsed += delta
+	energy = maxf(energy - delta * 0.32, 0.0)
+	player.run_speed = 3.6 + energy * 3.0
+	hud.set_meter(energy)
 	# variação de ritmo (arrancada e cansaço)
 	for r in rivals:
 		var b: float = _speeds.get(r, 4.8)
@@ -86,7 +97,7 @@ func tick(delta: float) -> void:
 		if r.global_position.x > player.global_position.x:
 			pos += 1
 	var left := maxf(FINISH_X - player.global_position.x, 0.0)
-	hud.set_minigame_text("Corrida  ·  %dº lugar  ·  faltam %d m  ·  %.1f s" % [pos, int(left), _elapsed])
+	hud.set_minigame_text("Corrida  ·  %dº lugar  ·  faltam %d m  ·  %.1f s  ·  TOQUE RÁPIDO em Correr!" % [pos, int(left), _elapsed])
 	if _player_done or _elapsed > 40.0:
 		_finish()
 
@@ -105,6 +116,10 @@ func _finish() -> void:
 
 
 func cleanup() -> void:
+	player.forced_dir = Vector3.ZERO
+	player.run_speed = _base_run
+	player.run_active = false
+	hud.set_meter(-1.0)
 	for r in rivals:
 		if is_instance_valid(r):
 			r.run_speed = 4.3

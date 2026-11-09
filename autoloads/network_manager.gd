@@ -30,15 +30,34 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
 
+## Endereço efetivo: o das configurações (colado por um adulto) ou o fixo.
+## Aceita "https://x.up.railway.app" e converte para wss://.
+func server_url() -> String:
+	var u := str(Settings.get_value("server_url")).strip_edges()
+	if u == "":
+		u = SERVER_URL
+	if u == "":
+		return ""
+	if u.begins_with("https://"):
+		u = "wss://" + u.substr(8)
+	elif u.begins_with("http://"):
+		u = "ws://" + u.substr(7)
+	elif not (u.begins_with("wss://") or u.begins_with("ws://")):
+		u = "wss://" + u
+	return u.trim_suffix("/")
+
+
 func available() -> bool:
-	return SERVER_URL != ""
+	return server_url() != ""
 
 
 func is_online() -> bool:
 	return _ws != null and _ws.get_ready_state() == WebSocketPeer.STATE_OPEN and my_id != ""
 
 
-func connect_to_server(url := SERVER_URL) -> void:
+func connect_to_server(url := "") -> void:
+	if url == "":
+		url = server_url()
 	if url == "":
 		return
 	disconnect_from_server()

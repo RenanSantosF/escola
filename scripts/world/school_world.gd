@@ -34,9 +34,9 @@ func _setup_environment() -> void:
 	we.name = "WorldEnvironment"
 	env = Environment.new()
 	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color("3d8fe0")
-	sky_mat.sky_horizon_color = Color("bfe0f7")
-	sky_mat.ground_horizon_color = Color("cfe3c4")
+	sky_mat.sky_top_color = Color("1f6fd8")
+	sky_mat.sky_horizon_color = Color("9fd0f5")
+	sky_mat.ground_horizon_color = Color("b9dcef")
 	sky_mat.ground_bottom_color = Color("7aa36b")
 	sky_mat.sun_angle_max = 20.0
 	sky_mat.sky_curve = 0.12
@@ -47,29 +47,35 @@ func _setup_environment() -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_color = Color("e9dfcd")
-	env.ambient_light_sky_contribution = 0.35
-	env.ambient_light_energy = 0.9
+	env.ambient_light_color = Color("b9d3ee")
+	env.ambient_light_sky_contribution = 0.55
+	env.ambient_light_energy = 0.75
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 0.92
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_exposure = 0.95
 	env.tonemap_white = 6.0
 	env.fog_enabled = true
-	env.fog_light_color = Color("cfe4f5")
+	env.fog_light_color = Color("bcdcf7")
 	env.fog_density = 0.0009
 	env.fog_aerial_perspective = 0.4
 	env.fog_sky_affect = 0.0
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.32
-	env.adjustment_contrast = 1.1
+	env.adjustment_saturation = 1.25
+	env.adjustment_contrast = 1.16
+	# brilho suave nas partes muito claras (céu, água, metal)
+	env.glow_enabled = true
+	env.glow_intensity = 0.35
+	env.glow_bloom = 0.04
+	env.glow_hdr_threshold = 1.15
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
 	we.environment = env
 	add_child(we)
 
 	sun = DirectionalLight3D.new()
 	sun.name = "Sun"
 	sun.rotation_degrees = Vector3(-52, -38, 0)
-	sun.light_color = Color("fff1d6")
-	sun.light_energy = 1.25
+	sun.light_color = Color("fbfcff")
+	sun.light_energy = 1.4
 	sun.shadow_enabled = true
 	sun.shadow_bias = 0.04
 	sun.shadow_normal_bias = 1.2
@@ -115,6 +121,11 @@ func build(progress: Callable) -> void:
 		for c in _chunk_nodes[key].get_children():
 			if c is GeometryInstance3D and (c as GeometryInstance3D).visibility_range_end > 0.0:
 				_ranged.append([c, (c as GeometryInstance3D).visibility_range_end])
+
+	var life := AmbientLife.new()
+	life.name = "AmbientLife"
+	add_child(life)
+	life.build()
 
 	_labels_root = Node3D.new()
 	_labels_root.name = "Labels"

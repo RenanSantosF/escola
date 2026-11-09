@@ -80,19 +80,33 @@ static func world_material() -> ShaderMaterial:
 shader_type spatial;
 render_mode cull_back, diffuse_lambert, specular_schlick_ggx;
 uniform sampler2DArray atlas : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform float floor2 = 3.85;
 varying flat float layer;
 varying float rough;
 varying float metal;
+varying vec3 wpos;
+varying vec3 wnrm;
 void vertex() {
 	layer = UV2.x;
 	rough = floor(UV2.y) / 100.0;
 	metal = fract(UV2.y);
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	wnrm = mat3(MODEL_MATRIX) * NORMAL;
 }
 void fragment() {
 	vec3 t = texture(atlas, vec3(UV, layer)).rgb;
-	ALBEDO = COLOR.rgb * t;
+	vec3 col = COLOR.rgb * t;
+	// sombra de contato barata: escurece a base de paredes e objetos
+	float h = wpos.y > floor2 - 0.2 ? wpos.y - floor2 : wpos.y;
+	float vert = 1.0 - abs(normalize(wnrm).y);
+	float ao = mix(1.0, 0.62 + 0.38 * smoothstep(-0.02, 0.85, h), vert);
+	// variação leve de tom por posição (quebra a repetição "chapada")
+	float n = sin(wpos.x * 0.37 + wpos.z * 0.21) * sin(wpos.z * 0.29 - wpos.x * 0.13);
+	col *= 1.0 + n * 0.04;
+	ALBEDO = col * ao;
 	ROUGHNESS = rough;
 	METALLIC = metal;
+	SPECULAR = 0.35;
 }
 """
 	var m := ShaderMaterial.new()

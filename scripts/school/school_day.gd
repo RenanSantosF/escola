@@ -11,9 +11,9 @@ signal day_finished(summary: Dictionary)
 
 enum Phase { ARRIVAL, CLASS_1, RECESS, RETURN, CLASS_2, DAY_END }
 
-const RECESS_SECONDS := 210.0
-const LESSON_SIZE := [4, 2]
-const MIN_CORRECT := [2, 1]
+const RECESS_SECONDS := 480.0  # 8 minutos de recreio
+const LESSON_SIZE := [7, 5]
+const MIN_CORRECT := [4, 3]
 const PHASE_NAMES := ["Chegada", "Aula", "Recreio", "Volta para a sala", "Aula", "Saída"]
 
 var world: SchoolWorld

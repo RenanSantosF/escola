@@ -48,11 +48,13 @@ static func get_material() -> StandardMaterial3D:
 	if _material == null:
 		_material = StandardMaterial3D.new()
 		_material.vertex_color_use_as_albedo = true
-		_material.roughness = 0.82
+		_material.roughness = 0.72
+		# luz "enrolada": sombra suave e arredondada, visual de desenho animado
+		_material.diffuse_mode = BaseMaterial3D.DIFFUSE_LAMBERT_WRAP
 		_material.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
 		_material.rim_enabled = true
-		_material.rim = 0.25
-		_material.rim_tint = 0.6
+		_material.rim = 0.4
+		_material.rim_tint = 0.75
 	return _material
 
 
@@ -118,14 +120,14 @@ func _xf(bone: String, local_pos: Vector3, scale := Vector3.ONE, rot_deg := Vect
 	return Transform3D(basis, bone_global[bone] + local_pos)
 
 
-func _sphere(bone: String, col: Color, pos: Vector3, r: float, scale := Vector3.ONE, rot := Vector3.ZERO, seg := 10, rings := 7) -> void:
+func _sphere(bone: String, col: Color, pos: Vector3, r: float, scale := Vector3.ONE, rot := Vector3.ZERO, seg := 14, rings := 9) -> void:
 	_bone(bone, col)
 	md.add_sphere(_xf(bone, pos, scale, rot), r, seg, rings)
 
 
-func _capsule(bone: String, col: Color, pos: Vector3, r: float, h: float, scale := Vector3.ONE, rot := Vector3.ZERO, seg := 10) -> void:
+func _capsule(bone: String, col: Color, pos: Vector3, r: float, h: float, scale := Vector3.ONE, rot := Vector3.ZERO, seg := 14) -> void:
 	_bone(bone, col)
-	md.add_capsule(_xf(bone, pos, scale, rot), r, h, seg, 6)
+	md.add_capsule(_xf(bone, pos, scale, rot), r, h, seg, 8 if seg > 8 else 4)
 
 
 func _box(bone: String, col: Color, pos: Vector3, size: Vector3, rot := Vector3.ZERO) -> void:
@@ -177,15 +179,21 @@ func _make_mesh() -> ArrayMesh:
 	if a.shirt_logo:
 		_box("Chest", trim, Vector3(0.075, 0.13, 0.118), Vector3(0.055, 0.055, 0.012))
 		_box("Chest", Color("f2c230"), Vector3(0.075, 0.13, 0.124), Vector3(0.03, 0.03, 0.006))
+	# cintura arredondada (une bermuda e camiseta sem "degrau")
+	_sphere("Spine", shirt, Vector3(0, -0.02, 0), 0.15, Vector3(1.0 * bw, 0.6, 0.72))
 	# Pescoço
-	_cyl("Neck", skin.darkened(0.04), Vector3(0, 0.02, 0), 0.052, 0.058, 0.12)
+	_cyl("Neck", skin.darkened(0.04), Vector3(0, 0.02, 0), 0.052, 0.058, 0.12, Vector3.ZERO, 14)
 
 	_make_head()
 
 	# Braços
 	for side: String in ["Left", "Right"]:
 		var sx := 1.0 if side == "Left" else -1.0
-		_capsule(side + "UpperArm", shirt, Vector3(0.0, -0.06, 0), 0.062, 0.2, Vector3(bw, 1, 1))
+		# ombro arredondado e manga
+		_sphere(side + "UpperArm", shirt, Vector3(0.0, 0.0, 0), 0.07, Vector3(bw, 0.95, 0.95))
+		_capsule(side + "UpperArm", shirt, Vector3(0.0, -0.06, 0), 0.064, 0.2, Vector3(bw, 1, 1))
+		# cotovelo (esconde a emenda do braço ao dobrar)
+		_sphere(side + "LowerArm", skin, Vector3.ZERO, 0.045, Vector3.ONE, Vector3.ZERO, 10, 7)
 		_cyl(side + "UpperArm", trim, Vector3(0, -0.15, 0), 0.064, 0.064, 0.028)
 		_capsule(side + "UpperArm", skin, Vector3(0, -0.15, 0), 0.046, 0.21)
 		_capsule(side + "LowerArm", skin, Vector3(0, -0.11, 0), 0.043, 0.25)
@@ -201,7 +209,9 @@ func _make_mesh() -> ArrayMesh:
 		var up_leg: String = side + "UpperLeg"
 		var low_leg: String = side + "LowerLeg"
 		var foot: String = side + "Foot"
-		_capsule(up_leg, pants, Vector3(0, -0.17, 0), 0.078 * bw, 0.40)
+		_capsule(up_leg, pants, Vector3(0, -0.17, 0), 0.08 * bw, 0.40)
+		# joelho
+		_sphere(low_leg, pants if a.long_pants else skin, Vector3.ZERO, 0.058 if a.long_pants else 0.055, Vector3.ONE, Vector3.ZERO, 10, 7)
 		if a.long_pants:
 			_capsule(low_leg, pants, Vector3(0, -0.16, 0), 0.066, 0.42)
 			_cyl(low_leg, pants.darkened(0.1), Vector3(0, -0.34, 0), 0.07, 0.072, 0.04)
@@ -219,9 +229,8 @@ func _make_mesh() -> ArrayMesh:
 
 	if a.backpack:
 		var bp := a.backpack_color
-		_box("Chest", bp, Vector3(0, 0.07, -0.19), Vector3(0.29, 0.34, 0.13))
-		_capsule("Chest", bp, Vector3(0, 0.24, -0.19), 0.065, 0.29, Vector3(1, 1, 1), Vector3(0, 0, 90))
-		_box("Chest", bp.darkened(0.2), Vector3(0, 0.0, -0.265), Vector3(0.2, 0.13, 0.04))
+		_capsule("Chest", bp, Vector3(0, 0.08, -0.19), 0.14, 0.4, Vector3(1.05, 1, 0.5))
+		_capsule("Chest", bp.darkened(0.2), Vector3(0, -0.01, -0.255), 0.07, 0.17, Vector3(1.4, 1, 0.45), Vector3(0, 0, 90))
 		_box("Chest", Color("eeeeee"), Vector3(0, 0.07, -0.287), Vector3(0.12, 0.012, 0.006))
 		for sx: float in [1.0, -1.0]:
 			_box("Chest", bp.darkened(0.35), Vector3(0.1 * sx, 0.2, -0.02), Vector3(0.035, 0.05, 0.27), Vector3(25, 0, 0))

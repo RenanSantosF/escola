@@ -13,7 +13,7 @@ const C_WOOD := Color("c58b52")
 const C_WOOD_DARK := Color("8a5a32")
 const C_METAL_BLUE := Color("2f5fa8")
 const C_METAL := Color("9aa3ad")
-const C_CONCRETE := Color("c9c4b8")
+const C_CONCRETE := Color("bcc3cc")
 const C_GREEN := Color("2f7d3c")
 
 

@@ -6,8 +6,8 @@
 - [x] Renderer Mobile com fallback automático para OpenGL ES 3
 - [x] Ícones: `assets/icons/icon_192.png` e adaptativos 432 px (frente/fundo)
 - [x] Pacote `com.recreio.minhavidanaescola`, versão 0.1.0 (code 1)
-- [x] arm64-v8a + armeabi-v7a; nenhuma permissão perigosa (sem internet enquanto os
-      anúncios estiverem desativados)
+- [x] arm64-v8a + armeabi-v7a; nenhuma permissão perigosa. Usa INTERNET (permissão
+      normal) só para o modo online opcional — declarar na Segurança dos dados.
 - [x] Save local; nada é enviado para servidores
 - [ ] Exportar **AAB** (`gradle_build/export_format=1`, requer Gradle build) com
       keystore de release

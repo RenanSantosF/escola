@@ -2,8 +2,7 @@
 
 O jogo já tem a base para o modo online: servidor em `server/` (Node.js, pronto
 para o Railway) e cliente no Godot (`autoloads/network_manager.gd`,
-`scripts/online/`). Enquanto `NetworkManager.SERVER_URL` estiver vazio, a opção
-online nem aparece nas configurações e o jogo é 100% offline.
+`scripts/online/`). Sem endereço de servidor configurado o jogo é 100% offline.
 
 ## Como colocar no ar (Railway)
 
@@ -11,9 +10,16 @@ online nem aparece nas configurações e o jogo é 100% offline.
    `server/` (Root Directory = `server`). O `Dockerfile` e o `railway.json` já
    estão prontos (health check em `/health`).
 2. Variáveis: `ADMIN_TOKEN` (segredo longo, para moderação). A `PORT` o Railway define.
-3. Gere um domínio público e coloque em `autoloads/network_manager.gd`:
-   `const SERVER_URL := "wss://SEU-APP.up.railway.app"`.
-4. Exporte o APK de novo. Em **Configurações → Online (beta)** a criança ativa o modo.
+3. Em **Settings → Networking → Generate Domain** gere um domínio público.
+   Teste no navegador: `https://SEU-APP.up.railway.app/health` deve mostrar `{"ok":true,...}`.
+4. No jogo: **Configurações → Online (beta)** → cole `https://SEU-APP.up.railway.app`
+   no campo "Servidor" e marque "Jogar online". Não precisa gerar outro APK.
+   (Para fixar o endereço no app, preencha `SERVER_URL` em `autoloads/network_manager.gd`.)
+5. Para testar a dois: instale o APK em dois celulares, configure os dois e entrem
+   no recreio — vocês caem na mesma sala e se veem andando.
+
+Teste ponta a ponta local: `cd server && PORT=8131 node src/server.js` e
+`godot --headless --path . res://tests/online_probe.tscn`.
 
 Testes do servidor: `cd server && npm install && npm test`.
 

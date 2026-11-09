@@ -63,8 +63,9 @@ func _ready() -> void:
 	_body.add_theme_constant_override("separation", 12)
 	_body.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_child(_body)
-	_feedback = UITheme.title_label("", 30, Color.WHITE)
-	_feedback.custom_minimum_size = Vector2(0, 40)
+	_feedback = UITheme.title_label("", 26, Color.WHITE)
+	_feedback.custom_minimum_size = Vector2(700, 40)
+	_feedback.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_feedback)
 
 
@@ -193,7 +194,7 @@ func _on_order(i: int, b: Button) -> void:
 		var right := []
 		for k in _task.answer_order:
 			right.append(_task.items[k])
-		_finish(ok, "" if ok else "Ordem certa: " + " ".join(right))
+		_finish(ok, "" if ok or _task.has("explain") else "Ordem certa: " + " ".join(right))
 
 
 func _reset_order(g: GridContainer) -> void:
@@ -208,56 +209,114 @@ func _reset_order(g: GridContainer) -> void:
 
 # ------------------------------------------------------------ ligar
 
+const PAIR_COLORS := [Color("6be36b"), Color("5ec8ff"), Color("ffb347"), Color("d79bff"), Color("ff8fb1")]
+
+
+func _style(b: Button, bg: Color, border: Color, bw := 0, shadow := 5) -> void:
+	# no toque o botão fica em "hover": aplica em todos os estados
+	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
+		b.add_theme_stylebox_override(st, UITheme.box(bg, 14, border, bw, shadow))
+
+
 func _build_match() -> void:
 	_match_left = -1
 	_match_done = 0
 	_match_errors = 0
+	var tip := Label.new()
+	tip.text = "1) Toque numa palavra da esquerda   2) Toque no par dela à direita"
+	tip.add_theme_font_size_override("font_size", 20)
+	tip.add_theme_color_override("font_color", Color("ffe08a"))
+	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_body.add_child(tip)
 	var g := _grid(2)
 	var lefts := []
 	var rights := []
 	for i in _task.left.size():
 		var bl := _chalk_button(str(_task.left[i]), 300)
 		var br := _chalk_button(str(_task.right[i]), 300)
+		bl.pivot_offset = Vector2(150, 33)
+		br.pivot_offset = Vector2(150, 33)
 		lefts.append(bl)
 		rights.append(br)
 		g.add_child(bl)
 		g.add_child(br)
 	for i in lefts.size():
 		var idx := i
-		lefts[i].pressed.connect(func(): _on_match_left(idx, lefts))
+		lefts[i].pressed.connect(func(): _on_match_left(idx, lefts, rights))
 		rights[i].pressed.connect(func(): _on_match_right(idx, lefts, rights))
 
 
-func _on_match_left(i: int, lefts: Array) -> void:
+func _on_match_left(i: int, lefts: Array, rights: Array) -> void:
 	if _locked or lefts[i].disabled:
 		return
 	_match_left = i
+	AudioManager.play_ui("ui_click", -6.0)
 	for k in lefts.size():
-		if not lefts[k].disabled:
-			lefts[k].add_theme_stylebox_override("normal", UITheme.box(Color("ffe08a") if k == i else Color("fdf6e3"), 14, Color("c9b98f"), 0, 5))
+		var b: Button = lefts[k]
+		if b.disabled:
+			continue
+		if k == i:
+			_style(b, Color("ffcf3f"), Color.WHITE, 5, 2)
+			b.text = "» " + str(_task.left[k])
+			b.scale = Vector2(1.08, 1.08)
+		else:
+			_style(b, Color("fdf6e3").darkened(0.12), Color("c9b98f"), 0, 5)
+			b.text = str(_task.left[k])
+			b.scale = Vector2.ONE
+	# a coluna da direita "acende" esperando o par
+	for r in rights:
+		if not r.disabled:
+			_style(r, Color("fffaf0"), Color("ffcf3f"), 4, 5)
 
 
 func _on_match_right(j: int, lefts: Array, rights: Array) -> void:
-	if _locked or _match_left == -1 or rights[j].disabled:
+	if _locked or rights[j].disabled:
 		return
+	if _match_left == -1:
+		_feedback.text = "Primeiro toque numa palavra da ESQUERDA"
+		_feedback.add_theme_color_override("font_color", Color("ffe08a"))
+		return
+	var lb: Button = lefts[_match_left]
 	if ClassroomTasks.check_match(_task, _match_left, j):
-		_color_button(lefts[_match_left], true)
-		_color_button(rights[j], true)
-		lefts[_match_left].disabled = true
+		var col: Color = PAIR_COLORS[_match_done % PAIR_COLORS.size()]
+		lb.text = str(_task.left[_match_left])
+		lb.scale = Vector2.ONE
+		_style(lb, col, col.darkened(0.35), 4, 5)
+		_style(rights[j], col, col.darkened(0.35), 4, 5)
+		lb.disabled = true
 		rights[j].disabled = true
 		_match_done += 1
+		_feedback.text = ""
 		AudioManager.play_ui("pickup", -6.0)
+		var tw := create_tween()
+		rights[j].scale = Vector2(1.15, 1.15)
+		tw.tween_property(rights[j], "scale", Vector2.ONE, 0.2)
 		_match_left = -1
+		for r in rights:
+			if not r.disabled:
+				_style(r, Color("fdf6e3"), Color("c9b98f"), 0, 5)
+		for l in lefts:
+			if not l.disabled:
+				_style(l, Color("fdf6e3"), Color("c9b98f"), 0, 5)
 		if _match_done == _task.left.size():
 			_locked = true
-			_finish(_match_errors <= 1, "" if _match_errors <= 1 else "Quase! Muitos erros desta vez.")
+			_finish(_match_errors <= 1, "" if _match_errors <= 1 else "Muitos erros desta vez. Os pares certos estão coloridos acima.")
 	else:
 		_match_errors += 1
 		AudioManager.play_ui("bonk", -12.0, 0.1)
 		var b: Button = rights[j]
+		var right_answer: String = str(_task.right[int(_task.pairs[_match_left])])
+		_feedback.text = "%s combina com %s" % [_task.left[_match_left], right_answer]
+		_feedback.add_theme_color_override("font_color", Color("ffb3a8"))
 		var tw := create_tween()
-		tw.tween_property(b, "modulate", Color(1, 0.5, 0.5), 0.1)
-		tw.tween_property(b, "modulate", Color.WHITE, 0.25)
+		_style(b, Color("ff8a7a"), Color("b03020"), 4, 5)
+		tw.tween_property(b, "rotation", 0.06, 0.05)
+		tw.tween_property(b, "rotation", -0.06, 0.08)
+		tw.tween_property(b, "rotation", 0.0, 0.05)
+		tw.tween_interval(0.5)
+		tw.tween_callback(func():
+			if not b.disabled:
+				_style(b, Color("fffaf0"), Color("ffcf3f"), 4, 5))
 
 
 # ------------------------------------------------------------ achar objeto
@@ -275,15 +334,38 @@ func _build_find() -> void:
 # ------------------------------------------------------------ feedback
 
 func _finish(ok: bool, extra: String) -> void:
-	_feedback.text = ("Muito bem! +10" if ok else "Não foi dessa vez...") + ("" if extra == "" else "\n" + extra)
-	_feedback.add_theme_color_override("font_color", Color("9dff9d") if ok else Color("ffb3a8"))
+	var explain: String = str(_task.get("explain", ""))
+	if ok:
+		_feedback.text = "Muito bem! +10" + ("" if extra == "" else "\n" + extra)
+	else:
+		_feedback.text = "Não foi dessa vez..." + ("" if extra == "" else "\n" + extra)
+		if explain != "":
+			_feedback.text += "\nPor quê? " + explain
+	_feedback.add_theme_color_override("font_color", Color("9dff9d") if ok else Color("ffd9d2"))
 	AudioManager.play_ui("ui_confirm" if ok else "bonk", -2.0 if ok else -10.0)
-	if not ok:
-		var tw := create_tween()
-		var p := _panel.position
-		for k in 4:
-			tw.tween_property(_panel, "position", p + Vector2(10 if k % 2 == 0 else -10, 0), 0.04)
-		tw.tween_property(_panel, "position", p, 0.04)
-	get_tree().create_timer(1.6 if ok else 2.4).timeout.connect(func():
+	if ok:
+		get_tree().create_timer(1.4).timeout.connect(func():
+			visible = false
+			answered.emit(ok))
+		return
+	var tw := create_tween()
+	var p := _panel.position
+	for k in 4:
+		tw.tween_property(_panel, "position", p + Vector2(10 if k % 2 == 0 else -10, 0), 0.04)
+	tw.tween_property(_panel, "position", p, 0.04)
+	# errou: espera a criança ler a explicação
+	var btn := UITheme.make_button("Entendi!", func(): pass, 240)
+	btn.focus_mode = Control.FOCUS_NONE
+	var c := CenterContainer.new()
+	c.add_child(btn)
+	_body.add_child(c)
+	var done := [false]
+	var go := func():
+		if done[0]:
+			return
+		done[0] = true
 		visible = false
-		answered.emit(ok))
+		answered.emit(false)
+	btn.pressed.connect(go)
+	# segurança: segue sozinho depois de um tempo longo
+	get_tree().create_timer(25.0).timeout.connect(go)

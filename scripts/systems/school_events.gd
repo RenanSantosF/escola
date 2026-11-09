@@ -68,7 +68,7 @@ func _process(delta: float) -> void:
 
 func trigger_random() -> void:
 	var options := EVENTS.filter(func(e): return not e in _done_today)
-	if not mission.is_empty():
+	if not mission.is_empty() or (day.quests and day.quests.active_id != ""):
 		options.erase("ajuda")
 		options.erase("recado")
 	if options.is_empty():

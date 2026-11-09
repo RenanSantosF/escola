@@ -72,5 +72,24 @@ func show_arc(from: Vector3, vel: Vector3, ground_y := 0.05, tint := Color("ffcf
 	return land
 
 
+## Desenha uma trajetória já calculada (ex.: voo do aviãozinho).
+func show_points(points: PackedVector3Array, tint := Color("ffcf3f")) -> void:
+	if points.size() < 2:
+		visible = false
+		return
+	visible = true
+	global_position = Vector3.ZERO
+	var im := ImmediateMesh.new()
+	im.surface_begin(Mesh.PRIMITIVE_LINES)
+	for i in range(0, points.size() - 1, 2):
+		im.surface_set_color(Color(tint, 0.95))
+		im.surface_add_vertex(points[i])
+		im.surface_add_vertex(points[i + 1])
+	im.surface_end()
+	_line.mesh = im
+	var land := points[points.size() - 1]
+	_ring.global_position = Vector3(land.x, 0.08, land.z)
+
+
 func hide_arc() -> void:
 	visible = false

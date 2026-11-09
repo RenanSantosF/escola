@@ -140,6 +140,23 @@ recompensas próprias; estações com placa no mapa (só no recreio) e convites 
 - Base do modo online (desligado por padrão): servidor Node para Railway, salas com
   entrada no meio da partida, chat seguro, denúncia e bloqueio — ver docs/ONLINE.md.
 
+## ✅ Revisão 2 (concluída)
+
+- Missões: nenhuma oferta nova durante uma missão; quem oferece para de andar e
+  conversa; recados/objetos perdidos também guiados no mapa.
+- Cantina: dá para comprar de fora do balcão.
+- Aula: 7 tarefas (5 na segunda), problemas de duas etapas, explicação "Por quê?"
+  ao errar com botão "Entendi!"; destaque forte e pares coloridos no "ligar".
+- Recreio de 8 minutos.
+- Aviãozinho refeito (voo estável, prévia da trajetória, segurar/soltar, curvas no
+  ar); pular corda com corda grossa, barra de ritmo e 3 vidas; corrida com toque
+  rápido para ganhar energia.
+- Visual mais vivo e frio: paleta fria, sol branco, sombras azuladas, nuvens,
+  pássaros, borboletas, bandeirinhas, canteiros floridos, sombra de contato.
+- Personagens mais arredondados (articulações, mochila, sombreamento suave).
+- Online: endereço do servidor configurável no app, permissão de internet,
+  heartbeat no servidor, teste ponta a ponta.
+
 ## Próximos passos sugeridos
 
 - Testar em aparelhos Android reais (o ambiente de desenvolvimento não tinha SDK) e

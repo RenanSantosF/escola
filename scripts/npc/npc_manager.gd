@@ -120,6 +120,7 @@ func _spawn_all(n_class: int, n_other: int) -> void:
 	director = _make(NPCRoster.ADULTS.director)
 	inspector = _make(NPCRoster.ADULTS.inspector)
 	cook = _make(NPCRoster.ADULTS.cook)
+	cook.interact_radius = 3.6  # atende por cima do balcão
 	cook.teleport(Vector3(-23.3, 0.05, 12.0), PI * 0.5)
 	cook.activity = "cook"
 

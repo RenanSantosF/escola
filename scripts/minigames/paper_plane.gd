@@ -1,8 +1,9 @@
 extends Minigame
 ## Aviãozinho de papel:
 ##  1) Dobrar: 3 dobras com toque no tempo certo (define a qualidade).
-##  2) Mirar: joystick ajusta direção/ângulo; força oscilante (toque duplo).
-##  3) Voo: física de planador (sustentação, arrasto, vento, oscilação).
+##  2) Mirar: joystick ajusta direção/ângulo; SEGURE para carregar a força
+##     (a linha mostra o voo previsto) e SOLTE para lançar.
+##  3) Voo: planador estável (sem loopings); o joystick faz curvas no ar.
 ## Pontos: distância + argolas atravessadas + pouso no alvo. 3 lançamentos.
 
 const LAUNCH := Vector3(12, 1.45, 1.5)
@@ -33,6 +34,7 @@ var _plane: Node3D
 var _deco: Node3D
 var _space: PhysicsDirectSpaceState3D
 var _land_wait := 0.0
+var _arc: AimArc
 
 
 func begin() -> void:
@@ -42,6 +44,8 @@ func begin() -> void:
 	_build_rings()
 	_plane = _make_plane()
 	_deco.add_child(_plane)
+	_arc = AimArc.new()
+	_deco.add_child(_arc)
 	player.force_stand()
 	player.movement_locked = true
 	player.global_position = Vector3(LAUNCH.x, 0.05, LAUNCH.z + 0.4)
@@ -95,7 +99,7 @@ func _start_fold() -> void:
 	fold_quality = 0.0
 	_fold_t = 0.0
 	_plane.visible = false
-	hud.show_banner("Dobre o avião!", "Toque quando a barra estiver no MEIO")
+	hud.show_banner("Dobre o avião!", "Toque quando a barra estiver no MEIO (3 dobras)")
 	player.camera_rig.set_override(Transform3D(Basis(), player.global_position + Vector3(0.9, 1.6, -1.4)).looking_at(player.global_position + Vector3(0, 1.0, 0), Vector3.UP))
 	player.visual.play("interact")
 	_update_hud()
@@ -107,9 +111,9 @@ func _update_hud() -> void:
 		Step.FOLD:
 			s = "Dobra %d de 3" % (folds + 1)
 		Step.AIM:
-			s = "Mire (joystick) e lance  ·  Avião %d%%" % int(fold_quality * 100)
+			s = "Joystick mira  ·  SEGURE e SOLTE para lançar  ·  Avião %d%%" % int(fold_quality * 100)
 		Step.FLY:
-			s = "Voando... %.1f m" % _distance()
+			s = "Voando %.1f m  ·  Joystick faz curva" % _distance()
 		_:
 			s = ""
 	hud.set_minigame_text("Aviãozinho  ·  Lançamento %d/%d  ·  Recorde %d  ·  %s" % [THROWS - throws_left + 1, THROWS, best_score, s])
@@ -120,7 +124,7 @@ func play_label() -> String:
 		Step.FOLD:
 			return "Dobrar!"
 		Step.AIM:
-			return "Lançar!" if _charging else "Força"
+			return "Solte!" if _charging else "Segurar"
 	return "Aguarde"
 
 
@@ -154,8 +158,13 @@ func on_play() -> bool:
 			if not _charging:
 				_charging = true
 				_power = 0.0
-			else:
-				_launch()
+				_power_dir = 1.0
+	return true
+
+
+func on_play_release() -> bool:
+	if step == Step.AIM and _charging:
+		_launch()
 	return true
 
 
@@ -166,6 +175,7 @@ func _start_aim() -> void:
 	pitch = 0.12
 	_plane.visible = true
 	_charging = false
+	_power = 0.55
 	player.visual.play("look_around")
 	_wind = Vector3(randf_range(-0.6, 0.6), 0, randf_range(-0.3, 0.3))
 	if absf(_wind.x) > 0.3:
@@ -175,13 +185,12 @@ func _start_aim() -> void:
 
 func _launch() -> void:
 	_charging = false
+	_arc.hide_arc()
 	hud.set_meter(-1.0)
 	step = Step.FLY
 	player.visual.play("throw")
-	var speed := lerpf(6.0, 13.0, _power)
-	var dir := Vector3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch))
 	pos = LAUNCH
-	vel = dir * speed
+	vel = _launch_vel()
 	_rings_passed.clear()
 	_fly_t = 0.0
 	_land_wait = 0.0
@@ -202,14 +211,15 @@ func tick(delta: float) -> void:
 		Step.AIM:
 			var mv := player.read_move_raw()
 			yaw -= mv.x * delta * 0.8
-			pitch = clampf(pitch - mv.y * delta * 0.6, -0.2, 0.7)
+			pitch = clampf(pitch - mv.y * delta * 0.6, -0.15, 0.45)
 			if _charging:
-				_power += _power_dir * delta * 0.8
+				_power += _power_dir * delta * 0.7
 				if _power >= 1.0 or _power <= 0.0:
 					_power_dir *= -1.0
 					_power = clampf(_power, 0.0, 1.0)
 				hud.set_meter(_power)
 			var dir := Vector3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch))
+			_arc.show_points(_predict(), Color("5ec8ff") if not _charging else Color("ffcf3f"))
 			_plane.global_position = LAUNCH
 			_plane.look_at(LAUNCH - dir, Vector3.UP)
 			player.yaw = yaw
@@ -221,54 +231,98 @@ func tick(delta: float) -> void:
 	player._emit_context()
 
 
+func _launch_vel() -> Vector3:
+	var speed := lerpf(5.0, 10.5, _power)
+	var dir := Vector3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch))
+	return dir * speed
+
+
+## Física de planador estável: a sustentação nunca passa do peso, o
+## avião troca altura por velocidade e o balanço vertical é amortecido.
+func _step_flight(p: Vector3, v: Vector3, dt: float, steer: float) -> Array:
+	var h := Vector3(v.x, 0, v.z)
+	var hs := h.length()
+	var q := fold_quality
+	var lift := minf(9.8 * lerpf(0.78, 0.93, q), 0.42 * hs * hs)
+	var ay := -9.8 + lift - v.y * 1.1
+	var drag := lerpf(0.05, 0.028, q) * hs
+	h -= h * drag * dt
+	# descendo, ganha um pouco de velocidade (planeio)
+	if v.y < 0.0 and hs > 0.01:
+		h += h / hs * (-v.y) * 0.5 * dt
+	# curva pelo joystick
+	if absf(steer) > 0.01:
+		h = h.rotated(Vector3.UP, -steer * 1.3 * dt)
+	h += _wind * 0.35 * dt
+	var nv := Vector3(h.x, v.y + ay * dt, h.z)
+	return [p + nv * dt, nv]
+
+
+func _predict() -> PackedVector3Array:
+	var pts := PackedVector3Array()
+	var p := LAUNCH
+	var v := _launch_vel()
+	for i in 140:
+		var r := _step_flight(p, v, 0.04, 0.0)
+		p = r[0]
+		v = r[1]
+		if i % 2 == 0:
+			pts.append(p)
+		if p.y <= 0.05:
+			break
+	return pts
+
+
 func _fly(delta: float) -> void:
 	if _land_wait > 0.0:
 		_land_wait -= delta
 		if _land_wait <= 0.0:
 			_score_throw()
 		return
+	var steer := player.read_move_raw().x
 	var steps := 3
 	var dt := delta / steps
 	for i in steps:
-		var sp := vel.length()
-		var dir := vel / maxf(sp, 0.001)
-		var up_perp := (Vector3.UP - dir * dir.dot(Vector3.UP)).normalized()
-		var cl := 0.11 * lerpf(0.6, 1.15, fold_quality)
-		var cd := 0.035 + (1.0 - fold_quality) * 0.03
-		var acc := Vector3(0, -9.8, 0)
-		acc += up_perp * cl * sp * sp
-		acc -= dir * cd * sp * sp
-		acc += (_wind - Vector3(vel.x, 0, vel.z) * 0.0) * 0.5
-		# leve balanço lateral
-		acc += Vector3(cos(yaw), 0, -sin(yaw)) * sin(_fly_t * 5.0) * 0.4
 		var prev := pos
-		vel += acc * dt
-		pos += vel * dt
+		var r := _step_flight(pos, vel, dt, steer)
+		pos = r[0]
+		vel = r[1]
 		_fly_t += dt
-		# argolas
+		# argolas: cruzou o plano da argola perto do centro
 		for k in RINGS.size():
-			var r: Vector3 = RINGS[k]
-			if not _rings_passed.has(k) and (prev.z - r.z) * (pos.z - r.z) <= 0.0:
-				var cross := Vector2(pos.x - r.x, pos.y - r.y).length()
-				if cross < 0.9:
+			var rg: Vector3 = RINGS[k]
+			if not _rings_passed.has(k) and (prev.z - rg.z) * (pos.z - rg.z) <= 0.0:
+				var cross := Vector2(pos.x - rg.x, pos.y - rg.y).length()
+				if cross < 1.0:
 					_rings_passed[k] = true
 					AudioManager.play_ui("ui_confirm", -4.0)
+					Effects.burst(rg, "confetti")
 					GameManager.show_toast("Passou pela argola! +20")
-		# colisão com o cenário
-		var q := PhysicsRayQueryParameters3D.create(prev, pos, 1)
-		var hit := _space.intersect_ray(q)
-		if not hit.is_empty() or pos.y <= 0.04:
+		# colisão com o cenário (ignora o primeiro instante, perto da mão)
+		if _fly_t > 0.12:
+			var qr := PhysicsRayQueryParameters3D.create(prev, pos, 1)
+			var hit := _space.intersect_ray(qr)
 			if not hit.is_empty():
 				pos = hit.position
-			pos.y = maxf(pos.y, 0.03)
+				vel = Vector3.ZERO
+				_land_wait = 1.2
+				break
+		if pos.y <= 0.04:
+			pos.y = 0.03
+			vel = Vector3.ZERO
 			_land_wait = 1.2
+			AudioManager.play_3d("step_grass", pos, -6.0)
 			break
 	_plane.global_position = pos
 	if vel.length() > 0.1:
 		_plane.look_at(pos - vel.normalized(), Vector3.UP)
-	var cam := pos - Vector3(vel.x, 0, vel.z).normalized() * 3.0 + Vector3(0, 1.4, 0)
+		_plane.rotate_object_local(Vector3.FORWARD, steer * 0.6)
+	var back := Vector3(vel.x, 0, vel.z)
+	if back.length() < 0.1:
+		back = Vector3(sin(yaw), 0, cos(yaw))
+	var cam := pos - back.normalized() * 3.2 + Vector3(0, 1.3, 0)
 	player.camera_rig.set_override(Transform3D(Basis(), cam).looking_at(pos, Vector3.UP))
-	if _fly_t > 12.0:
+	if _fly_t > 14.0:
 		_land_wait = 0.5
 
 
@@ -311,5 +365,6 @@ func _finish() -> void:
 func cleanup() -> void:
 	if is_instance_valid(_deco):
 		_deco.queue_free()
+	hud.set_meter(-1.0)
 	player.visual.stop_action()
 	super.cleanup()

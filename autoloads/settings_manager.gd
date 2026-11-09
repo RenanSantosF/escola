@@ -20,6 +20,7 @@ const DEFAULTS := {
 	"controls_opacity": 0.8,
 	"run_toggle": true,
 	"online_enabled": false,
+	"server_url": "",
 }
 
 var values: Dictionary = DEFAULTS.duplicate()

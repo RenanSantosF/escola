@@ -123,8 +123,10 @@ func _ready() -> void:
 	ui_layer.move_child(_loading, -1)
 
 	Settings.changed.connect(func(k):
-		if k == "online_enabled" and _day_started:
-			_update_online())
+		if k in ["online_enabled", "server_url"] and _day_started:
+			_update_online()
+			if k == "server_url" and online:
+				NetworkManager.connect_to_server())
 	_build_menu()
 	_show_menu()
 	var tw := create_tween()

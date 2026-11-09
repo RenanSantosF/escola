@@ -216,6 +216,9 @@ func _state() -> Dictionary:
 func is_available(qid: String) -> bool:
 	if active_id != "" or not QUESTS.has(qid):
 		return false
+	# já tem uma missão de evento (recado/achado) em andamento
+	if day and day.events and not day.events.mission.is_empty():
+		return false
 	var q: Dictionary = QUESTS[qid]
 	if Learning.level() < int(q.get("min_level", 1)):
 		return false
@@ -273,10 +276,18 @@ func offer(qid: String, npc: NPC) -> void:
 	var lines: Array = q.intro.duplicate()
 	lines.append("Recompensa: %d moedas e %d XP." % [q.coins, q.xp])
 	player.input_enabled = false
+	player.velocity = Vector3.ZERO
 	hud.controls.visible = false
-	npc.face(player.global_position)
+	# quem oferece para de andar e conversa olhando para o jogador
+	npc.talking_to_player = true
+	if not npc.sitting:
+		npc.stop()
+		npc.face(player.global_position)
+	npc.visual.play("talk")
 	day.dialogue.open("%s — %s" % [npc.display_name, q.title], lines, ["Aceitar", "Agora não"])
 	day.dialogue.finished.connect(func(choice: int):
+		npc.talking_to_player = false
+		npc.visual.stop_upper()
 		player.input_enabled = true
 		hud.controls.visible = true
 		if choice == 0:
@@ -576,6 +587,21 @@ func _target_pos() -> Variant:
 	return null
 
 
+## Destino das missões rápidas de evento (recado, objeto perdido).
+func _event_target() -> Variant:
+	if day == null or day.events == null or day.events.mission.is_empty():
+		return null
+	var m: Dictionary = day.events.mission
+	if m.type == "deliver" and is_instance_valid(m.target_npc):
+		return m.target_npc.global_position
+	if m.type == "fetch":
+		if is_instance_valid(m.item_node) and player.held_item != m.item_node:
+			return m.item_node.global_position
+		if is_instance_valid(m.giver):
+			return m.giver.global_position
+	return null
+
+
 func _refresh_markers() -> void:
 	# "!" sobre quem tem missão
 	var givers := []
@@ -607,6 +633,8 @@ func _refresh_markers() -> void:
 		mm.append({"pos": g.global_position, "color": Color("ffcf3f"), "icon": "!"})
 	hud.minimap.set_markers("missoes", mm)
 	var tp: Variant = _target_pos()
+	if tp == null:
+		tp = _event_target()
 	if tp != null:
 		hud.minimap.set_markers("missao_ativa", [{"pos": tp, "color": Color("5ec8ff"), "icon": "M"}])
 	else:
@@ -624,8 +652,15 @@ func _process(delta: float) -> void:
 			if n and not n.moving and n.visual.animator.upper_action == "" and randf() < 0.1:
 				n.visual.play("talk")
 	if active_id == "":
-		hud.set_mission_point(null)
-		_marker.visible = false
+		var ep: Variant = _event_target()
+		if ep != null:
+			var epos: Vector3 = ep
+			hud.set_mission_point(epos + Vector3(0, 1.0, 0))
+			_marker.visible = player.global_position.distance_to(epos) > 1.5
+			_marker.global_position = epos + Vector3(0, 2.6, 0)
+		else:
+			hud.set_mission_point(null)
+			_marker.visible = false
 		return
 	var st := _step()
 	if st.get("t", "") == "goto" and player.global_position.distance_to(st.pos) < float(st.r):
