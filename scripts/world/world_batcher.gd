@@ -17,13 +17,17 @@ func _init(chunk_name := "") -> void:
 
 
 func _md(mat: String, shadow := true) -> MeshData:
-	var key := mat + ("|s" if shadow else "|n")
+	var group := SchoolMaterials.group_of(mat)
+	var key := group + ("|s" if shadow else "|n")
 	if not data.has(key):
 		var m := MeshData.new()
 		m.use_uv = true
-		m.uv_scale = SchoolMaterials.uv_scale(mat)
+		m.use_uv2 = group == "world"
 		data[key] = m
-	return data[key]
+	var md: MeshData = data[key]
+	md.uv_scale = SchoolMaterials.uv_scale(mat)
+	md.cur_uv2 = SchoolMaterials.uv2_of(mat)
+	return md
 
 
 func box(mat: String, center: Vector3, size: Vector3, color: Color, rot_y := 0.0, shadow := true) -> void:

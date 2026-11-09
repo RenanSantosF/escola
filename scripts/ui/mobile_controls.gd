@@ -34,7 +34,7 @@ var _pinch_dist := -1.0
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	btn_play = _make_button(TouchButton.Icon.PLAY, Color("ffcf3f"), "Comemorar")
 	btn_jump = _make_button(TouchButton.Icon.JUMP, Color("8fd3ff"), "Pular")

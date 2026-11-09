@@ -17,6 +17,15 @@ static func decorate(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, _def:
 	var r: Rect2 = room.rect
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(room.name)
+	var first_label := sb.labels.size()
+	_decorate_kind(sb, b, room, r, rng)
+	# rótulos internos acompanham a visibilidade do interior
+	for i in range(first_label, sb.labels.size()):
+		if not sb.labels[i].has("parent"):
+			sb.labels[i]["parent"] = b.name
+
+
+static func _decorate_kind(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: Rect2, rng: RandomNumberGenerator) -> void:
 	match room.get("kind", ""):
 		"classroom":
 			_classroom(sb, b, room, r, rng)
@@ -173,6 +182,7 @@ static func _door_sign(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: 
 	var outer := sb.chunk("signs", 45.0)
 	outer.box("plain", pos, Vector3(1.5, 0.34, 0.03), Color("2f5fa8"), rot, false)
 	sb.add_label(text, pos + Vector3(0, 0, 1).rotated(Vector3.UP, rot) * 0.02, rot, 40, Color.WHITE, Color(0, 0, 0, 0), 0.0055, 30.0)
+	sb.labels[-1]["parent"] = "signs"
 
 
 # --------------------------------------------------------------- biblioteca
@@ -559,6 +569,8 @@ static func _cantina(sb: SchoolBuilder, b: WorldBatcher, r: Rect2, rng: RandomNu
 	var mx := r.end.x + T * 0.5 + 0.04
 	outer.box("plain", Vector3(mx, 2.85, 12.0), Vector3(0.04, 0.6, 5.0), Color("c0392b"))
 	sb.add_label("CANTINA", Vector3(mx + 0.03, 2.85, 12.0), PI * 0.5, 96, Color.WHITE, Color(0, 0, 0, 0), 0.006, 60.0)
+	sb.labels[-1]["parent"] = "cantina_outer"
 	outer.box("plain", Vector3(mx, 1.7, 16.5), Vector3(0.04, 1.6, 2.0), Color("2d3436"))
 	sb.add_label("CARDÁPIO\nCoxinha ...... R$ 4\nPão de queijo .. R$ 3\nPastel ...... R$ 5\nSuco ........ R$ 3\nBolo ........ R$ 3", Vector3(mx + 0.03, 1.7, 16.5), PI * 0.5, 32, Color("fdfefe"), Color(0, 0, 0, 0), 0.0055, 25.0)
+	sb.labels[-1]["parent"] = "cantina_outer"
 	sb.add_zone("Fila da Cantina", SchoolBuilder.R(-22, 8, -19, 16), false, "", 9, Color(0.9, 0.7, 0.3))

@@ -26,7 +26,7 @@ static func _build_meshes() -> void:
 	for i in blobs.size():
 		f.cur_color = green * shade[i]
 		f.cur_color.a = 1.0
-		f.add_sphere(Transform3D(Basis.from_scale(Vector3(1, 0.82, 1)), blobs[i][0]), blobs[i][1], 10, 7)
+		f.add_sphere(Transform3D(Basis.from_scale(Vector3(1, 0.82, 1)), blobs[i][0]), blobs[i][1], 8, 6)
 	_meshes["copa"] = [t, f]
 
 	# ipê: tronco fino e copa achatada florida
@@ -41,7 +41,7 @@ static func _build_meshes() -> void:
 		var p := Vector3(cos(a) * 1.0, 3.9 + (i % 2) * 0.3, sin(a) * 1.0)
 		f.cur_color = Color(1, 1, 1) * (0.88 + 0.12 * (i % 3) / 2.0)
 		f.cur_color.a = 1.0
-		f.add_sphere(Transform3D(Basis.from_scale(Vector3(1, 0.6, 1)), p), 1.05, 9, 6)
+		f.add_sphere(Transform3D(Basis.from_scale(Vector3(1, 0.6, 1)), p), 1.05, 7, 5)
 	f.cur_color = Color.WHITE
 	f.add_sphere(Transform3D(Basis.from_scale(Vector3(1, 0.6, 1)), Vector3(0, 4.3, 0)), 1.3, 10, 6)
 	_meshes["ipe"] = [t, f]
@@ -92,17 +92,27 @@ static func _build_meshes() -> void:
 ## trees: Array de {type, pos, scale, rot, color}
 static func build(parent: Node3D, trees: Array, shadows: bool) -> void:
 	_build_meshes()
-	var by_type := {}
+	# Agrupa por tipo e por célula de 90 m: permite frustum culling e
+	# distância de visibilidade por grupo (MultiMesh é culled como um todo).
+	var by_cell := {}
+	var cell_size := 90.0
 	for tr in trees:
-		if not by_type.has(tr.type):
-			by_type[tr.type] = []
-		by_type[tr.type].append(tr)
-	for type in by_type.keys():
-		var list: Array = by_type[type]
+		var cell := Vector2i(floori(tr.pos.x / cell_size), floori(tr.pos.z / cell_size))
+		var key := "%s|%d|%d" % [tr.type, cell.x, cell.y]
+		if not by_cell.has(key):
+			by_cell[key] = []
+		by_cell[key].append(tr)
+	var meshes_cache := {}
+	for key in by_cell.keys():
+		var list: Array = by_cell[key]
+		var type: String = key.split("|")[0]
 		var parts: Array = _meshes[type]
 		for pi in 2:
-			var md: MeshData = parts[pi]
-			var mesh := md.build_mesh(SchoolMaterials.get_mat("plain" if pi == 0 else "foliage"))
+			var mkey := "%s%d" % [type, pi]
+			if not meshes_cache.has(mkey):
+				var md: MeshData = parts[pi]
+				meshes_cache[mkey] = md.build_mesh(SchoolMaterials.get_mat("plain" if pi == 0 else "foliage"))
+			var mesh: ArrayMesh = meshes_cache[mkey]
 			var mm := MultiMesh.new()
 			mm.transform_format = MultiMesh.TRANSFORM_3D
 			mm.use_colors = true
@@ -116,8 +126,10 @@ static func build(parent: Node3D, trees: Array, shadows: bool) -> void:
 				tint.a = 1.0
 				mm.set_instance_color(i, Color.WHITE if pi == 0 else tint)
 			var mmi := MultiMeshInstance3D.new()
-			mmi.name = "%s_%s" % [type, "trunk" if pi == 0 else "crown"]
+			mmi.name = "%s_%s" % [key.replace("|", "_"), "trunk" if pi == 0 else "crown"]
 			mmi.multimesh = mm
+			mmi.visibility_range_end = 150.0
+			mmi.visibility_range_end_margin = 10.0
 			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if shadows else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			parent.add_child(mmi)
 

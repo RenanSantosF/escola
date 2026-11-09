@@ -35,6 +35,8 @@ func _ready() -> void:
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mesh.material = mat
 	_particles.draw_pass_1 = mesh
+	_particles.visibility_range_end = 30.0
+	_particles.visibility_aabb = AABB(Vector3(-0.5, -0.5, -0.5), Vector3(1, 1.5, 1))
 	add_child(_particles)
 	_particles.global_position = spout if spout != Vector3.ZERO else global_position + Vector3(0, 1.0, 0)
 	_particles.global_rotation = Vector3(0, global_rotation.y + PI, 0)

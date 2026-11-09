@@ -18,7 +18,8 @@ var _zone_timer := 0.0
 var _player: Node3D
 var _labels_root: Node3D
 var _dynamic: Node3D
-var _detail_nodes: Array[Node] = []
+var _labels: Array = []  # [Label3D, alcance base]
+var _ranged: Array = []  # [GeometryInstance3D, alcance base]
 
 
 func _ready() -> void:
@@ -106,6 +107,12 @@ func build(progress: Callable) -> void:
 	trees.name = "Trees"
 	add_child(trees)
 	TreeFactory.build(trees, builder.trees, true)
+	for c in trees.get_children():
+		_ranged.append([c, (c as GeometryInstance3D).visibility_range_end])
+	for key in _chunk_nodes.keys():
+		for c in _chunk_nodes[key].get_children():
+			if c is GeometryInstance3D and (c as GeometryInstance3D).visibility_range_end > 0.0:
+				_ranged.append([c, (c as GeometryInstance3D).visibility_range_end])
 
 	_labels_root = Node3D.new()
 	_labels_root.name = "Labels"
@@ -127,7 +134,9 @@ func build(progress: Callable) -> void:
 		lb.position = l.pos
 		lb.rotation.y = l.rot
 		lb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_labels_root.add_child(lb)
+		var parent_node: Node3D = _chunk_nodes.get(l.get("parent", ""), _labels_root)
+		parent_node.add_child(lb)
+		_labels.append([lb, float(l.vis)])
 
 	_dynamic = Node3D.new()
 	_dynamic.name = "Dynamic"
@@ -302,13 +311,15 @@ func _apply_quality() -> void:
 	# Árvores: sem sombras na qualidade baixa
 	if has_node("Trees"):
 		for c in get_node("Trees").get_children():
+			if not c is GeometryInstance3D:
+				continue
 			(c as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if q != Settings.Quality.LOW else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# Distância de exibição dos rótulos
-	if _labels_root:
-		var mult := 0.6 if q == Settings.Quality.LOW else 1.0
-		for i in _labels_root.get_child_count():
-			var lb := _labels_root.get_child(i) as Label3D
-			lb.visibility_range_end = builder.labels[i].vis * mult
+	# Distância de exibição (rótulos, áreas externas, árvores)
+	var mult := 0.6 if q == Settings.Quality.LOW else (0.85 if q == Settings.Quality.MEDIUM else 1.0)
+	for e in _labels:
+		(e[0] as Label3D).visibility_range_end = e[1] * mult
+	for e in _ranged:
+		(e[0] as GeometryInstance3D).visibility_range_end = e[1] * mult
 
 
 func _set_far(far: float) -> void:

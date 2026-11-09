@@ -76,15 +76,15 @@ func _on_progress(f: float, text: String) -> void:
 
 func _build_loading() -> void:
 	_loading = Control.new()
-	_loading.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_loading.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_loading.theme = UITheme.get_theme()
 	ui_layer.add_child(_loading)
 	var bg := ColorRect.new()
 	bg.color = Color("ffcf3f")
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_loading.add_child(bg)
 	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_loading.add_child(center)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 18)
@@ -111,7 +111,7 @@ func _build_loading() -> void:
 
 func _build_menu() -> void:
 	_menu = Control.new()
-	_menu.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_menu.theme = UITheme.get_theme()
 	ui_layer.add_child(_menu)
 	var grad := TextureRect.new()
@@ -123,7 +123,7 @@ func _build_menu() -> void:
 	gt.fill_from = Vector2(1, 0)
 	gt.fill_to = Vector2(0, 0)
 	grad.texture = gt
-	grad.set_anchors_preset(Control.PRESET_FULL_RECT)
+	grad.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	grad.stretch_mode = TextureRect.STRETCH_SCALE
 	grad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_menu.add_child(grad)
@@ -160,7 +160,7 @@ func _build_menu() -> void:
 	_menu.add_child(ver)
 
 	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_menu.add_child(center)
 	_menu_settings = SettingsPanel.new()

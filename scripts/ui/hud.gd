@@ -21,7 +21,7 @@ var main_menu_cb: Callable
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	theme = UITheme.get_theme()
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -50,7 +50,7 @@ func _ready() -> void:
 
 	_map_dim = ColorRect.new()
 	_map_dim.color = Color(0, 0, 0, 0.45)
-	_map_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_map_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_map_dim.visible = false
 	_map_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_map_dim)
@@ -135,15 +135,15 @@ func _build_emote_panel() -> void:
 
 func _build_pause() -> void:
 	_pause_layer = Control.new()
-	_pause_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_pause_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_pause_layer.visible = false
 	add_child(_pause_layer)
 	var dim := ColorRect.new()
 	dim.color = Color(0.05, 0.08, 0.15, 0.6)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_pause_layer.add_child(dim)
 	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_pause_layer.add_child(center)
 	var panel := PanelContainer.new()
 	center.add_child(panel)

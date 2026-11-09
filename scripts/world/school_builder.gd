@@ -32,10 +32,15 @@ const CONCRETE := Color("cfcac0")
 const RED_FLOOR := Color("b5523b")
 
 
+## Alcance padrão de chunks de áreas externas com muitos detalhes.
+const AREA_RANGE := {"parquinho": 95.0, "horta": 90.0, "queimada": 110.0, "bosque": 100.0, "jardim_oeste": 100.0,
+	"pias": 70.0, "parking": 110.0, "front": 120.0, "outside": 170.0, "patio_coberto": 120.0, "signs": 45.0}
+
+
 func chunk(name: String, vis := 0.0) -> WorldBatcher:
 	if not chunks.has(name):
 		var b := WorldBatcher.new(name)
-		b.visibility_end = vis
+		b.visibility_end = vis if vis > 0.0 else AREA_RANGE.get(name, 0.0)
 		chunks[name] = b
 	return chunks[name]
 

@@ -53,6 +53,8 @@ static func create_paper_ball() -> PickupItem:
 		var d := Vector3(r.randf_range(-1, 1), r.randf_range(-1, 1), r.randf_range(-1, 1)).normalized()
 		md.add_box(Transform3D(Basis(d.cross(Vector3.UP).normalized() if absf(d.y) < 0.9 else Vector3.RIGHT, r.randf() * 2.0), d * 0.05), Vector3(0.05, 0.03, 0.05))
 	mi.mesh = md.build_mesh(SchoolMaterials.get_mat("plain"))
+	mi.visibility_range_end = 35.0
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	p.add_child(mi)
 	return p
 

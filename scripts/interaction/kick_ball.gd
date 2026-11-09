@@ -53,6 +53,7 @@ static func create(ball_kind: String) -> KickBall:
 			md.add_box(Transform3D(Basis(Vector3.UP, i * PI / 3.0), Vector3.ZERO), Vector3(b.radius * 2.02, b.radius * 0.08, b.radius * 0.08))
 	var mi := MeshInstance3D.new()
 	mi.mesh = md.build_mesh(SchoolMaterials.get_mat("plain"))
+	mi.visibility_range_end = 70.0
 	b.add_child(mi)
 	return b
 

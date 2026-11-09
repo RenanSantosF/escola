@@ -57,6 +57,12 @@ static func get_theme() -> Theme:
 	t.set_icon("grabber", "HSlider", _circle_tex(34, BLUE))
 	t.set_icon("grabber_highlight", "HSlider", _circle_tex(38, BLUE.lightened(0.2)))
 	t.set_font_size("font_size", "CheckButton", 26)
+	var flat := box(Color(1, 1, 1, 0.0), 14)
+	var flat_h := box(Color(0, 0, 0, 0.05), 14)
+	for st in ["normal", "pressed", "focus", "disabled"]:
+		t.set_stylebox(st, "CheckButton", flat)
+	t.set_stylebox("hover", "CheckButton", flat_h)
+	t.set_stylebox("hover_pressed", "CheckButton", flat_h)
 	t.set_color("font_color", "CheckButton", DARK)
 	t.set_color("font_hover_color", "CheckButton", DARK)
 	t.set_color("font_pressed_color", "CheckButton", DARK)

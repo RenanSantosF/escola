@@ -20,44 +20,39 @@ static func uv_scale(key: String) -> float:
 	return UV_SCALE.get(key, 3.0)
 
 
+## Camadas do atlas (Texture2DArray) — mesma ordem de tools/gen_textures.py.
+const LAYERS := {
+	"plain": 0, "metal": 0, "glass": 0, "paint": 1, "chalk": 1, "tile": 2, "wood": 3, "grass": 4,
+	"concrete": 5, "redfloor": 5, "brick": 6, "dirt": 7, "roof": 8, "asphalt": 9,
+}
+## Rugosidade (0..1) e metal (0..1) por material, enviados via UV2.y.
+const SURFACE := {
+	"plain": [0.8, 0.0], "metal": [0.38, 0.45], "glass": [0.08, 0.3], "paint": [0.92, 0.0], "chalk": [1.0, 0.0],
+	"tile": [0.42, 0.0], "wood": [0.7, 0.0], "grass": [0.95, 0.0], "concrete": [0.88, 0.0], "redfloor": [0.45, 0.0],
+	"brick": [0.9, 0.0], "dirt": [1.0, 0.0], "roof": [0.8, 0.0], "asphalt": [0.9, 0.0],
+}
+
+
+## Grupo de material real usado pelo batcher: quase tudo cai em "world".
+static func group_of(key: String) -> String:
+	if key == "fence" or key == "foliage":
+		return key
+	return "world"
+
+
+## UV2 codificado: x = camada, y = rugosidade (parte inteira 0..100) + metal (fração).
+static func uv2_of(key: String) -> Vector2:
+	var s: Array = SURFACE.get(key, [0.8, 0.0])
+	return Vector2(float(LAYERS.get(key, 0)), floorf(s[0] * 100.0) + clampf(s[1], 0.0, 0.99))
+
+
 static func get_mat(key: String) -> Material:
 	if _cache.has(key):
 		return _cache[key]
 	var m: Material
 	match key:
-		"paint":
-			m = _std("plaster.png", 0.92)
-		"tile":
-			m = _std("tiles.png", 0.42)
-		"wood":
-			m = _std("wood.png", 0.7)
-		"grass":
-			m = _std("grass.png", 0.95)
-		"concrete":
-			m = _std("concrete.png", 0.88)
-		"redfloor":
-			m = _std("concrete.png", 0.45)
-		"brick":
-			m = _std("brick.png", 0.9)
-		"dirt":
-			m = _std("dirt.png", 1.0)
-		"roof":
-			m = _std("roof.png", 0.8)
-		"asphalt":
-			m = _std("asphalt.png", 0.9)
-		"plain":
-			m = _std("", 0.8)
-		"chalk":
-			m = _std("plaster.png", 1.0)
-		"metal":
-			var mm := _std("", 0.38)
-			mm.metallic = 0.45
-			m = mm
-		"glass":
-			var g := _std("", 0.08)
-			g.metallic = 0.3
-			g.metallic_specular = 0.9
-			m = g
+		"world":
+			m = world_material()
 		"fence":
 			var f := _std("fence.png", 0.6)
 			f.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
@@ -67,9 +62,43 @@ static func get_mat(key: String) -> Material:
 			m = f
 		"foliage":
 			m = foliage_material()
-		_:
+		"plain":
 			m = _std("", 0.8)
+		_:
+			m = world_material()
 	_cache[key] = m
+	return m
+
+
+## Material único do cenário: textura de um Texture2DArray escolhida por
+## vértice (UV2.x), cor por vértice, rugosidade/metal por vértice (UV2.y).
+static func world_material() -> ShaderMaterial:
+	if _cache.has("world"):
+		return _cache["world"]
+	var sh := Shader.new()
+	sh.code = """
+shader_type spatial;
+render_mode cull_back, diffuse_lambert, specular_schlick_ggx;
+uniform sampler2DArray atlas : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+varying flat float layer;
+varying float rough;
+varying float metal;
+void vertex() {
+	layer = UV2.x;
+	rough = floor(UV2.y) / 100.0;
+	metal = fract(UV2.y);
+}
+void fragment() {
+	vec3 t = texture(atlas, vec3(UV, layer)).rgb;
+	ALBEDO = COLOR.rgb * t;
+	ROUGHNESS = rough;
+	METALLIC = metal;
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("atlas", load(TEX + "world_atlas.png"))
+	_cache["world"] = m
 	return m
 
 

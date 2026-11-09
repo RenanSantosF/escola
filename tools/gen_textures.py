@@ -47,11 +47,17 @@ def fbm(size, base_cells, octaves, seed, gain=0.5):
     return total / norm
 
 
+LAYERS = {}
+
+
 def save(name, arr, mode="RGB"):
+    """Texturas do atlas ficam em memória; fence/foliage viram arquivos próprios."""
     arr = np.clip(arr, 0, 1)
-    img = Image.fromarray((arr * 255).astype(np.uint8), mode)
-    img.save(os.path.join(OUT, name))
-    print("ok", name)
+    if name in ("fence.png", "foliage.png"):
+        img = Image.fromarray((arr * 255).astype(np.uint8), mode)
+        img.save(os.path.join(OUT, name))
+        print("ok", name)
+    LAYERS[name] = arr
 
 
 def gray3(g):
@@ -155,3 +161,22 @@ n = fbm(S, 16, 4, 13)
 grain = rng.random((S, S))
 a = 0.55 + (n - 0.5) * 0.12 + (grain - 0.5) * 0.12
 save("asphalt.png", gray3(a))
+
+
+# Atlas em camadas (Texture2DArray): uma fatia de 256x256 por material.
+# A ordem precisa bater com SchoolMaterials.LAYERS.
+ORDER = ["white", "plaster.png", "tiles.png", "wood.png", "grass.png", "concrete.png",
+         "brick.png", "dirt.png", "roof.png", "asphalt.png"]
+slices = []
+for name in ORDER:
+    if name == "white":
+        a = np.ones((S, S, 3))
+    else:
+        a = LAYERS[name]
+        if a.ndim == 2:
+            a = gray3(a)
+        a = a[..., :3]
+    slices.append(a)
+atlas = np.concatenate(slices, axis=0)
+Image.fromarray((np.clip(atlas, 0, 1) * 255).astype(np.uint8), "RGB").save(os.path.join(OUT, "world_atlas.png"))
+print("ok world_atlas.png", atlas.shape)

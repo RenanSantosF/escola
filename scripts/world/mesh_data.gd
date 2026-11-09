@@ -9,12 +9,16 @@ var v := PackedVector3Array()
 var n := PackedVector3Array()
 var c := PackedColorArray()
 var uv := PackedVector2Array()
+var uv2 := PackedVector2Array()
 var bones := PackedInt32Array()
 var weights := PackedFloat32Array()
 var idx := PackedInt32Array()
 
 var use_uv := false
 var use_bones := false
+var use_uv2 := false
+## UV2 por vértice: x = camada do atlas, y = código de rugosidade/metal.
+var cur_uv2 := Vector2.ZERO
 var cur_bone := 0
 var cur_color := Color.WHITE
 ## Metros de mundo por repetição de textura.
@@ -38,6 +42,8 @@ func add_vertex(p: Vector3, nn: Vector3) -> int:
 		weights.append_array([1.0, 0.0, 0.0, 0.0])
 	if use_uv:
 		uv.append(_world_uv(p, nn))
+	if use_uv2:
+		uv2.append(cur_uv2)
 	return v.size() - 1
 
 
@@ -229,6 +235,8 @@ func to_arrays() -> Array:
 	arr[Mesh.ARRAY_COLOR] = c
 	if use_uv:
 		arr[Mesh.ARRAY_TEX_UV] = uv
+	if use_uv2:
+		arr[Mesh.ARRAY_TEX_UV2] = uv2
 	if use_bones:
 		arr[Mesh.ARRAY_BONES] = bones
 		arr[Mesh.ARRAY_WEIGHTS] = weights
