@@ -135,6 +135,9 @@ func build(progress: Callable) -> void:
 		lb.position = l.pos
 		lb.rotation.y = l.rot
 		lb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if l.get("width", 0.0) > 0.0:
+			lb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			lb.width = l.width
 		var parent_node: Node3D = _chunk_nodes.get(l.get("parent", ""), _labels_root)
 		parent_node.add_child(lb)
 		_labels.append([lb, float(l.vis)])
@@ -264,7 +267,23 @@ func _enter_zone(zone: Dictionary) -> void:
 		if new_roof != "":
 			_set_roof_hidden(new_roof, true)
 	GameManager.set_zone(zone.name, player_indoor)
-	AudioManager.set_ambient("ambient_indoor" if player_indoor else "ambient_outdoor", -10.0 if player_indoor else -6.0)
+	refresh_ambient()
+
+
+## Som ambiente conforme o local e a fase do dia.
+var recess_active := false
+
+
+func refresh_ambient() -> void:
+	var zn: String = current_zone.get("name", "")
+	if zn in ["Cantina", "Fila da Cantina", "Pátio Coberto"] and recess_active:
+		AudioManager.set_ambient("ambient_cantina", -7.0)
+	elif player_indoor:
+		AudioManager.set_ambient("ambient_sala" if zn.begins_with("Sala") else "ambient_indoor", -9.0)
+	elif recess_active:
+		AudioManager.set_ambient("ambient_recreio", -8.0)
+	else:
+		AudioManager.set_ambient("ambient_outdoor", -6.0)
 
 
 func _set_roof_hidden(id: String, hidden: bool) -> void:

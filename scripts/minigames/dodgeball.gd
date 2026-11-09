@@ -191,6 +191,7 @@ func _eliminate(body: Node) -> void:
 		n.teleport(pos, 0.0)
 		n.stop()
 	AudioManager.play_3d("bonk", (body as Node3D).global_position, -6.0)
+	Effects.burst((body as Node3D).global_position + Vector3(0, 1.0, 0), "sparkle")
 
 
 func tick(delta: float) -> void:

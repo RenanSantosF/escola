@@ -15,6 +15,8 @@ var _ambient_a: AudioStreamPlayer
 var _ambient_b: AudioStreamPlayer
 var _ambient_current := ""
 var _music: AudioStreamPlayer
+var _music_b: AudioStreamPlayer
+var _music_current := ""
 
 
 func _ready() -> void:
@@ -42,6 +44,9 @@ func _ready() -> void:
 	_music = AudioStreamPlayer.new()
 	_music.bus = "Music"
 	add_child(_music)
+	_music_b = AudioStreamPlayer.new()
+	_music_b.bus = "Music"
+	add_child(_music_b)
 	apply_volumes()
 
 
@@ -144,6 +149,29 @@ func set_ambient(sound: String, volume_db := -6.0, fade := 1.5) -> void:
 	incoming.play(randf() * maxf(stream.get_length() - 1.0, 0.0))
 	var tw2 := create_tween()
 	tw2.tween_property(incoming, "volume_db", volume_db, fade)
+
+
+## Troca a música com crossfade ("" = silêncio).
+func play_music(track: String, volume_db := -8.0, fade := 1.8) -> void:
+	if track == _music_current:
+		return
+	_music_current = track
+	var incoming := _music_b if _music.playing and _music.volume_db > -60.0 else _music
+	var outgoing := _music if incoming == _music_b else _music_b
+	if outgoing.playing:
+		var tw := create_tween()
+		tw.tween_property(outgoing, "volume_db", -80.0, fade)
+		tw.tween_callback(outgoing.stop)
+	if track.is_empty():
+		return
+	var stream := get_stream(track)
+	if stream == null:
+		return
+	_make_loop(stream)
+	incoming.stream = stream
+	incoming.volume_db = -60.0
+	incoming.play()
+	create_tween().tween_property(incoming, "volume_db", volume_db, fade)
 
 
 func _make_loop(stream: AudioStream) -> void:

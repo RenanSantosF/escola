@@ -25,6 +25,8 @@ Settings="*res://autoloads/settings_manager.gd"
 SaveManager="*res://autoloads/save_manager.gd"
 AudioManager="*res://autoloads/audio_manager.gd"
 GameManager="*res://autoloads/game_manager.gd"
+Effects="*res://autoloads/effects.gd"
+AdsManager="*res://autoloads/ads_manager.gd"
 
 [display]
 

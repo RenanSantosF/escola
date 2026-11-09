@@ -88,6 +88,7 @@ func _kickoff(_team_scored: int) -> void:
 	if keeper_b:
 		keeper_b.teleport(Vector3(59.4, 0.05, -49), -PI * 0.5)
 	countdown(3.0)
+	get_tree().create_timer(3.0).timeout.connect(func(): AudioManager.play_ui("whistle", -6.0))
 	_update_hud()
 
 
@@ -210,7 +211,8 @@ func _goal(team: int) -> void:
 		score_a += 1
 		hud.show_banner("GOOOL!", "Seu time %d x %d" % [score_a, score_b])
 		player.visual.play("celebrate")
-		AudioManager.play_ui("celebrate", -2.0)
+		AudioManager.play_ui("applause", -4.0)
+		Effects.burst(ball.global_position, "confetti")
 		for n in team_a:
 			n.visual.play("clap")
 	else:

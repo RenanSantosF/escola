@@ -338,6 +338,14 @@ func show_day_summary(s: Dictionary, on_next: Callable) -> void:
 		el.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		el.add_theme_font_size_override("font_size", 22)
 		v.add_child(el)
+	# Recompensado opcional: só aparece se houver anúncio real disponível.
+	if AdsManager.can_show_rewarded():
+		var dbl := UITheme.make_button("Dobrar moedas (ver anúncio)", func():
+			AdsManager.show_rewarded("dobrar_dia", func():
+				GameManager.add_rewards(0, int(s.coins))
+				GameManager.show_toast("Moedas dobradas! +%d" % s.coins)), 420)
+		dbl.add_theme_stylebox_override("normal", UITheme.box(Color("9be37a"), 18, Color("5aa83a"), 0, 6))
+		v.add_child(dbl)
 	v.add_child(UITheme.make_button("Próximo dia", func():
 		_summary.queue_free()
 		_summary = null

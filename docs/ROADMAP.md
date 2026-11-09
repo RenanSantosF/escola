@@ -94,6 +94,25 @@ recompensas próprias; estações com placa no mapa (só no recreio) e convites 
 - [x] Sem anúncios obrigatórios para progredir
 - [x] 161 testes automatizados
 
-## Fase 6 — Acabamento
-Música, mais efeitos, testes em várias resoluções, AdMob (recompensado opcional,
-sem anúncios obrigatórios, respeitando as políticas para público infantil).
+## ✅ Fase 6 — Acabamento (concluída)
+
+- [x] Música original gerada por síntese (menu, aula, recreio) com troca suave por fase
+- [x] Ambientes: burburinho de crianças no recreio, cantina, sala de aula, pátio com
+      passarinhos; apito e aplausos no futebol; compressão ADPCM nos sons longos
+- [x] Efeitos com pool: confete (gols, vitórias, nível, comemorar), poeira (chutes,
+      aterrissagens), brilho; reduzidos na qualidade Baixa
+- [x] Testes de layout em 16:9, 20:9, 21:9 e 4:3 (tablet); texto da lousa com quebra
+- [x] Ícones do app, preset Android, checklist e textos para a Google Play
+      ([GOOGLE_PLAY.md](GOOGLE_PLAY.md))
+- [x] AdsManager (AdMob) preparado e **desativado**: recompensado voluntário, intersticial
+      com limite de frequência, configuração para público infantil, sem botões falsos
+      ([MONETIZACAO.md](MONETIZACAO.md))
+- [x] 170 testes automatizados
+
+## Próximos passos sugeridos
+
+- Testar em aparelhos Android reais (o ambiente de desenvolvimento não tinha SDK) e
+  ajustar a qualidade automática conforme os FPS medidos.
+- Opcional: substituir as animações procedurais por animações Mixamo retargetadas
+  (o esqueleto já usa os nomes do perfil humanoide do Godot).
+- Mais conteúdo: novas tarefas, eventos (festa junina no palco!), mais figurinhas.

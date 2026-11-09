@@ -72,6 +72,23 @@ Main (scripts/main/main.gd)
   aparece; ao sair, o inverso. Fora dos prédios nada da mobília é desenhado.
 * Zonas nomeadas alimentam a HUD, o minimapa e o som dos passos (piso duro/grama/terra).
 
+## Sistemas de jogo (Fases 2–6)
+
+| Nó / classe | Papel |
+|---|---|
+| `NavGraph` | Grafo de navegação gerado da física (grade 3 m + portas), A*, sem ilhas |
+| `NPCManager` / `NPC` | Pool de alunos e adultos, rotinas por fase, atividades do recreio, LOD |
+| `SchoolDay` | Ciclo do dia (chegada → aula → recreio → volta → aula → fim), tarefas, sinal |
+| `ClassroomTasks` / `ClassroomUI` | Gerador de 6 tipos de tarefa e painel em forma de lousa |
+| `MinigameManager` / `Minigame` | 8 minijogos independentes, estações e convites |
+| `DisciplineSystem` | Testemunhas, faltas, ocorrências com cena na diretoria, reputação |
+| `SchoolEvents` | Eventos espontâneos e missões de colegas |
+| `Progression` / `ShopCatalog` | Loja, guarda-roupa, decoração, missões diárias, conquistas |
+| `Friendship`, `Stickers` | Amizades e álbum de figurinhas (estáticos, dados no save) |
+| `ProfileMenu`, `DialogueUI`, `HUD` | Interfaces (mochila, diálogos, objetivo, placar, minimapa) |
+| `Effects`, `AudioManager` | Partículas e áudio com pool |
+| `AdsManager` | Monetização preparada e desativada |
+
 ## Interação
 
 Duck typing via grupo `interactable`: `interact_point()`, `interact_radius`,

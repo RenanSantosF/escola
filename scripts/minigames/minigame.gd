@@ -112,6 +112,7 @@ func end_game(won: int, summary: String, coins: int, xp: int, extra := {}) -> vo
 	if won > 0:
 		player.visual.play("celebrate")
 		AudioManager.play_ui("celebrate", -4.0)
+		Effects.burst(player.global_position + Vector3(0, 1.8, 0), "confetti")
 	elif won < 0:
 		player.visual.play("sad")
 	for n in participants:

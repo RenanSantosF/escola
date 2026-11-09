@@ -117,6 +117,20 @@ func start_day() -> void:
 
 func _set_phase(p: int) -> void:
 	phase = p
+	if p != Phase.CLASS_1 and p != Phase.CLASS_2:
+		classroom_ui.hide_panel()
+		_task_active = false
+		if not dialogue.is_open():
+			hud.controls.visible = GameManager.is_playing()
+	world.recess_active = p == Phase.RECESS
+	world.refresh_ambient()
+	match p:
+		Phase.RECESS:
+			AudioManager.play_music("music_recreio", -11.0)
+		Phase.CLASS_1, Phase.CLASS_2:
+			AudioManager.play_music("music_aula", -15.0)
+		_:
+			AudioManager.play_music("music_menu", -14.0)
 	_phase_time = 0.0
 	phase_changed.emit(p)
 	_update_clock()
@@ -233,7 +247,9 @@ func _end_day() -> void:
 		"level_up": GameManager.level() > lvl_before}
 	_set_objective("", null)
 	get_tree().create_timer(2.0).timeout.connect(func():
-		hud.show_day_summary(summary, start_day))
+		hud.show_day_summary(summary, func():
+			AdsManager.maybe_show_interstitial(day)
+			start_day()))
 	day_finished.emit(summary)
 
 

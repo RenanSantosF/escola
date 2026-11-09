@@ -56,6 +56,8 @@ func _ready() -> void:
 	await _test_events_missions()
 	# ---- FASE 5
 	await _test_progression()
+	# ---- FASE 6
+	await _test_polish()
 	_finish()
 
 
@@ -1052,6 +1054,49 @@ func _test_progression() -> void:
 	pm.close_menu()
 	await get_tree().process_frame
 	check(not get_tree().paused and GameManager.is_playing(), "mochila: fecha e retoma o jogo")
+
+
+# --------------------------------------------------------------- FASE 6
+
+func _test_polish() -> void:
+	var missing := []
+	for snd in ["music_recreio", "music_aula", "music_menu", "ambient_recreio", "ambient_cantina", "ambient_sala", "whistle", "applause", "school_bell", "kick", "step_hard", "step_grass"]:
+		if AudioManager.get_stream(snd) == null:
+			missing.append(snd)
+	check(missing.is_empty(), "áudio: todos os sons carregam", str(missing))
+	await _recess()
+	check(AudioManager._music_current == "music_recreio", "áudio: música do recreio toca no recreio")
+	_place(Vector3(0, 0.05, -5), 0)
+	await _wait(0.5)
+	check(AudioManager._ambient_current == "ambient_recreio", "áudio: burburinho de crianças no pátio durante o recreio")
+	Effects.burst(Vector3(0, 1, 0), "confetti")
+	Effects.burst(Vector3(0, 1, 0), "dust")
+	check(Effects._pools.has("confetti") and Effects._next.confetti == 1 and Effects._pools.confetti.size() == Effects.POOL, "efeitos: confete com pool de partículas")
+	# anúncios: desligados por padrão, sem botões falsos
+	check(not AdsManager.enabled and not AdsManager.can_show_rewarded(), "anúncios: desativados por padrão")
+	main.hud.show_day_summary({"day": 1, "correct": 2, "total": 4, "coins": 20, "xp": 40}, func(): pass)
+	var has_ad_btn := false
+	for b in main.hud._summary.find_children("*", "Button", true, false):
+		if (b as Button).text.contains("anúncio"):
+			has_ad_btn = true
+	check(not has_ad_btn, "anúncios: sem provedor, nenhum botão de anúncio aparece")
+	main.hud._summary.queue_free()
+	main.hud._summary = null
+	# com provedor (simulado) o recompensado é voluntário e paga de verdade
+	var mock = load("res://tests/mock_ads_provider.gd").new()
+	AdsManager.enabled = true
+	AdsManager.register_provider(mock)
+	var c0 := GameManager.coins()
+	AdsManager.show_rewarded("teste", func(): GameManager.add_rewards(0, 20))
+	check(mock.shown_rewarded == 1 and GameManager.coins() == c0 + 20, "anúncios: recompensado entrega a recompensa")
+	AdsManager._last_interstitial_day = -99
+	AdsManager.maybe_show_interstitial(1)
+	check(mock.shown_interstitial == 0, "anúncios: nada de intersticial nos primeiros dias")
+	AdsManager.maybe_show_interstitial(4)
+	AdsManager.maybe_show_interstitial(5)
+	check(mock.shown_interstitial == 1, "anúncios: limite de frequência do intersticial")
+	AdsManager.enabled = false
+	AdsManager.provider = null
 
 
 func _finish() -> void:

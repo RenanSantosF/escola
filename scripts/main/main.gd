@@ -253,6 +253,7 @@ func _show_menu() -> void:
 	_menu_box.visible = true
 	_menu.modulate.a = 1.0
 	camera_rig.set_showcase(true)
+	AudioManager.play_music("music_menu", -10.0)
 
 
 func _start_game() -> void:

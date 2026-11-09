@@ -91,6 +91,8 @@ func kick(direction: Vector3, power: float, lift: float) -> void:
 	apply_central_impulse((dir * power + Vector3.UP * lift) * mass)
 	angular_velocity += dir.cross(Vector3.UP) * -power * 2.0
 	AudioManager.play_3d("kick", global_position, -2.0)
+	if power > 6.0:
+		Effects.burst(global_position, "dust")
 
 
 func nudge(direction: Vector3, strength: float) -> void:

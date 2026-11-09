@@ -4,7 +4,7 @@ Simulador casual de vida escolar em 3D, feito em **Godot 4.3** para **Android (p
 Ambientado numa escola pública brasileira grande — com murada, pátio ao sol, quadra,
 cantina, salas de aula, biblioteca, parquinho e muito mais.
 
-> Status: **Fases 1 (Fundação), 2 (Vida escolar) 3 (Diversão), 4 (Personalidade) e 5 (Progressão) concluídas.** Veja [docs/ROADMAP.md](docs/ROADMAP.md).
+> Status: **Fases 1 (Fundação), 2 (Vida escolar) 3 (Diversão), 4 (Personalidade), 5 (Progressão) e 6 (Acabamento) concluídas.** Veja [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Como abrir e jogar
 
@@ -45,7 +45,7 @@ godot --rendering-driver opengl3 --path . res://tests/capture_world.tscn -- --ou
 ## Estrutura
 
 ```
-autoloads/       GameManager, Settings, SaveManager, AudioManager
+autoloads/       GameManager, Settings, SaveManager, AudioManager, Effects, AdsManager
 scenes/          main (entrada), character/player, school (raiz do mundo)
 scripts/
   character/     aparência, construtor do modelo, animador procedural, ações
@@ -66,7 +66,8 @@ tests/           testes automatizados e cenas de captura
 docs/            arquitetura, roadmap, guia Android
 ```
 
-Mais detalhes em [docs/ARQUITETURA.md](docs/ARQUITETURA.md) e [docs/ANDROID.md](docs/ANDROID.md).
+Mais detalhes em [docs/ARQUITETURA.md](docs/ARQUITETURA.md), [docs/ANDROID.md](docs/ANDROID.md),
+[docs/GOOGLE_PLAY.md](docs/GOOGLE_PLAY.md) e [docs/MONETIZACAO.md](docs/MONETIZACAO.md).
 
 ## Assets e licenças
 

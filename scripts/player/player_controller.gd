@@ -132,6 +132,8 @@ func _physics_process(delta: float) -> void:
 
 	# Gravidade e pulo
 	if is_on_floor():
+		if _air_time > 0.45:
+			Effects.burst(global_position + Vector3(0, 0.05, 0), "dust")
 		_coyote = 0.12
 		_air_time = 0.0
 	else:
@@ -261,6 +263,7 @@ func emote(name: String) -> void:
 		emote_started.emit(name)
 		if name == "celebrate":
 			AudioManager.play_3d("celebrate", global_position + Vector3.UP, -6.0, 0.02)
+			Effects.burst(global_position + Vector3(0, 1.8, 0), "confetti")
 		if not _is_upper_action(name):
 			velocity.x = 0.0
 			velocity.z = 0.0
@@ -376,6 +379,7 @@ func _on_action_event(action: String, event: String) -> void:
 			if ball and is_instance_valid(ball) and ball.global_position.distance_to(global_position + fwd * 0.4) < 1.0:
 				var power := 9.5 if _prev_speed > walk_speed + 0.5 else 7.5
 				ball.kick(fwd, power, 2.6)
+				Effects.burst(ball.global_position, "dust")
 				GameManager.add_stat("kicks")
 				if camera_rig and camera_rig.has_method("shake"):
 					camera_rig.shake(0.05)

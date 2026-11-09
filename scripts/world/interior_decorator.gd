@@ -115,6 +115,7 @@ static func _classroom(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: 
 		info["teacher"] = bp[0] + n * 1.1 + Vector3(0, 0.05, 0) + Vector3(0, 0, 1).rotated(Vector3.UP, bp[1] + PI * 0.5) * 1.3
 		info["teacher_desk"] = bp[0] + n * 1.9
 		info["board_label"] = sb.labels.size() - 2  # texto da lousa (antes do alfabeto)
+		sb.labels[-2]["width"] = 680.0
 		info["item_spots"] = [bp[0] + n * 0.5 + Vector3(0, 0.95, 0) + Vector3(0, 0, 1).rotated(Vector3.UP, bp[1] + PI * 0.5) * 2.4]
 	# relógio acima da lousa (lado oposto)
 	var opp := {"w": "e", "n": "s", "e": "w", "s": "n"}[board_side] as String
