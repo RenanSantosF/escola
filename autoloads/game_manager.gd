@@ -16,6 +16,8 @@ var state: int = State.BOOT
 var player: Node = null
 var world: Node = null
 var current_zone := ""
+## Menu sobreposto (mochila) aberto: pausa sem mostrar a tela de pausa.
+var overlay_open := false
 var _play_time_accum := 0.0
 
 

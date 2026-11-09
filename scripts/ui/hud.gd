@@ -133,7 +133,7 @@ func _layout() -> void:
 		_mission.size = Vector2(vs.x - 600, 28)
 		_mission.position = Vector2(300, 90)
 		_wallet.size = Vector2(420, 30)
-		_wallet.position = Vector2(vs.x - 220 - 420, 32)
+		_wallet.position = Vector2(vs.x - 300 - 420, 32)
 
 
 func _on_map_full(is_full: bool) -> void:
@@ -416,7 +416,7 @@ func close_pause() -> void:
 
 
 func _on_state_changed(s: int) -> void:
-	var paused := s == GameManager.State.PAUSED
+	var paused := s == GameManager.State.PAUSED and not GameManager.overlay_open
 	_pause_layer.visible = paused
 	if paused:
 		(_pause_box.get_meta("panel") as Control).visible = true

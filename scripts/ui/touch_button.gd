@@ -6,7 +6,7 @@ extends Control
 signal pressed
 signal released
 
-enum Icon { RUN, INTERACT, JUMP, PLAY, PAUSE, EMOTE, MAP }
+enum Icon { RUN, INTERACT, JUMP, PLAY, PAUSE, EMOTE, MAP, BAG }
 
 @export var icon: Icon = Icon.INTERACT
 @export var base_color := Color("ffcf3f")
@@ -91,6 +91,11 @@ func _draw() -> void:
 			draw_circle(c + Vector2(-s * 0.3, -s * 0.2), s * 0.12, ic)
 			draw_circle(c + Vector2(s * 0.3, -s * 0.2), s * 0.12, ic)
 			draw_arc(c + Vector2(0, s * 0.05), s * 0.45, 0.3, PI - 0.3, 16, ic, r * 0.07, true)
+		Icon.BAG:
+			draw_rect(Rect2(c - Vector2(s * 0.6, s * 0.45), Vector2(s * 1.2, s * 1.15)), Color("e04a3a"))
+			draw_rect(Rect2(c - Vector2(s * 0.6, s * 0.45), Vector2(s * 1.2, s * 1.15)), ic, false, r * 0.06)
+			draw_arc(c + Vector2(0, -s * 0.45), s * 0.35, PI, TAU, 12, ic, r * 0.07, true)
+			draw_rect(Rect2(c + Vector2(-s * 0.35, s * 0.05), Vector2(s * 0.7, s * 0.35)), Color("ffcf3f"))
 		Icon.MAP:
 			draw_rect(Rect2(c - Vector2(s * 0.8, s * 0.6), Vector2(s * 1.6, s * 1.2)), Color("a8e6a1"))
 			draw_rect(Rect2(c - Vector2(s * 0.8, s * 0.6), Vector2(s * 1.6, s * 1.2)), ic, false, r * 0.06)

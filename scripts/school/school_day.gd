@@ -159,6 +159,7 @@ func _on_answered(ok: bool) -> void:
 	day_total += 1
 	if ok:
 		day_correct += 1
+		GameManager.add_stat("acertos")
 		npcs.teacher.visual.play("clap")
 		npcs.teacher.say(["Muito bem!", "Isso mesmo!", "Excelente!", "Parabéns!"].pick_random(), 2.0)
 		GameManager.add_rewards(10, 2)
@@ -308,6 +309,7 @@ func _finish_find(ok: bool) -> void:
 	day_total += 1
 	if ok:
 		day_correct += 1
+		GameManager.add_stat("acertos")
 		GameManager.add_rewards(15, 3)
 		AudioManager.play_ui("ui_confirm")
 		npcs.teacher.visual.play("clap")

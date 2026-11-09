@@ -12,6 +12,8 @@ var school_day: SchoolDay
 var minigames: MinigameManager
 var discipline: DisciplineSystem
 var events: SchoolEvents
+var progression: Progression
+var profile_menu: ProfileMenu
 var _day_started := false
 var ui_layer: CanvasLayer
 var _loading: Control
@@ -93,6 +95,14 @@ func _ready() -> void:
 	add_child(events)
 	events.setup(npcs, player, hud, school_day, world, minigames, discipline)
 	school_day.events = events
+	progression = Progression.new()
+	progression.name = "Progression"
+	add_child(progression)
+	progression.setup(player, world, npcs, school_day, minigames)
+	profile_menu = ProfileMenu.new()
+	profile_menu.progression = progression
+	ui_layer.add_child(profile_menu)
+	hud.controls.bag_pressed.connect(profile_menu.open_menu)
 	ui_layer.move_child(_loading, -1)
 
 	_build_menu()

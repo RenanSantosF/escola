@@ -78,10 +78,21 @@ recompensas próprias; estações com placa no mapa (só no recreio) e convites 
 - [x] Amizades com falas que mudam com o nível; comprar lanche com a Tia Rosa.
 - [x] 144 testes automatizados
 
-## Fase 5 — Progressão
-Economia, loja (a aparência já é serializável e trocável em tempo real), coleções,
-missões, conquistas. O save já reserva as seções `inventory`, `collections`,
-`friendships`, `missions`, `achievements`.
+## ✅ Fase 5 — Progressão (concluída)
+
+- [x] Economia: moedas e XP (tarefas, minijogos, missões, eventos), níveis com curva crescente
+- [x] **Loja visual** (botão Mochila na HUD) com 10 categorias e ~55 itens: camisetas, calças,
+      tênis, mochilas, bonés, penteados e cores, acessórios, decoração da carteira,
+      bolinhas de gude e pacotes de figurinhas; requisito de nível; **prévia 3D** para
+      experimentar antes de comprar
+- [x] Guarda-roupa: equipar troca o personagem na hora (malha reconstruída)
+- [x] Decoração aparece de verdade na sua carteira da Sala 5
+- [x] Coleções: álbum "Craques do Recreio" (24 figurinhas, 4 brilhantes) e 7 tipos de gude
+- [x] 3 **missões diárias** por dia (12 tipos), progresso automático e recompensa
+- [x] 17 **conquistas**; abas de Amigos (níveis/pontos/gostos) e Ficha (reputação, estatísticas)
+- [x] Tudo salvo (inventário, equipados, coleções, missões, conquistas)
+- [x] Sem anúncios obrigatórios para progredir
+- [x] 161 testes automatizados
 
 ## Fase 6 — Acabamento
 Música, mais efeitos, testes em várias resoluções, AdMob (recompensado opcional,

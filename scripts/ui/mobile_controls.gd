@@ -6,6 +6,7 @@ extends Control
 
 signal pause_pressed
 signal emote_pressed
+signal bag_pressed
 
 const JOY_RADIUS := 92.0
 const KNOB_RADIUS := 40.0
@@ -20,6 +21,7 @@ var btn_interact: TouchButton
 var btn_run: TouchButton
 var btn_pause: TouchButton
 var btn_emote: TouchButton
+var btn_bag: TouchButton
 var buttons: Array[TouchButton] = []
 var blockers: Array[Control] = []  # áreas da HUD que não giram a câmera
 
@@ -43,12 +45,14 @@ func _ready() -> void:
 	btn_run.toggle = true
 	btn_pause = _make_button(TouchButton.Icon.PAUSE, Color("ffffff"), "")
 	btn_emote = _make_button(TouchButton.Icon.EMOTE, Color("ffffff"), "")
+	btn_bag = _make_button(TouchButton.Icon.BAG, Color("ffffff"), "")
 	btn_play.pressed.connect(_on_play)
 	btn_jump.pressed.connect(_on_jump)
 	btn_interact.pressed.connect(_on_interact)
 	btn_run.pressed.connect(_on_run)
 	btn_pause.pressed.connect(pause_pressed.emit)
 	btn_emote.pressed.connect(emote_pressed.emit)
+	btn_bag.pressed.connect(bag_pressed.emit)
 	get_viewport().size_changed.connect(_layout)
 	Settings.changed.connect(_on_setting_changed)
 	GameManager.state_changed.connect(_on_state_changed)
@@ -128,6 +132,7 @@ func _layout() -> void:
 	_place(btn_run, br + Vector2(-m - 72, -m - 268), 100)
 	_place(btn_pause, Vector2(br.x - m - 36, sr.position.y + m + 36), 72)
 	_place(btn_emote, Vector2(br.x - m - 122, sr.position.y + m + 36), 72)
+	_place(btn_bag, Vector2(br.x - m - 208, sr.position.y + m + 36), 72)
 	_joy_rest = Vector2(sr.position.x + m + 150, br.y - m - 140)
 	if _joy_index == -1:
 		_joy_center = _joy_rest

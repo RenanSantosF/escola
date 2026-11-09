@@ -54,6 +54,8 @@ func _ready() -> void:
 	# ---- FASE 4
 	await _test_discipline()
 	await _test_events_missions()
+	# ---- FASE 5
+	await _test_progression()
 	_finish()
 
 
@@ -969,6 +971,87 @@ func _test_events_missions() -> void:
 	main.npcs.cook.interact(player)
 	await _frames(2)
 	check(GameManager.coins() < c0, "cantina: comprar lanche gasta moedas")
+
+
+# --------------------------------------------------------------- FASE 5
+
+func _test_progression() -> void:
+	var prog: Progression = main.progression
+	check(Progression.owns("cam_uniforme") and Progression.owns("moc_vermelha"), "loja: itens iniciais no guarda-roupa")
+	var p: Dictionary = SaveManager.section("player")
+	p["coins"] = 1000
+	p["level"] = 3
+	var c0 := GameManager.coins()
+	check(prog.buy("cam_amarela") == "" and Progression.owns("cam_amarela") and GameManager.coins() == c0 - 60, "loja: comprar desconta moedas e guarda o item")
+	check(prog.buy("cam_amarela") != "", "loja: não compra o mesmo item duas vezes")
+	check(prog.buy("bon_dourado") != "" and not Progression.owns("bon_dourado"), "loja: item bloqueado por nível")
+	p["coins"] = 5
+	check(prog.buy("cam_roxa") != "", "loja: moedas insuficientes")
+	p["coins"] = 1000
+	prog.equip("cam_amarela")
+	check(player.visual.appearance.shirt_color.is_equal_approx(Color("f2b632")), "guarda-roupa: equipar muda o personagem")
+	prog.buy("pen_black")
+	prog.equip("pen_black")
+	check(player.visual.appearance.hair_style == "black_power" and prog.is_equipped("pen_black"), "guarda-roupa: trocar penteado")
+	var stick := Stickers.count_unique()
+	var total_before := 0
+	for v in Stickers.owned().values():
+		total_before += int(v)
+	prog.buy("fig_pacote")
+	var total_after := 0
+	for v in Stickers.owned().values():
+		total_after += int(v)
+	check(total_after == total_before + 4, "loja: pacote dá 4 figurinhas")
+	var g: Dictionary = SaveManager.section("collections").get("gude", {})
+	var gsum := 0
+	for v in g.values():
+		gsum += int(v)
+	prog.buy("gude_saco")
+	var gsum2 := 0
+	for v in SaveManager.section("collections").get("gude", {}).values():
+		gsum2 += int(v)
+	check(gsum2 == gsum + 3, "loja: saquinho dá 3 bolinhas de gude")
+	prog.buy("dec_planta")
+	await _frames(2)
+	var decor: Node = main.world.get_node_or_null("DeskDecor")
+	check(decor != null and decor.get_child_count() > 0, "decoração: aparece na carteira do jogador")
+	# missões diárias
+	SaveManager.section("missions").clear()
+	prog.ensure_daily(99)
+	check(prog.daily_list().size() == 3, "missões: 3 missões diárias geradas")
+	var e: Dictionary = prog.daily_list()[0]
+	var coins := GameManager.coins()
+	var st: Dictionary = SaveManager.section("stats")
+	if str(e.key).begins_with("mg_"):
+		var s: Dictionary = st.get(e.key, {"played": 0})
+		s["played"] = int(s.get("played", 0)) + int(e.target)
+		st[e.key] = s
+	else:
+		st[e.key] = int(st.get(e.key, 0)) + int(e.target)
+	await _wait(1.3)
+	check(e.done and GameManager.coins() > coins, "missões: completar dá recompensa automática")
+	# conquistas
+	SaveManager.section("achievements").erase("rico")
+	await _wait(1.2)
+	check(SaveManager.section("achievements").has("rico"), "conquistas: desbloqueio automático (cofrinho cheio)")
+	# persistência
+	SaveManager.save_game()
+	SaveManager.load_game()
+	check(Progression.owns("cam_amarela") and Progression.inventory().equipped.camiseta == "cam_amarela", "save: inventário e equipados persistem")
+	# menu da mochila
+	var pm: ProfileMenu = main.profile_menu
+	GameManager.set_state(GameManager.State.PLAYING)
+	pm.open_menu()
+	await get_tree().process_frame
+	check(get_tree().paused and not main.hud._pause_layer.visible, "mochila: abre pausando sem a tela de pausa")
+	for t in ProfileMenu.TABS:
+		pm._tab = t[0]
+		pm._refresh()
+		await get_tree().process_frame
+	check(pm._content.get_child_count() > 0, "mochila: todas as abas montam conteúdo")
+	pm.close_menu()
+	await get_tree().process_frame
+	check(not get_tree().paused and GameManager.is_playing(), "mochila: fecha e retoma o jogo")
 
 
 func _finish() -> void:
