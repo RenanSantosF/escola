@@ -11,6 +11,8 @@ var world: Node3D
 var chat_panel: ChatPanel
 var remotes := {}  # id -> {root, visual, label, from, to, t, yaw}
 var _send_t := 0.0
+var npcs: NPCManager
+var _badge: Label
 
 
 func setup(p: PlayerController, w: Node3D, ui_parent: Node, hud: HUD) -> void:
@@ -30,19 +32,58 @@ func setup(p: PlayerController, w: Node3D, ui_parent: Node, hud: HUD) -> void:
 	nm.online_changed.connect(func(on):
 		if not on:
 			for id in remotes.keys():
-				_remove_remote(id))
-	nm.connect_to_server()
+				_remove_remote(id)
+		_refresh_badge())
+	nm.look_changed.connect(func(id, look, lv):
+		if remotes.has(id):
+			var r: Dictionary = remotes[id]
+			(r.visual as CharacterVisual).set_appearance(CharacterAppearance.from_dict(look))
+			r.label.text = "%s  ·  nv %d" % [r.name, lv]
+			r.name_text = r.label.text)
+	nm.count_changed.connect(func(n):
+		_refresh_badge()
+		if npcs:
+			npcs.set_online_players(n))
+	# selo "Online · Sala 1234 · 3 jogadores" no topo da tela
+	_badge = Label.new()
+	_badge.add_theme_font_size_override("font_size", 20)
+	_badge.add_theme_color_override("font_color", Color.WHITE)
+	_badge.add_theme_stylebox_override("normal", UITheme.box(Color(UITheme.BLUE, 0.9), 14, Color.WHITE, 2, 0))
+	_badge.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_badge.position = Vector2(-150, 74)
+	_badge.custom_minimum_size = Vector2(300, 0)
+	_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui_parent.add_child(_badge)
+	_refresh_badge()
+
+
+func _refresh_badge() -> void:
+	if _badge == null:
+		return
+	if NetworkManager.is_online():
+		_badge.text = "  Online · Sala %s · %d jogador%s  " % [NetworkManager.room_code, NetworkManager.players_in_room, "" if NetworkManager.players_in_room == 1 else "es"]
+	else:
+		_badge.text = "  Conectando...  "
 
 
 func _exit_tree() -> void:
-	NetworkManager.disconnect_from_server()
+	if is_instance_valid(_badge):
+		_badge.queue_free()
+	if npcs:
+		npcs.set_online_players(1)
 
 
 func _on_welcome(m: Dictionary) -> void:
 	chat_panel.setup_phrases(NetworkManager.quick_phrases, NetworkManager.free_chat)
-	chat_panel.add_line("", "Você entrou na %s como %s." % [m.room, m.name], true)
+	chat_panel.add_line("", "Você entrou na sala %s como %s." % [m.get("code", ""), m.name], true)
+	if bool(m.get("private", false)):
+		chat_panel.add_line("", "Código para os amigos: %s" % m.get("code", ""), true)
 	for p in m.get("players", []):
 		_add_remote(p)
+	_refresh_badge()
+	if npcs:
+		npcs.set_online_players(NetworkManager.players_in_room)
 
 
 func _add_remote(p: Dictionary) -> void:
@@ -68,7 +109,7 @@ func _add_remote(p: Dictionary) -> void:
 	world.add_child(root)
 	var pos := _vec(p.get("pos", [0, 0, 70]))
 	root.global_position = pos
-	remotes[id] = {"root": root, "visual": vis, "label": label, "name": str(p.get("name", "")),
+	remotes[id] = {"root": root, "visual": vis, "label": label, "name": str(p.get("name", "")), "name_text": label.text,
 		"from": pos, "to": pos, "t": 1.0, "yaw": float(p.get("yaw", 0.0)), "anim": str(p.get("anim", "idle"))}
 
 
@@ -99,7 +140,7 @@ func _on_chat(id: String, sender: String, text: String) -> void:
 		var r: Dictionary = remotes[id]
 		get_tree().create_timer(3.0).timeout.connect(func():
 			if is_instance_valid(r.label):
-				r.label.text = r.name)
+				r.label.text = r.name_text)
 
 
 func _process(delta: float) -> void:

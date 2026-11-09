@@ -21,6 +21,11 @@ var day: Node  # SchoolDay (opcional)
 var rng := RandomNumberGenerator.new()
 
 var npcs: Array[NPC] = []
+## Online: quanto mais jogadores na sala, menos alunos-bot de outras turmas.
+## Os colegas de turma (que dão missões) e os adultos sempre ficam.
+const MIN_OTHER_BOTS := 4
+const BOTS_PER_PLAYER := 2
+var online_players := 1
 var classmates: Array[NPC] = []
 var others: Array[NPC] = []
 var teacher: NPC
@@ -125,6 +130,25 @@ func _spawn_all(n_class: int, n_other: int) -> void:
 	cook.activity = "cook"
 
 
+func allowed_other_bots() -> int:
+	return clampi(others.size() - (online_players - 1) * BOTS_PER_PLAYER, mini(MIN_OTHER_BOTS, others.size()), others.size())
+
+
+func set_online_players(n: int) -> void:
+	online_players = maxi(n, 1)
+	if phase != "recess":
+		return
+	var allowed := allowed_other_bots()
+	for i in others.size():
+		var o := others[i]
+		if i < allowed:
+			continue
+		# some quem está longe (sem "sumir" na frente do jogador)
+		if o.active and o.activity != "minigame" and not o.talking_to_player and o.global_position.distance_to(player.global_position) > 18.0:
+			_leave_activity(o)
+			o.set_active(false)
+
+
 func class_info() -> Dictionary:
 	return world.builder.classrooms.get(CLASS_ROOM, {})
 
@@ -214,7 +238,7 @@ func begin_recess() -> void:
 		var dn := n
 		delay += rng.randf_range(0.05, 0.25)
 		get_tree().create_timer(delay).timeout.connect(func(): _start_recess_for(dn, true))
-	for o in others:
+	for o: NPC in others.slice(0, allowed_other_bots()):
 		var info: Dictionary = world.builder.classrooms.get(o.activity_data.home, {})
 		var start: Vector3 = info.get("door_out", Vector3(0, 0.05, 30))
 		o.teleport(start + Vector3(rng.randf_range(-1.5, 1.5), 0, 0), PI)
@@ -655,7 +679,7 @@ func _process(delta: float) -> void:
 				near.append(n)
 		if not near.is_empty() and not (phase == "class" and rng.randf() < 0.85) and not player.input_enabled == false:
 			var pick: NPC = near.pick_random()
-			pick.say(NPCRoster.ambient_line(pick.personality if pick.role == "student" else pick.role))
+			pick.say(NPCRoster.ambient_line(pick.personality if pick.role == "student" else pick.role, phase), 3.0)
 
 
 # =================================================================== interação

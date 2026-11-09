@@ -90,8 +90,10 @@ function check(text, maxLen = 80) {
 
 // Frases prontas (chat rápido, sempre seguro — padrão para menores de 13)
 const QUICK_PHRASES = [
-  'Oi!', 'Bora jogar futebol?', 'Bora jogar queimada?', 'Boa jogada!', 'Valeu!', 'Vamos fazer a missão juntos?',
-  'Me espera!', 'Aqui!', 'Já volto!', 'Tchau!', 'Parabéns!', 'Quase!', 'Vem pra quadra!', 'Troca figurinha?',
+  'Oi! Tudo bem?', 'Bora jogar futebol na quadra?', 'Bora jogar queimada?', 'Vamos pular corda?', 'Bora fazer uma missão juntos?',
+  'Boa jogada!', 'Mandou muito bem!', 'Valeu, amigo!', 'Me espera, já tô indo!', 'Vem pra cá!', 'Já volto!',
+  'Parabéns!', 'Quase! Tenta de novo!', 'Troca figurinha?', 'Qual skin você tem?', 'Vamos no mirante do Bloco C?',
+  'Bora na cantina?', 'Me segue!', 'Que legal!', 'Hahaha!', 'Desculpa!', 'Tchau, até amanhã!',
 ];
 
 module.exports = { check, normalize, QUICK_PHRASES, BAD_WORDS };

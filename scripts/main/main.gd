@@ -85,6 +85,11 @@ func _ready() -> void:
 	minigames.name = "Minigames"
 	add_child(minigames)
 	minigames.setup(world, npcs, player, hud, school_day)
+	var social := NPCSocial.new()
+	social.name = "NPCSocial"
+	add_child(social)
+	social.setup(npcs, player)
+	minigames.game_finished.connect(social.on_minigame_finished)
 	discipline = DisciplineSystem.new()
 	discipline.name = "Discipline"
 	add_child(discipline)
@@ -120,13 +125,11 @@ func _ready() -> void:
 	profile_menu.minigames = minigames
 	ui_layer.add_child(profile_menu)
 	hud.controls.bag_pressed.connect(profile_menu.open_menu)
+	progression.inventory_changed.connect(func():
+		if NetworkManager.is_online():
+			NetworkManager.send_look())
 	ui_layer.move_child(_loading, -1)
 
-	Settings.changed.connect(func(k):
-		if k in ["online_enabled", "server_url"] and _day_started:
-			_update_online()
-			if k == "server_url" and online:
-				NetworkManager.connect_to_server())
 	_build_menu()
 	_show_menu()
 	var tw := create_tween()
@@ -219,7 +222,12 @@ func _build_menu() -> void:
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 16)
 	_menu_box.add_child(spacer)
-	_menu_box.add_child(UITheme.make_button("Jogar", _on_play_pressed, 360))
+	_menu_box.add_child(UITheme.make_button("Jogar sozinho", _on_play_pressed, 360))
+	var on_btn := UITheme.make_button("Jogar online", _on_online_pressed, 360)
+	on_btn.add_theme_stylebox_override("normal", UITheme.box(UITheme.BLUE, 18, UITheme.DARK, 3, 5))
+	on_btn.add_theme_stylebox_override("hover", UITheme.box(UITheme.BLUE.lightened(0.1), 18, UITheme.DARK, 3, 5))
+	on_btn.add_theme_color_override("font_color", Color.WHITE)
+	_menu_box.add_child(on_btn)
 	_menu_box.add_child(UITheme.make_button("Configurações", _open_menu_settings, 360))
 	_menu_box.add_child(UITheme.make_button("Créditos", _open_credits, 360))
 	if OS.get_name() not in ["Android", "iOS", "Web"]:
@@ -242,6 +250,15 @@ func _build_menu() -> void:
 	_menu_settings.closed.connect(func():
 		_menu_settings.visible = false
 		_menu_box.visible = true)
+
+	_online_menu = OnlineMenu.new()
+	_online_menu.visible = false
+	center.add_child(_online_menu)
+	_online_menu.back.connect(func():
+		_stop_online()
+		_online_menu.visible = false
+		_menu_box.visible = true)
+	_online_menu.chosen.connect(_join_online)
 
 	_credits = PanelContainer.new()
 	_credits.visible = false
@@ -300,25 +317,75 @@ func _start_game() -> void:
 	if not _day_started:
 		_day_started = true
 		school_day.start_day()
-	_update_online()
 
 
-## Modo online (beta): só existe se a build tiver SERVER_URL e o jogador ativar.
+# =================================================================== online
+
 var online: OnlineSession
+var _online_menu: OnlineMenu
+var _join_timer: SceneTreeTimer
 
 
-func _update_online() -> void:
-	var want: bool = NetworkManager.available() and bool(Settings.get_value("online_enabled"))
-	if want and online == null:
+func _on_online_pressed() -> void:
+	var open := func():
+		_menu_box.visible = false
+		_online_menu.reset()
+		_online_menu.visible = true
+	if Learning.has_age():
+		open.call()
+	else:
+		_menu_box.visible = false
+		var p := AgePicker.new()
+		_menu.add_child(p)
+		p.confirmed.connect(func(_a):
+			p.queue_free()
+			open.call())
+
+
+func _join_online(mode: String, code: String) -> void:
+	if online == null:
 		online = OnlineSession.new()
 		online.name = "Online"
 		add_child(online)
+		online.npcs = npcs
 		online.setup(player, world, ui_layer, hud)
-	elif not want and online:
+	for c in NetworkManager.welcomed.get_connections():
+		if c.callable == _on_online_welcome:
+			NetworkManager.welcomed.disconnect(_on_online_welcome)
+	NetworkManager.welcomed.connect(_on_online_welcome, CONNECT_ONE_SHOT)
+	if not NetworkManager.join_error.is_connected(_on_online_error):
+		NetworkManager.join_error.connect(_on_online_error)
+	NetworkManager.join(mode, code)
+	_join_timer = get_tree().create_timer(12.0)
+	_join_timer.timeout.connect(func():
+		if _online_menu.visible and not NetworkManager.is_online():
+			NetworkManager.leave()
+			_online_menu.set_status("Não consegui conectar. Confira a internet e tente de novo.", true))
+
+
+func _on_online_welcome(m: Dictionary) -> void:
+	if not _online_menu.visible:
+		return
+	_online_menu.visible = false
+	if bool(m.get("private", false)):
+		GameManager.show_toast("Sala criada! Passe o código %s para seus amigos." % m.get("code", ""))
+	_start_game()
+
+
+func _on_online_error(text: String) -> void:
+	if _online_menu.visible:
+		NetworkManager.leave()
+		_online_menu.set_status(text, true)
+
+
+func _stop_online() -> void:
+	NetworkManager.leave()
+	if online:
 		online.chat_panel.queue_free()
 		online.queue_free()
 		online = null
 
 
 func _back_to_menu() -> void:
+	_stop_online()
 	_show_menu()

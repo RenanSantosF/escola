@@ -3,14 +3,16 @@
 // WebSocket para o jogo. Protocolo: mensagens JSON {t: tipo, ...}.
 //
 // Cliente -> servidor
-//   {t:'hello', token?, age, level, look, room?}   entra (ou volta) com a conta
+//   {t:'hello', token?, age, level, look, mode, code?} entra com a conta;
+//        mode: 'quick' (sala pública) | 'create' (sala privada nova) | 'code'
 //   {t:'state', pos:[x,y,z], yaw, anim}             até ~10x por segundo
 //   {t:'quick', i}                                   frase pronta (índice)
 //   {t:'chat', text}                                 texto livre (só se liberado)
 //   {t:'report', target, reason}                     denuncia jogador
 //   {t:'block', target}                              bloqueia jogador
 // Servidor -> cliente
-//   {t:'welcome', token, id, name, room, freeChat, quick, players, phase}
+//   {t:'welcome', token, id, name, room, code, private, freeChat, quick, players, phase}
+//   {t:'join_error', text}   código errado / sala cheia (a conexão continua)
 //   {t:'join', player} {t:'leave', id} {t:'states', list}
 //   {t:'chat', id, name, text} {t:'notice', text}
 
@@ -20,6 +22,11 @@ const { check, QUICK_PHRASES } = require('./chat_filter');
 const { Safety } = require('./safety');
 const { RoomManager } = require('./rooms');
 const { Accounts } = require('./accounts');
+const { Analytics } = require('./analytics');
+const fs = require('fs');
+const path = require('path');
+
+const ADMIN_HTML = path.join(__dirname, '..', 'public', 'admin.html');
 
 const TICK_MS = 100;
 const MAX_MSG_BYTES = 2048;
@@ -29,40 +36,68 @@ function createServer(opts = {}) {
   const accounts = opts.accounts || new Accounts();
   const safety = opts.safety || new Safety();
   const rooms = new RoomManager();
+  const analytics = opts.analytics || new Analytics(opts.dataDir !== undefined ? { dataDir: opts.dataDir } : {});
   const recentChat = new Map(); // roomId -> últimas mensagens (contexto p/ denúncia)
 
   function isAdmin(req) {
     return adminToken !== '' && req.headers['x-admin-token'] === adminToken;
   }
 
-  function readJson(req) {
+  function liveInfo() {
+    let online = 0;
+    for (const r of rooms.rooms.values()) online += r.players.size;
+    return { online, rooms: rooms.rooms.size, reports: safety.reports.length };
+  }
+
+  function readJson(req, limit = 4096) {
     return new Promise((resolve) => {
       let body = '';
-      req.on('data', (c) => { body += c; if (body.length > 4096) req.destroy(); });
+      req.on('data', (c) => { body += c; if (body.length > limit) req.destroy(); });
       req.on('end', () => { try { resolve(JSON.parse(body || '{}')); } catch { resolve({}); } });
     });
   }
 
   const server = http.createServer(async (req, res) => {
-    const json = (code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
-    if (req.url === '/health' || req.url === '/') {
-      let players = 0;
-      for (const r of rooms.rooms.values()) players += r.players.size;
-      return json(200, { ok: true, rooms: rooms.rooms.size, players });
+    const json = (code, obj) => { res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(obj)); };
+    const url = (req.url || '/').split('?')[0];
+    if (url === '/health') {
+      const l = liveInfo();
+      return json(200, { ok: true, rooms: l.rooms, players: l.online });
     }
-    // Moderação humana (protegida por ADMIN_TOKEN)
-    if (req.url === '/mod/reports' && req.method === 'GET') {
+    if (url === '/' || url === '/admin') {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+      return res.end(fs.readFileSync(ADMIN_HTML));
+    }
+    // Estatísticas anônimas enviadas pelo jogo
+    if (url === '/api/events' && req.method === 'POST') {
+      const b = await readJson(req, 65536);
+      const n = analytics.ingest(String(b.uid || ''), b.events);
+      return json(200, { ok: true, accepted: n });
+    }
+    if (url === '/api/rooms' && req.method === 'GET') {
+      return json(200, { rooms: rooms.publicList(), online: liveInfo().online });
+    }
+    // Painel do administrador (protegido por ADMIN_TOKEN)
+    if (url === '/api/admin/stats' && req.method === 'GET') {
+      if (!isAdmin(req)) return json(403, { ok: false, error: 'token inválido' });
+      const st = analytics.stats(liveInfo());
+      st.live.roomList = [...rooms.rooms.values()].map((r) => ({ ...r.info(), ages: [...r.players.values()].map((p) => p.acc.age) }));
+      st.reports = safety.reports.slice(-50).reverse();
+      st.storage = analytics.file ? 'volume' : 'memória (zera ao reiniciar)';
+      return json(200, st);
+    }
+    if ((url === '/mod/reports' || url === '/api/admin/reports') && req.method === 'GET') {
       if (!isAdmin(req)) return json(403, { ok: false });
       return json(200, { reports: safety.reports.slice(-200) });
     }
-    if (req.url === '/mod/mute' && req.method === 'POST') {
+    if ((url === '/mod/mute' || url === '/api/admin/mute') && req.method === 'POST') {
       if (!isAdmin(req)) return json(403, { ok: false });
       const b = await readJson(req);
       safety.mute(String(b.id || ''), (b.minutes | 0 || 60) * 60000);
       return json(200, { ok: true });
     }
     // Liberação de chat livre por responsável (validado pela moderação)
-    if (req.url === '/parent/unlock' && req.method === 'POST') {
+    if ((url === '/parent/unlock' || url === '/api/admin/unlock') && req.method === 'POST') {
       if (!isAdmin(req)) return json(403, { ok: false });
       const b = await readJson(req);
       for (const acc of accounts.byToken.values()) {
@@ -109,12 +144,21 @@ function createServer(opts = {}) {
         if (m.t !== 'hello') return;
         const acc = accounts.getOrCreate(typeof m.token === 'string' ? m.token : '', { age: m.age, level: m.level, look: m.look });
         player = { id: acc.id, name: acc.name, level: acc.level, look: acc.look, pos: [0, 0, 70], yaw: 0, anim: 'idle', ws, acc, dirty: true };
-        room = rooms.join(player, typeof m.room === 'string' ? m.room.slice(0, 24) : null);
+        let r;
+        if (m.mode === 'create') r = rooms.create(player, true);
+        else if (m.mode === 'code') r = rooms.joinCode(player, m.code);
+        else r = rooms.join(player, typeof m.room === 'string' ? m.room.slice(0, 8) : null);
+        if (r.error) {
+          player = null;
+          return send(ws, { t: 'join_error', text: r.error });
+        }
+        room = r;
         send(ws, {
-          t: 'welcome', token: acc.token, id: acc.id, name: acc.name, room: room.id,
+          t: 'welcome', token: acc.token, id: acc.id, name: acc.name, room: room.id, code: room.code, private: room.private,
           freeChat: accounts.canFreeChat(acc), quick: QUICK_PHRASES, players: room.snapshot(acc.id), phase: room.phase,
         });
         broadcast(room, { t: 'join', player: { id: player.id, name: player.name, level: player.level, look: player.look, pos: player.pos, yaw: player.yaw, anim: player.anim } }, player.id);
+        broadcast(room, { t: 'count', n: room.players.size });
         return;
       }
       switch (m.t) {
@@ -157,6 +201,16 @@ function createServer(opts = {}) {
           if (r.ok) safety.block(player.id, target);
           break;
         }
+        case 'look': {
+          // troca de skin/roupa: os outros veem na hora
+          if (m.look && typeof m.look === 'object' && JSON.stringify(m.look).length < 1500) {
+            player.look = m.look;
+            player.acc.look = m.look;
+            if (Number.isFinite(m.level)) player.level = Math.max(1, Math.min(99, m.level | 0));
+            broadcast(room, { t: 'look', id: player.id, look: player.look, level: player.level }, player.id);
+          }
+          break;
+        }
         case 'block': {
           safety.block(player.id, String(m.target || ''));
           send(ws, { t: 'notice', text: 'Jogador bloqueado.' });
@@ -167,7 +221,10 @@ function createServer(opts = {}) {
     ws.on('close', () => {
       if (!player) return;
       const r = rooms.leave(player);
-      if (r) broadcast(r, { t: 'leave', id: player.id });
+      if (r) {
+        broadcast(r, { t: 'leave', id: player.id });
+        broadcast(r, { t: 'count', n: r.players.size });
+      }
     });
   });
 
@@ -191,14 +248,18 @@ function createServer(opts = {}) {
       ws.ping();
     }
   }, 25000);
-  server.on('close', () => { clearInterval(timer); clearInterval(heartbeat); });
+  const flushTimer = setInterval(() => analytics.flush(), 10000);
+  server.on('close', () => { clearInterval(timer); clearInterval(heartbeat); clearInterval(flushTimer); analytics.flush(); });
 
-  return { server, wss, rooms, accounts, safety, close: () => { clearInterval(timer); clearInterval(heartbeat); wss.close(); server.close(); } };
+  return { server, wss, rooms, accounts, safety, analytics, close: () => { clearInterval(timer); clearInterval(heartbeat); clearInterval(flushTimer); analytics.flush(); wss.close(); server.close(); server.closeAllConnections(); } };
 }
 
 if (require.main === module) {
   const port = Number(process.env.PORT) || 8080;
-  createServer().server.listen(port, () => console.log('Recreio online na porta ' + port));
+  const app = createServer();
+  app.server.listen(port, () => console.log('Recreio online na porta ' + port + (app.analytics.file ? ' · dados em ' + app.analytics.file : ' · dados em memória')));
+  // Railway manda SIGTERM ao reiniciar: grava o que falta antes de sair
+  process.on('SIGTERM', () => { app.analytics.flush(); process.exit(0); });
 }
 
 module.exports = { createServer };

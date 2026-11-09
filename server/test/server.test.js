@@ -39,13 +39,38 @@ test('segurança: limite, auto-silêncio e denúncias', () => {
   assert.ok(s.isBlocked('b', 'a'));
 });
 
-test('salas: entrar no meio da partida e lotação', () => {
+test('salas: entrada rápida, lotação, criar e entrar com código', () => {
   const rm = new RoomManager();
-  const rooms = new Set();
-  for (let i = 0; i < MAX_PER_ROOM + 1; i++) rooms.add(rm.join({ id: 'p' + i }, null).id);
-  assert.equal(rooms.size, 2);
-  const r = rm.get('sala-1');
-  assert.equal(r.snapshot('p0').length, MAX_PER_ROOM - 1);
+  const codes = new Set();
+  for (let i = 0; i < MAX_PER_ROOM + 1; i++) codes.add(rm.quick({ id: 'p' + i }).code);
+  assert.equal(codes.size, 2);
+  const first = rm.get([...codes][0]);
+  assert.equal(first.snapshot('p0').length, MAX_PER_ROOM - 1);
+  const priv = rm.create({ id: 'dono' });
+  assert.equal(priv.private, true);
+  assert.match(priv.code, /^\d{4}$/);
+  // entrada rápida nunca cai em sala privada
+  for (let i = 0; i < 5; i++) assert.notEqual(rm.quick({ id: 'q' + i }).code, priv.code);
+  assert.equal(rm.joinCode({ id: 'amigo' }, priv.code).code, priv.code);
+  assert.ok(rm.joinCode({ id: 'x' }, '0000').error);
+  assert.ok(rm.publicList().every((r) => !r.private));
+});
+
+test('estatísticas: sessões, idades e compras', () => {
+  const { Analytics } = require('../src/analytics');
+  const a = new Analytics({ dataDir: '' });
+  const now = Date.now();
+  assert.equal(a.ingest('nao-hex!', [{ type: 'session_start' }]), 0);
+  a.ingest('aaaa1111', [{ type: 'session_start', at: now, data: { age: 8, level: 2 } }, { type: 'purchase', data: { item: 'vei_bike', name: 'Bicicleta', price: 2000, category: 'veiculo' } }, { type: 'session_end', data: { seconds: 600 } }]);
+  a.ingest('bbbb2222', [{ type: 'session_start', data: { age: 11 } }, { type: 'purchase', data: { item: 'bone', name: 'Boné', price: 40, category: 'acessorio' } }, { type: 'session_end', data: { seconds: 1200 } }, { type: 'tipo_invalido' }]);
+  const st = a.stats({ online: 3 });
+  assert.equal(st.players.total, 2);
+  assert.equal(st.ages[8], 1);
+  assert.equal(st.sessions.avgMinutes, 15);
+  assert.equal(st.purchases.biggest[0].price, 2000);
+  assert.equal(st.purchases.smallest[0].price, 40);
+  assert.equal(st.purchases.coins, 2040);
+  assert.equal(st.live.online, 3);
 });
 
 test('contas: token volta à mesma conta, chat livre só 13+', () => {
@@ -67,8 +92,47 @@ function connect(port) {
 }
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
+test('servidor: painel protegido e eventos', async () => {
+  const srv = createServer({ adminToken: 'segredo', dataDir: '' });
+  await new Promise((r) => srv.server.listen(0, r));
+  const base = 'http://127.0.0.1:' + srv.server.address().port;
+  assert.equal((await fetch(base + '/api/admin/stats')).status, 403);
+  const ev = await fetch(base + '/api/events', { method: 'POST', body: JSON.stringify({ uid: 'abcd1234', events: [{ type: 'session_start', data: { age: 9 } }] }) });
+  assert.equal((await ev.json()).accepted, 1);
+  const st = await (await fetch(base + '/api/admin/stats', { headers: { 'x-admin-token': 'segredo' } })).json();
+  assert.equal(st.players.total, 1);
+  const html = await (await fetch(base + '/admin')).text();
+  assert.ok(html.includes('Painel'));
+  srv.close();
+});
+
+test('servidor: criar sala e amigo entra pelo código', async () => {
+  const srv = createServer({ adminToken: 'x', dataDir: '' });
+  await new Promise((r) => srv.server.listen(0, r));
+  const port = srv.server.address().port;
+  const a = await connect(port);
+  a.ws.send(JSON.stringify({ t: 'hello', age: 9, mode: 'create' }));
+  await wait(60);
+  const wa = a.inbox.find((m) => m.t === 'welcome');
+  assert.ok(wa.private && /^\d{4}$/.test(wa.code));
+  const b = await connect(port);
+  b.ws.send(JSON.stringify({ t: 'hello', age: 9, mode: 'code', code: '0001' }));
+  await wait(60);
+  assert.ok(b.inbox.some((m) => m.t === 'join_error'));
+  b.ws.send(JSON.stringify({ t: 'hello', age: 9, mode: 'code', code: wa.code }));
+  await wait(60);
+  const wb = b.inbox.find((m) => m.t === 'welcome');
+  assert.equal(wb.code, wa.code);
+  const c = await connect(port);
+  c.ws.send(JSON.stringify({ t: 'hello', age: 9, mode: 'quick' }));
+  await wait(60);
+  assert.notEqual(c.inbox.find((m) => m.t === 'welcome').code, wa.code);
+  a.ws.close(); b.ws.close(); c.ws.close();
+  srv.close();
+});
+
 test('servidor: hello, estados, frases rápidas e chat bloqueado para menores', async () => {
-  const srv = createServer({ adminToken: 'x' });
+  const srv = createServer({ adminToken: 'x', dataDir: '' });
   await new Promise((r) => srv.server.listen(0, r));
   const port = srv.server.address().port;
   const a = await connect(port);
@@ -87,7 +151,7 @@ test('servidor: hello, estados, frases rápidas e chat bloqueado para menores', 
   a.ws.send(JSON.stringify({ t: 'chat', text: 'oi' }));
   await wait(250);
   assert.ok(b.inbox.some((m) => m.t === 'states' && m.list.some((s) => s.id === wa.id)));
-  assert.ok(b.inbox.some((m) => m.t === 'chat' && m.text === 'Oi!'));
+  assert.ok(b.inbox.some((m) => m.t === 'chat' && m.text === 'Oi! Tudo bem?'));
   assert.ok(!b.inbox.some((m) => m.t === 'chat' && m.text === 'oi'));
   assert.ok(a.inbox.some((m) => m.t === 'notice'));
   // bloqueio: b bloqueia a e não recebe mais mensagens

@@ -16,7 +16,8 @@ func _ready() -> void:
 		await get_tree().process_frame
 	var pm: ProfileMenu = main.profile_menu
 	pm.open_menu()
-	pm._cat = "camiseta"
+	pm._cat = "skin"
+	pm._selected = "skin_ninja"
 	pm._selected = "cam_laranja"
 	pm._refresh()
 	for i in 30:

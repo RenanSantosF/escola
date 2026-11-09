@@ -388,6 +388,7 @@ func _complete() -> void:
 	_state()[active_id] = {"day": day.day, "count": int(_state().get(active_id, {}).get("count", 0)) + 1}
 	GameManager.add_rewards(int(q.xp), int(q.coins))
 	GameManager.add_stat("missoes")
+	Telemetry.track("quest_done", {"id": active_id})
 	Effects.burst(player.global_position + Vector3(0, 2, 0), "confetti")
 	hud.show_banner("Missão cumprida!", "%s  (+%d moedas, +%d XP)" % [q.title, q.coins, q.xp])
 	var giver := _giver_node(q.giver)

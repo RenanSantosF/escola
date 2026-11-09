@@ -4,24 +4,45 @@ O jogo já tem a base para o modo online: servidor em `server/` (Node.js, pronto
 para o Railway) e cliente no Godot (`autoloads/network_manager.gd`,
 `scripts/online/`). Sem endereço de servidor configurado o jogo é 100% offline.
 
-## Como colocar no ar (Railway)
+## Servidor no ar
 
-1. No Railway: **New Project → Deploy from GitHub repo**, apontando para a pasta
-   `server/` (Root Directory = `server`). O `Dockerfile` e o `railway.json` já
-   estão prontos (health check em `/health`).
-2. Variáveis: `ADMIN_TOKEN` (segredo longo, para moderação). A `PORT` o Railway define.
-3. Em **Settings → Networking → Generate Domain** gere um domínio público.
-   Teste no navegador: `https://SEU-APP.up.railway.app/health` deve mostrar `{"ok":true,...}`.
-4. No jogo: **Configurações → Online (beta)** → cole `https://SEU-APP.up.railway.app`
-   no campo "Servidor" e marque "Jogar online". Não precisa gerar outro APK.
-   (Para fixar o endereço no app, preencha `SERVER_URL` em `autoloads/network_manager.gd`.)
-5. Para testar a dois: instale o APK em dois celulares, configure os dois e entrem
-   no recreio — vocês caem na mesma sala e se veem andando.
+Servidor oficial: `https://escola-production-061f.up.railway.app` (já fixo no jogo em
+`NetworkManager.SERVER_URL`; ninguém precisa colar endereço).
 
-Teste ponta a ponta local: `cd server && PORT=8131 node src/server.js` e
-`godot --headless --path . res://tests/online_probe.tscn`.
+- **Painel do administrador:** abra `https://escola-production-061f.up.railway.app/admin`
+  e entre com o `ADMIN_TOKEN` (variável do serviço no Railway).
+- **Guardar os dados entre reinícios (recomendado):** no Railway, clique no serviço →
+  **Settings → Volumes → Add Volume** com *mount path* `/data`, e em **Variables** crie
+  `DATA_DIR=/data`. Sem isso as estatísticas ficam só na memória e zeram a cada deploy.
+- Deploy: Railway → serviço → Settings → Source (branch do GitHub) e Root Directory `/server`.
 
 Testes do servidor: `cd server && npm install && npm test`.
+Teste ponta a ponta local: `cd server && PORT=8131 node src/server.js` e
+`godot --headless --path . res://tests/online_probe.tscn -- --url=ws://127.0.0.1:8131`.
+
+## Jogar online (no jogo)
+
+Menu principal → **Jogar online**:
+- **Entrar numa sala** — cai na turma pública com mais gente (até 20).
+- **Criar sala com amigos** — sala PRIVADA com código de 4 números (mostrado no topo da tela).
+- **Entrar com código** — teclado numérico grande para digitar o código do amigo.
+
+Os alunos-bot continuam no online: a cada jogador a mais na sala, 2 alunos-bot de outras
+turmas deixam de aparecer no recreio, com um mínimo de 4. Os colegas de turma (que dão
+missões), o Seu Zé, a Dona Lúcia e os adultos ficam sempre.
+
+## Painel e estatísticas anônimas
+
+O jogo envia (a cada minuto, se houver internet e a opção estiver ligada em
+Configurações → Privacidade) eventos anônimos: início/fim de sessão (idade e nível),
+compras com moedas do jogo, brincadeiras, missões e dias concluídos. Cada aparelho tem
+um código aleatório — sem nome, e-mail, telefone, localização ou ID de publicidade.
+
+O painel mostra: online agora e salas abertas (com idades), total de jogadores, ativos
+24 h/7 dias, novos, retenção, tempo médio e mediano por sessão, horas jogadas, gráfico
+de 14 dias, idades, tempo médio por idade, níveis, horários de pico, itens mais
+comprados, maiores/menores/recentes compras, moedas por categoria, brincadeiras mais
+jogadas (com % de vitória), missões concluídas e denúncias recentes com contexto.
 
 ## Como funciona
 

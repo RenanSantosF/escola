@@ -4,12 +4,59 @@ extends RefCounted
 ## Itens "consumable" não ficam no inventário (pacotes de figurinha/gude).
 
 const CATEGORIES := [
-	["camiseta", "Camisetas"], ["calca", "Calças"], ["calcado", "Tênis"], ["mochila", "Mochilas"],
+	["skin", "Skins"], ["pacote", "Pacotes"], ["camiseta", "Camisetas"], ["calca", "Calças"], ["calcado", "Tênis"], ["mochila", "Mochilas"],
 	["bone", "Bonés"], ["penteado", "Penteados"], ["acessorio", "Acessórios"], ["decoracao", "Decoração"],
 	["gude", "Bolinhas de gude"], ["figurinha", "Figurinhas"], ["veiculo", "Skate e bike"],
 ]
 
-const ITEMS := [
+## Raridade: cor do cartão e da faixa.
+const RARITY := {
+	"comum": ["Comum", Color("7f8fa6")], "raro": ["Raro", Color("2f8be0")],
+	"epico": ["Épico", Color("9b59ff")], "lendario": ["Lendário", Color("f5a623")],
+}
+
+## Skins: visual completo (substitui roupa, tênis, mochila e boné).
+const SKINS := [
+	{"id": "skin_nenhuma", "cat": "skin", "name": "Sem skin", "price": 0, "lvl": 1, "rarity": "comum", "look": {}},
+	{"id": "skin_craque", "cat": "skin", "name": "Craque da Seleção", "price": 350, "lvl": 2, "rarity": "raro",
+		"desc": "Camisa amarela, calção azul e chuteira de ouro.",
+		"look": {"shirt_color": "ffd21f", "shirt_trim": "1f9e4a", "shirt_logo": true, "pants_color": "1f4fbf", "long_pants": false, "sock_color": "ffffff", "shoe_color": "f5c518", "shoe_sole": "1f1f1f", "backpack": false, "cap": false}},
+	{"id": "skin_cientista", "cat": "skin", "name": "Cientista Maluco", "price": 420, "lvl": 3, "rarity": "raro",
+		"desc": "Jaleco branco, óculos e tênis de laboratório.",
+		"look": {"shirt_color": "fbfbfb", "shirt_trim": "36c5f0", "shirt_logo": false, "pants_color": "2c3e50", "long_pants": true, "shoe_color": "36c5f0", "backpack": true, "backpack_color": "7bd389", "glasses": true, "cap": false}},
+	{"id": "skin_ninja", "cat": "skin", "name": "Ninja da Noite", "price": 600, "lvl": 4, "rarity": "epico",
+		"desc": "Todo de preto com faixa vermelha. Silencioso no pega-pega!",
+		"look": {"shirt_color": "1c1c24", "shirt_trim": "e0263a", "shirt_logo": false, "pants_color": "15151b", "long_pants": true, "sock_color": "15151b", "shoe_color": "15151b", "shoe_sole": "e0263a", "backpack": false, "cap": false}},
+	{"id": "skin_heroi", "cat": "skin", "name": "Super-herói", "price": 750, "lvl": 5, "rarity": "epico",
+		"desc": "Azul e vermelho, pronto para salvar o recreio.",
+		"look": {"shirt_color": "1f5fd6", "shirt_trim": "e8202a", "shirt_logo": true, "pants_color": "e8202a", "long_pants": true, "shoe_color": "e8202a", "shoe_sole": "ffd21f", "backpack": true, "backpack_color": "e8202a", "cap": false}},
+	{"id": "skin_astronauta", "cat": "skin", "name": "Astronauta", "price": 900, "lvl": 6, "rarity": "epico",
+		"desc": "Macacão espacial branco com detalhes laranja.",
+		"look": {"shirt_color": "f2f4f7", "shirt_trim": "ff7a1a", "shirt_logo": true, "pants_color": "e9edf2", "long_pants": true, "sock_color": "e9edf2", "shoe_color": "9aa3ad", "shoe_sole": "4a4f57", "backpack": true, "backpack_color": "dfe4ea", "cap": false}},
+	{"id": "skin_explorador", "cat": "skin", "name": "Explorador da Floresta", "price": 500, "lvl": 4, "rarity": "raro",
+		"desc": "Roupa cáqui, boné verde e mochila de aventura.",
+		"look": {"shirt_color": "c9b27c", "shirt_trim": "6b5a2e", "shirt_logo": false, "pants_color": "7a6a3a", "long_pants": false, "sock_color": "6b5a2e", "shoe_color": "6b4423", "backpack": true, "backpack_color": "3f7a3a", "cap": true, "cap_color": "3f7a3a"}},
+	{"id": "skin_galaxia", "cat": "skin", "name": "Galáxia Lendária", "price": 1600, "lvl": 8, "rarity": "lendario",
+		"desc": "Roxo-galáxia com detalhes dourados. Pouquíssimos têm!",
+		"look": {"shirt_color": "3b1f7a", "shirt_trim": "ffcf3f", "shirt_logo": true, "pants_color": "1d1145", "long_pants": true, "sock_color": "ffcf3f", "shoe_color": "ffcf3f", "shoe_sole": "3b1f7a", "backpack": true, "backpack_color": "7b3fe0", "cap": true, "cap_color": "ffcf3f"}},
+	{"id": "skin_junina", "cat": "skin", "name": "Festa Junina", "price": 380, "lvl": 2, "rarity": "raro",
+		"desc": "Camisa xadrez colorida, chapéu de palha... quase!",
+		"look": {"shirt_color": "e04a3a", "shirt_trim": "ffd21f", "shirt_logo": false, "pants_color": "3f5f99", "long_pants": true, "shoe_color": "6b4423", "backpack": false, "cap": true, "cap_color": "e8c46a"}},
+]
+
+## Pacotes: vários itens com desconto.
+const BUNDLES := [
+	{"id": "pac_craque", "cat": "pacote", "name": "Kit Craque", "price": 210, "lvl": 3, "rarity": "raro", "bundle": ["cam_time", "ten_amarelo", "bon_azul"],
+		"desc": "Camisa do time + tênis amarelo-ouro + boné azul"},
+	{"id": "pac_estudioso", "cat": "pacote", "name": "Kit Estudioso", "price": 170, "lvl": 2, "rarity": "raro", "bundle": ["ace_oculos", "dec_planta", "dec_caneca", "dec_estojo"],
+		"desc": "Óculos + plantinha + caneca + estojo para a carteira"},
+	{"id": "pac_colorido", "cat": "pacote", "name": "Kit Arco-íris", "price": 190, "lvl": 3, "rarity": "raro", "bundle": ["cam_roxa", "moc_amarela", "ten_azul", "cal_verde"],
+		"desc": "Roupa colorida completa"},
+	{"id": "pac_colecao", "cat": "pacote", "name": "Mega pacote de coleção", "price": 70, "lvl": 1, "rarity": "comum", "consumable": true, "bundle_packs": {"figurinha": 3, "gude": 1},
+		"desc": "3 pacotes de figurinha + 1 saquinho de gude"},
+]
+
+const ITEMS_BASE := [
 	# camisetas
 	{"id": "cam_uniforme", "cat": "camiseta", "name": "Uniforme da escola", "price": 0, "lvl": 1, "look": {"shirt_color": "f4f4f0", "shirt_trim": "2f6fd0", "shirt_logo": true}},
 	{"id": "cam_uniforme_v", "cat": "camiseta", "name": "Uniforme gola vermelha", "price": 40, "lvl": 1, "look": {"shirt_color": "f4f4f0", "shirt_trim": "d63c3c", "shirt_logo": true}},
@@ -73,9 +120,24 @@ const ITEMS := [
 	# consumíveis
 	{"id": "gude_saco", "cat": "gude", "name": "Saquinho com 3 bolinhas", "price": 30, "lvl": 1, "consumable": true},
 	{"id": "fig_pacote", "cat": "figurinha", "name": "Pacote com 4 figurinhas", "price": 25, "lvl": 1, "consumable": true},
+	# mais roupas
+	{"id": "cam_azul_ceu", "cat": "camiseta", "name": "Camiseta azul-céu", "price": 70, "lvl": 2, "look": {"shirt_color": "5ec8ff", "shirt_trim": "2f8be0", "shirt_logo": false}},
+	{"id": "cam_rosa", "cat": "camiseta", "name": "Camiseta rosa-chiclete", "price": 70, "lvl": 2, "look": {"shirt_color": "ff7eb6", "shirt_trim": "e0558f", "shirt_logo": false}},
+	{"id": "cam_preta", "cat": "camiseta", "name": "Camiseta preta estilosa", "price": 95, "lvl": 3, "look": {"shirt_color": "23232b", "shirt_trim": "ffcf3f", "shirt_logo": true}},
+	{"id": "cam_menta", "cat": "camiseta", "name": "Camiseta verde-menta", "price": 85, "lvl": 3, "look": {"shirt_color": "7bdcb5", "shirt_trim": "3aa98a", "shirt_logo": false}},
+	{"id": "ten_rosa", "cat": "calcado", "name": "Tênis rosa", "price": 75, "lvl": 2, "look": {"shoe_color": "ff7eb6"}},
+	{"id": "ten_verde", "cat": "calcado", "name": "Tênis verde-limão", "price": 85, "lvl": 3, "look": {"shoe_color": "9be15d"}},
+	{"id": "moc_verde", "cat": "mochila", "name": "Mochila verde", "price": 60, "lvl": 2, "look": {"backpack": true, "backpack_color": "3aa45b"}},
+	{"id": "moc_preta", "cat": "mochila", "name": "Mochila preta", "price": 70, "lvl": 3, "look": {"backpack": true, "backpack_color": "23232b"}},
+	{"id": "bon_rosa", "cat": "bone", "name": "Boné rosa", "price": 60, "lvl": 2, "look": {"cap": true, "cap_color": "ff7eb6"}},
+	{"id": "bon_preto", "cat": "bone", "name": "Boné preto", "price": 65, "lvl": 3, "look": {"cap": true, "cap_color": "23232b"}},
+	{"id": "tin_rosa", "cat": "penteado", "name": "Cor: rosa", "price": 160, "lvl": 5, "look": {"hair_color": "ff7eb6"}},
+	{"id": "tin_verde", "cat": "penteado", "name": "Cor: verde", "price": 160, "lvl": 5, "look": {"hair_color": "3aa45b"}},
 ]
 
-const DEFAULT_OWNED := ["cam_uniforme", "cal_bermuda", "ten_branco", "moc_vermelha", "moc_nenhuma", "bon_nenhum",
+static var ITEMS: Array = SKINS + BUNDLES + ITEMS_BASE
+
+const DEFAULT_OWNED := ["skin_nenhuma", "cam_uniforme", "cal_bermuda", "ten_branco", "moc_vermelha", "moc_nenhuma", "bon_nenhum",
 	"pen_curto", "tin_castanho", "ace_sem_oculos"]
 
 
@@ -90,6 +152,73 @@ static func get_item(id: String) -> Dictionary:
 	return {}
 
 
+static func rarity_of(item: Dictionary) -> String:
+	if item.has("rarity"):
+		return item.rarity
+	var p := int(item.get("price", 0))
+	if p >= 900:
+		return "lendario" if p >= 1500 else "epico"
+	if p >= 140:
+		return "raro"
+	return "comum"
+
+
+# ------------------------------------------------------------- promoções
+
+## Ofertas do dia (mudam todo dia, no calendário real): 3 itens com
+## 20–40% de desconto + 1 oferta relâmpago com 50%.
+static func deals(date_key := "") -> Dictionary:
+	if date_key == "":
+		date_key = Time.get_date_string_from_system()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("ofertas-" + date_key)
+	var pool := ITEMS.filter(func(i): return int(i.get("price", 0)) >= 50 and not i.get("consumable", false) and i.cat != "veiculo")
+	var out := {}
+	var tries := 0
+	while out.size() < 4 and tries < 60:
+		tries += 1
+		var it: Dictionary = pool[rng.randi() % pool.size()]
+		if out.has(it.id):
+			continue
+		out[it.id] = 50 if out.is_empty() else [20, 25, 30, 40][rng.randi() % 4]
+	return out
+
+
+static func flash_deal_id(date_key := "") -> String:
+	var d := deals(date_key)
+	for k in d.keys():
+		if int(d[k]) == 50:
+			return k
+	return ""
+
+
+## Preço com desconto do dia (o que a criança paga de verdade).
+static func price_of(item: Dictionary, date_key := "") -> int:
+	var base := int(item.get("price", 0))
+	var off := int(deals(date_key).get(item.get("id", ""), 0))
+	return int(round(base * (100 - off) / 100.0)) if off > 0 else base
+
+
+static func discount_of(id: String, date_key := "") -> int:
+	return int(deals(date_key).get(id, 0))
+
+
+## Segundos até a meia-noite (fim das ofertas do dia).
+static func seconds_to_midnight() -> int:
+	var t := Time.get_time_dict_from_system()
+	return 86400 - (int(t.hour) * 3600 + int(t.minute) * 60 + int(t.second))
+
+
+## Valor somado dos itens de um pacote (para mostrar a economia).
+static func bundle_value(item: Dictionary) -> int:
+	var v := 0
+	for id in item.get("bundle", []):
+		v += int(get_item(id).get("price", 0))
+	for k in item.get("bundle_packs", {}).keys():
+		v += int(item.bundle_packs[k]) * (25 if k == "figurinha" else 30)
+	return v
+
+
 ## Cor representativa para o cartão da loja.
 static func swatch(item: Dictionary) -> Color:
 	var look: Dictionary = item.get("look", {})
@@ -97,6 +226,8 @@ static func swatch(item: Dictionary) -> Color:
 		if look.has(k):
 			return Color(look[k])
 	match item.cat:
+		"skin": return Color(item.get("look", {}).get("shirt_color", "9b59ff"))
+		"pacote": return Color("ff8a3d")
 		"decoracao": return Color("a0663a")
 		"gude": return Color("3fa7d6")
 		"figurinha": return Color("f2b632")

@@ -265,6 +265,7 @@ func _end_day() -> void:
 	if player.mode == PlayerController.Mode.SITTING:
 		player.stand_up()
 	_set_objective("Hora da saída! Vá até o portão da escola", GATE)
+	Telemetry.track("day_done", {"day": day})
 	day_finished.emit(summary)
 
 

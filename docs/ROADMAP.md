@@ -157,6 +157,21 @@ recompensas próprias; estações com placa no mapa (só no recreio) e convites 
 - Online: endereço do servidor configurável no app, permissão de internet,
   heartbeat no servidor, teste ponta a ponta.
 
+## ✅ Revisão 3 (concluída)
+
+- Online de verdade: servidor fixo no jogo, menu "Jogar online" com entrar numa sala,
+  criar sala com código de 4 números e entrar com código; selo da sala no topo.
+- Bots no online: diminuem conforme entram jogadores (mínimo garantido); quem dá
+  missão fica sempre.
+- Painel /admin no site com estatísticas anônimas (jogadores, idades, tempo, compras...).
+- Falas: centenas de frases, conversas mais completas, curiosidades e sorteio sem
+  repetição; falas conforme o momento do dia.
+- Bots mais espertos: cumprimentam conforme a amizade, amigos andam junto, torcem
+  quando você ganha, disfarçam quando o diretor passa.
+- Loja nova: skins completas por raridade, pacotes com desconto, ofertas do dia e
+  oferta relâmpago com contagem regressiva, letras maiores, cartões coloridos.
+- Skin/roupa nova aparece na hora para os outros jogadores online.
+
 ## Próximos passos sugeridos
 
 - Testar em aparelhos Android reais (o ambiente de desenvolvimento não tinha SDK) e

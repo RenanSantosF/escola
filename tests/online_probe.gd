@@ -43,6 +43,6 @@ func _ready() -> void:
 			if m is Dictionary and m.get("t") == "states":
 				saw_state = true
 	print("chat=", got_chat, " notice=", got_notice, " other_saw_state=", saw_state)
-	var ok := got_welcome and got_chat == "Oi!" and got_notice != "" and saw_state
+	var ok := got_welcome and got_chat == "Oi! Tudo bem?" and got_notice != "" and saw_state
 	print("ONLINE_PROBE ", "OK" if ok else "FALHOU")
 	get_tree().quit(0 if ok else 1)

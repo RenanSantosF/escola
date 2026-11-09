@@ -60,6 +60,8 @@ func setup(p: PlayerController, w: SchoolWorld, m: NPCManager, day: SchoolDay, m
 			"bone": "bon_nenhum", "penteado": "pen_curto", "tinta": "tin_castanho", "acessorio": "ace_sem_oculos"}
 	if not inv.has("decor"):
 		inv["decor"] = []
+	if not "skin_nenhuma" in inv.owned:
+		inv.owned.append("skin_nenhuma")
 	day.phase_changed.connect(func(ph):
 		if ph == SchoolDay.Phase.ARRIVAL:
 			ensure_daily(day.day))
@@ -98,8 +100,17 @@ func buy(id: String) -> String:
 		return "Disponível no nível %d." % item.lvl
 	if not item.get("consumable", false) and owns(id):
 		return "Você já tem este item."
-	if not GameManager.spend_coins(int(item.price)):
+	var price := ShopCatalog.price_of(item)
+	if not GameManager.spend_coins(price):
 		return "Moedas insuficientes."
+	Telemetry.track("purchase", {"item": id, "name": str(item.get("name", id)), "price": price, "category": str(item.cat),
+		"discount": ShopCatalog.discount_of(id)})
+	if item.has("bundle") or item.has("bundle_packs"):
+		_grant_bundle(item)
+		AudioManager.play_ui("celebrate", -4.0)
+		inventory_changed.emit()
+		SaveManager.save_game()
+		return ""
 	if item.get("consumable", false):
 		match item.cat:
 			"figurinha":
@@ -128,6 +139,34 @@ func buy(id: String) -> String:
 	return ""
 
 
+func _grant_bundle(item: Dictionary) -> void:
+	var inv := inventory()
+	for bid in item.get("bundle", []):
+		if not bid in inv.owned:
+			inv.owned.append(bid)
+			var it := ShopCatalog.get_item(bid)
+			if it.cat == "decoracao":
+				inv.decor.append(it.decor)
+	if not item.get("consumable", false) and not item.id in inv.owned:
+		inv.owned.append(item.id)
+	var packs: Dictionary = item.get("bundle_packs", {})
+	for i in int(packs.get("figurinha", 0)):
+		Stickers.open_pack()
+	if int(packs.get("gude", 0)) > 0:
+		var col: Dictionary = SaveManager.section("collections")
+		var gude: Dictionary = col.get("gude", {})
+		for k in 3 * int(packs.gude):
+			var t: Dictionary = preload("res://scripts/minigames/marbles.gd").TYPES.pick_random()
+			gude[t.id] = int(gude.get(t.id, 0)) + 1
+		col["gude"] = gude
+	# veste o que tem visual
+	for bid in item.get("bundle", []):
+		if ShopCatalog.get_item(bid).has("look"):
+			equip(bid)
+	_build_decor()
+	GameManager.show_toast("Pacote aberto: %s!" % item.name)
+
+
 func equip(id: String) -> void:
 	var item := ShopCatalog.get_item(id)
 	if item.has("vehicle") and owns(id):
@@ -141,6 +180,9 @@ func equip(id: String) -> void:
 	if id.begins_with("tin_"):
 		slot = "tinta"
 	inventory().equipped[slot] = id
+	# trocar uma peça de roupa tira a skin; equipar skin vale por cima de tudo
+	if slot != "skin" and slot in ["camiseta", "calca", "calcado", "mochila", "bone"]:
+		inventory().equipped["skin"] = "skin_nenhuma"
 	apply_wardrobe()
 	inventory_changed.emit()
 
@@ -156,8 +198,14 @@ static func appearance_with(extra_ids: Array = []) -> CharacterAppearance:
 	var d := base.to_dict()
 	if not saved.is_empty():
 		d.merge(saved, true)
-	for id in inventory().get("equipped", {}).values():
-		d.merge(ShopCatalog.get_item(id).get("look", {}), true)
+	var eq: Dictionary = inventory().get("equipped", {})
+	for slot in eq.keys():
+		if slot != "skin":
+			d.merge(ShopCatalog.get_item(eq[slot]).get("look", {}), true)
+	var skin_look: Dictionary = ShopCatalog.get_item(str(eq.get("skin", ""))).get("look", {})
+	var preview_clothes := extra_ids.any(func(x): return ShopCatalog.get_item(x).cat in ["camiseta", "calca", "calcado", "mochila", "bone"])
+	if not preview_clothes:
+		d.merge(skin_look, true)
 	for id in extra_ids:
 		d.merge(ShopCatalog.get_item(id).get("look", {}), true)
 	return CharacterAppearance.from_dict(d)

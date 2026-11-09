@@ -61,6 +61,7 @@ func _ready() -> void:
 	# ---- Revisão 1
 	await _test_revisao1()
 	await _test_revisao2()
+	await _test_revisao3()
 	_finish()
 
 
@@ -1124,6 +1125,51 @@ func _finish() -> void:
 		print(l)
 	print("Total: %d ok, %d falhas" % [passed, failed])
 	get_tree().quit(0 if failed == 0 else 1)
+
+
+func _test_revisao3() -> void:
+	# falas: saco embaralhado não repete até acabar
+	var seen := {}
+	var n_lines: int = NPCLines.AMBIENT.futebol.size()
+	var rep := false
+	for i in n_lines:
+		var l: String = NPCLines.draw("teste_bag", NPCLines.AMBIENT.futebol)
+		if seen.has(l):
+			rep = true
+		seen[l] = true
+	check(not rep and seen.size() == n_lines, "falas: sorteio sem repetição")
+	check(NPCLines.talk("comum").size() >= 2, "falas: conversas completas")
+	# loja: ofertas do dia e preço com desconto
+	var d1 := ShopCatalog.deals("2026-01-01")
+	check(d1 == ShopCatalog.deals("2026-01-01") and d1.size() == 4 and ShopCatalog.flash_deal_id("2026-01-01") != "", "loja: 4 ofertas do dia, uma relâmpago")
+	var fid := ShopCatalog.flash_deal_id("2026-01-01")
+	var fit := ShopCatalog.get_item(fid)
+	check(ShopCatalog.price_of(fit, "2026-01-01") == int(round(int(fit.price) * 0.5)), "loja: relâmpago custa metade")
+	check(ShopCatalog.by_cat("skin").size() >= 6 and ShopCatalog.by_cat("pacote").size() >= 3, "loja: skins e pacotes")
+	# skin: compra, veste e tirar ao trocar de camiseta
+	var prog: Progression = main.progression
+	var pdata: Dictionary = SaveManager.section("player")
+	pdata["level"] = 9
+	pdata["coins"] = 99999
+	var err := prog.buy("skin_ninja")
+	prog.equip("skin_ninja")
+	await _frames(2)
+	check(err == "" and prog.is_equipped("skin_ninja") and player.visual.appearance.shirt_color.is_equal_approx(Color("1c1c24")), "skin: compra e veste")
+	prog.equip("cam_uniforme")
+	check(not prog.is_equipped("skin_ninja"), "skin: trocar a camiseta tira a skin")
+	var err2 := prog.buy("pac_estudioso")
+	check(err2 == "" and Progression.owns("ace_oculos") and Progression.owns("dec_planta"), "pacote: entrega todos os itens")
+	# bots no online
+	var npcm: NPCManager = main.npcs
+	npcm.set_online_players(1)
+	var full := npcm.allowed_other_bots()
+	npcm.set_online_players(4)
+	var less := npcm.allowed_other_bots()
+	npcm.set_online_players(50)
+	var minimum := npcm.allowed_other_bots()
+	npcm.set_online_players(1)
+	check(full > less and minimum >= mini(NPCManager.MIN_OTHER_BOTS, npcm.others.size()) and minimum > 0, "online: menos bots com mais jogadores, com mínimo", "%d/%d/%d" % [full, less, minimum])
+	check(NetworkManager.SERVER_URL.begins_with("wss://") and main._online_menu != null, "online: servidor fixo e menu Jogar online")
 
 
 func _test_revisao2() -> void:

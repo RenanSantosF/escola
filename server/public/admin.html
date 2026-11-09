@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Recreio · Painel</title>
+<style>
+  :root {
+    --bg: #f4f6fb; --card: #ffffff; --ink: #1f2a44; --muted: #6b7690; --line: #e3e8f2;
+    --blue: #2f6fd0; --green: #2fae6a; --yellow: #f5b400; --orange: #ff8a3d; --pink: #e84393; --purple: #8a5cf6; --red: #e04a3a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1424; --card: #182038; --ink: #eef2fb; --muted: #9aa6c4; --line: #26304d; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 18px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: linear-gradient(120deg, #2f6fd0, #8a5cf6); color: #fff; }
+  header h1 { margin: 0; font-size: 22px; letter-spacing: .3px; }
+  header .sub { opacity: .85; font-size: 13px; }
+  header .sp { flex: 1; }
+  header button { background: rgba(255,255,255,.18); color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 10px; padding: 8px 12px; cursor: pointer; font-weight: 600; }
+  main { max-width: 1200px; margin: 0 auto; padding: 18px 16px 40px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .grid2 { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); margin-top: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; min-width: 0; }
+  .kpi .v { font-size: 30px; font-weight: 800; margin-top: 2px; }
+  .kpi .l { color: var(--muted); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+  .kpi .s { color: var(--muted); font-size: 12px; }
+  .live .v { color: var(--green); }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--green); margin-right: 6px; animation: p 1.6s infinite; }
+  @keyframes p { 50% { opacity: .3; } }
+  h2 { margin: 0 0 12px; font-size: 16px; }
+  .bars .row { display: grid; grid-template-columns: 110px 1fr 70px; gap: 8px; align-items: center; margin: 6px 0; font-size: 13px; }
+  .bars .row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bars .track { background: var(--line); border-radius: 8px; height: 14px; overflow: hidden; }
+  .bars .fill { height: 100%; border-radius: 8px; background: var(--blue); }
+  .bars .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .cols { display: flex; align-items: flex-end; gap: 4px; height: 150px; padding-top: 8px; }
+  .cols .c { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+  .cols .b { width: 100%; background: linear-gradient(180deg, var(--purple), var(--blue)); border-radius: 6px 6px 2px 2px; min-height: 2px; }
+  .cols .t { font-size: 10px; color: var(--muted); white-space: nowrap; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+  td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: var(--line); }
+  .muted { color: var(--muted); }
+  #login { max-width: 380px; margin: 80px auto; }
+  #login input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font-size: 15px; }
+  #login button { margin-top: 10px; width: 100%; padding: 12px; border: 0; border-radius: 10px; background: var(--blue); color: #fff; font-weight: 700; font-size: 15px; cursor: pointer; }
+  .err { color: var(--red); margin-top: 8px; font-size: 13px; }
+  .note { font-size: 12px; color: var(--muted); margin-top: 18px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Recreio — Painel</h1>
+    <div class="sub" id="sub">Estatísticas anônimas do jogo</div>
+  </div>
+  <div class="sp"></div>
+  <button id="refresh" hidden>Atualizar</button>
+  <button id="logout" hidden>Sair</button>
+</header>
+
+<div id="login" class="card">
+  <h2>Entrar</h2>
+  <p class="muted">Digite o <b>ADMIN_TOKEN</b> configurado nas variáveis do Railway.</p>
+  <input id="token" type="password" placeholder="ADMIN_TOKEN" autocomplete="current-password">
+  <button id="go">Entrar</button>
+  <div class="err" id="err"></div>
+</div>
+
+<main id="app" hidden>
+  <div class="grid">
+    <div class="card kpi live"><div class="l"><span class="dot"></span>Online agora</div><div class="v" id="k-online">0</div><div class="s" id="k-rooms"></div></div>
+    <div class="card kpi"><div class="l">Jogadores (total)</div><div class="v" id="k-total">0</div><div class="s" id="k-new"></div></div>
+    <div class="card kpi"><div class="l">Ativos 24 h / 7 dias</div><div class="v" id="k-active">0</div><div class="s" id="k-ret"></div></div>
+    <div class="card kpi"><div class="l">Tempo médio por sessão</div><div class="v" id="k-avg">0</div><div class="s" id="k-med"></div></div>
+    <div class="card kpi"><div class="l">Horas jogadas</div><div class="v" id="k-hours">0</div><div class="s" id="k-sess"></div></div>
+    <div class="card kpi"><div class="l">Moedas gastas</div><div class="v" id="k-coins">0</div><div class="s" id="k-buy"></div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h2>Jogadores por dia (14 dias)</h2><div class="cols" id="c-days"></div></div>
+    <div class="card"><h2>Minutos jogados por dia</h2><div class="cols" id="c-minutes"></div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h2>Idades</h2><div class="bars" id="b-ages"></div></div>
+    <div class="card"><h2>Tempo médio por idade (min/jogador)</h2><div class="bars" id="b-timeage"></div></div>
+    <div class="card"><h2>Níveis</h2><div class="bars" id="b-levels"></div></div>
+    <div class="card"><h2>Horário das sessões (Brasília)</h2><div class="cols" id="c-hours"></div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h2>Itens mais comprados</h2><div class="bars" id="b-items"></div></div>
+    <div class="card"><h2>Onde as moedas são gastas</h2><div class="bars" id="b-cat"></div></div>
+    <div class="card"><h2>Maiores compras</h2><table id="t-big"></table></div>
+    <div class="card"><h2>Menores compras</h2><table id="t-small"></table></div>
+    <div class="card"><h2>Compras recentes</h2><table id="t-recent"></table></div>
+    <div class="card"><h2>Itens que mais renderam</h2><table id="t-topcoins"></table></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h2>Brincadeiras mais jogadas</h2><table id="t-games"></table></div>
+    <div class="card"><h2>Missões concluídas</h2><div class="bars" id="b-quests"></div></div>
+    <div class="card"><h2>Salas agora</h2><table id="t-rooms"></table></div>
+    <div class="card"><h2>Denúncias recentes</h2><table id="t-reports"></table></div>
+  </div>
+  <p class="note" id="note"></p>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const COLORS = ['#2f6fd0', '#2fae6a', '#f5b400', '#ff8a3d', '#e84393', '#8a5cf6', '#14b8a6', '#e04a3a'];
+const CAT = { camiseta: 'Camisetas', calca: 'Calças', calcado: 'Tênis', mochila: 'Mochilas', bone: 'Bonés', penteado: 'Cabelo', acessorio: 'Acessórios',
+  decoracao: 'Decoração', gude: 'Bolinhas de gude', figurinha: 'Figurinhas', veiculo: 'Veículos', skin: 'Skins', pacote: 'Pacotes', outros: 'Outros' };
+const GAMES = { futebol: 'Futebol', queimada: 'Queimada', gude: 'Bolinha de gude', amarelinha: 'Amarelinha', aviao: 'Aviãozinho', corrida: 'Corrida', corda: 'Pular corda', pontaria: 'Pontaria', guerra: 'Guerra de papel' };
+let token = '';
+try { token = localStorage.getItem('recreio_admin') || ''; } catch (e) {}
+
+function bars(el, entries, color, fmt = (v) => v) {
+  const max = Math.max(1, ...entries.map((e) => e[1]));
+  $(el).innerHTML = entries.length ? entries.map(([k, v], i) =>
+    `<div class="row"><div class="name" title="${esc(k)}">${esc(k)}</div><div class="track"><div class="fill" style="width:${(v / max) * 100}%;background:${color || COLORS[i % COLORS.length]}"></div></div><div class="num">${esc(fmt(v))}</div></div>`).join('')
+    : '<div class="muted">Sem dados ainda</div>';
+}
+function cols(el, entries) {
+  const max = Math.max(1, ...entries.map((e) => e[1]));
+  $(el).innerHTML = entries.map(([k, v]) => `<div class="c" title="${esc(k)}: ${esc(v)}"><div class="b" style="height:${(v / max) * 120}px"></div><div class="t">${esc(k)}</div></div>`).join('');
+}
+function table(el, head, rows) {
+  $(el).innerHTML = `<tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr>` +
+    (rows.length ? rows.map((r) => `<tr>${r.map((c, i) => `<td class="${typeof c === 'number' && i > 0 ? 'n' : ''}">${esc(c)}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${head.length}" class="muted">Sem dados ainda</td></tr>`);
+}
+const when = (t) => new Date(t).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+async function load() {
+  const r = await fetch('/api/admin/stats', { headers: { 'x-admin-token': token } });
+  if (r.status === 403) { showLogin('Token inválido.'); return; }
+  const s = await r.json();
+  $('login').hidden = true; $('app').hidden = false; $('refresh').hidden = false; $('logout').hidden = false;
+  $('sub').textContent = 'Atualizado ' + when(s.generatedAt) + ' · dados: ' + s.storage;
+  $('k-online').textContent = s.live.online;
+  $('k-rooms').textContent = s.live.rooms + ' sala(s) abertas';
+  $('k-total').textContent = s.players.total;
+  $('k-new').textContent = s.players.new24h + ' novos nas últimas 24 h';
+  $('k-active').textContent = s.players.active24h + ' / ' + s.players.active7d;
+  $('k-ret').textContent = s.players.retentionPct + '% voltaram em outro dia';
+  $('k-avg').textContent = s.sessions.avgMinutes + ' min';
+  $('k-med').textContent = 'mediana ' + s.sessions.medianMinutes + ' min';
+  $('k-hours').textContent = s.sessions.totalHours + ' h';
+  $('k-sess').textContent = s.sessions.count + ' sessões';
+  $('k-coins').textContent = s.purchases.coins.toLocaleString('pt-BR');
+  $('k-buy').textContent = s.purchases.count + ' compras · ' + s.purchases.buyersPct + '% compraram algo';
+  cols('c-days', s.days.map((d) => [d.day.slice(8) + '/' + d.day.slice(5, 7), d.players]));
+  cols('c-minutes', s.days.map((d) => [d.day.slice(8) + '/' + d.day.slice(5, 7), d.minutes]));
+  bars('b-ages', Object.entries(s.ages).sort((a, b) => a[0] - b[0]).map(([a, n]) => [a == 0 ? 'Não informada' : a + ' anos', n]));
+  bars('b-timeage', Object.entries(s.timeByAge).sort((a, b) => a[0] - b[0]).map(([a, n]) => [a == 0 ? 'Não informada' : a + ' anos', n]), '#14b8a6', (v) => v + ' min');
+  bars('b-levels', Object.entries(s.levels).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([l, n]) => ['Nível ' + l, n]), '#8a5cf6');
+  const hrs = s.sessions.byHourUTC.map((v, h) => [String((h + 21) % 24).padStart(2, '0'), v]);
+  hrs.sort((a, b) => a[0] - b[0]);
+  cols('c-hours', hrs);
+  bars('b-items', s.purchases.topItems.map((i) => [i.name, i.count]), null, (v) => v + 'x');
+  bars('b-cat', Object.entries(s.purchases.byCategory).sort((a, b) => b[1] - a[1]).map(([c, v]) => [CAT[c] || c, v]), '#f5b400', (v) => v + ' 🪙');
+  const prow = (p) => [p.item, p.price, p.age ? p.age + ' anos' : '—', when(p.at)];
+  table('t-big', ['Item', 'Moedas', 'Idade', 'Quando'], s.purchases.biggest.map(prow));
+  table('t-small', ['Item', 'Moedas', 'Idade', 'Quando'], s.purchases.smallest.map(prow));
+  table('t-recent', ['Item', 'Moedas', 'Idade', 'Quando'], s.purchases.recent.map(prow));
+  table('t-topcoins', ['Item', 'Vendas', 'Moedas'], s.purchases.topCoins.map((i) => [i.name, i.count, i.coins]));
+  table('t-games', ['Brincadeira', 'Partidas', 'Vitórias'], s.minigames.map((g) => [GAMES[g.id] || g.id, g.plays, g.plays ? Math.round(g.wins / g.plays * 100) + '%' : '—']));
+  bars('b-quests', s.quests.map((q) => [q.id.replace(/_/g, ' '), q.count]), '#2fae6a');
+  table('t-rooms', ['Código', 'Jogadores', 'Tipo', 'Idades'], s.live.roomList.map((r) => [r.code, r.players + '/' + r.max, r.private ? 'Privada' : 'Pública', r.ages.join(', ')]));
+  table('t-reports', ['Quando', 'Motivo', 'Denunciado', 'Mensagens'], (s.reports || []).map((x) => [when(x.at), x.reason, x.targetId, (x.context.messages || []).map((m) => m.text).join(' | ')]));
+  $('note').textContent = 'Os dados são anônimos: cada aparelho tem um código aleatório; nenhum nome, e-mail ou localização é coletado.';
+}
+function showLogin(msg) {
+  $('login').hidden = false; $('app').hidden = true; $('refresh').hidden = true; $('logout').hidden = true;
+  $('err').textContent = msg || '';
+}
+$('go').onclick = () => { token = $('token').value.trim(); try { localStorage.setItem('recreio_admin', token); } catch (e) {} load().catch((e) => showLogin('Erro: ' + e.message)); };
+$('token').onkeydown = (e) => { if (e.key === 'Enter') $('go').click(); };
+$('refresh').onclick = () => load();
+$('logout').onclick = () => { token = ''; try { localStorage.removeItem('recreio_admin'); } catch (e) {} showLogin(); };
+if (token) load().catch(() => showLogin()); else showLogin();
+setInterval(() => { if (token && !$('app').hidden) load().catch(() => {}); }, 15000);
+</script>
+</body>
+</html>

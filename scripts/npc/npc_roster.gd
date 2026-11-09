@@ -49,41 +49,7 @@ const ADULTS := {
 }
 
 ## Falas curtas (balões) por personalidade e momento.
-const AMBIENT := {
-	"futebol": ["Bora jogar bola!", "Passa, passa!", "Golaço!", "Hoje eu jogo no gol!", "Quem tem bola?"],
-	"competitivo": ["Aposto que corro mais rápido!", "Ganhei de novo!", "Quero revanche!", "Eu fui o primeiro!"],
-	"engracado": ["Hahaha!", "Sabe aquela da galinha?", "Olha a careta!", "Pegadinha!", "Kkkkkk"],
-	"timido": ["...oi.", "Hum...", "Gosto de ler aqui.", "Tá bom..."],
-	"colecionador": ["Troca figurinha?", "Me falta só uma!", "Essa é rara!", "Tenho repetida!"],
-	"comilao": ["Que fome!", "Hoje tem coxinha?", "Tô na fila!", "Esse lanche tá bom demais!"],
-	"agitado": ["Pega-pega!", "Tá com você!", "Corre!", "Ninguém me pega!"],
-	"estudioso": ["Já fiz a tarefa.", "Amanhã tem prova!", "Li um livro legal.", "Você entendeu a lição?"],
-	"comum": ["Oi!", "E aí?", "Que calor!", "Já tocou o sinal?", "Bora lá!", "Que legal!"],
-	"teacher": ["Silêncio, turma!", "Muito bem!", "Prestem atenção!"],
-	"director": ["Sem correria no corredor!", "Bom dia, alunos.", "Tudo em ordem por aqui?"],
-	"inspector": ["Devagar, crianças!", "Cuidado aí!", "Joga o lixo no lixo!"],
-	"cook": ["Saindo pastel quentinho!", "Quem é o próximo?", "Olha a coxinha!"],
-}
-
-## Conversas ao interagir (tocar em "Conversar").
-const TALK := {
-	"futebol": [["Ei! No recreio vai ter futebol na quadra.", "Chega lá que eu te passo a bola!"],
-		["Meu sonho é jogar na seleção.", "Treino todo recreio!"]],
-	"competitivo": [["Tirei dez em todas as tarefas ontem.", "Duvido você me alcançar!"],
-		["Aposto uma corrida até a quadra!", "...Mas não agora, tô ocupada."]],
-	"engracado": [["Por que o livro de matemática ficou triste?", "Porque tinha muitos problemas! Hahaha!"],
-		["Já viu o diretor tropeçar no corredor?", "Eu não vi... mas imaginei!"]],
-	"timido": [["Ah... oi.", "Você... quer sentar aqui comigo um pouco?"], ["Eu gosto da biblioteca.", "Lá é calminho."]],
-	"colecionador": [["Tô completando o álbum!", "Se achar figurinha, me avisa!"], ["Essa aqui é brilhante, olha!", "Não troco por nada!"]],
-	"comilao": [["A Tia Rosa faz a melhor coxinha do mundo.", "Sério, experimenta!"], ["Já tá chegando a hora do lanche?", "Minha barriga tá roncando..."]],
-	"agitado": [["Pega-pega no pátio!", "Quem perder é o pegador!"], ["Eu consigo subir no trepa-trepa de olho fechado!", "...Quase."]],
-	"estudioso": [["Hoje a professora vai passar contas.", "É só prestar atenção que é fácil."], ["Sabia que a biblioteca tem um globo?", "Adoro geografia."]],
-	"comum": [["Oi! Tudo bem?", "Bora pro recreio daqui a pouco!"], ["Você é novo aqui?", "Seja bem-vindo!"], ["Que calor hoje, né?", "Bom dia pra tomar água no bebedouro."]],
-	"teacher": [["Bom dia! Hoje vamos fazer umas atividades rapidinhas.", "Quem terminar bem, aproveita o recreio!"]],
-	"director": [["Bom dia, mocinho.", "Lembre-se: nada de correria no corredor, combinado?"]],
-	"inspector": [["Comportado hoje, hein?", "Qualquer coisa, é só me chamar."]],
-	"cook": [["Oi, querido! Hoje tem pão de queijo quentinho.", "Volta no recreio!"]],
-}
+## Falas: ver NPCLines (scripts/npc/npc_lines.gd).
 
 
 static func appearance_for(entry: Dictionary) -> CharacterAppearance:
@@ -109,11 +75,9 @@ static func generic_student(index: int) -> Dictionary:
 	}
 
 
-static func ambient_line(personality: String) -> String:
-	var lines: Array = AMBIENT.get(personality, AMBIENT.comum)
-	return lines.pick_random()
+static func ambient_line(personality: String, phase := "") -> String:
+	return NPCLines.ambient(personality, phase)
 
 
 static func talk_lines(personality: String) -> Array:
-	var sets: Array = TALK.get(personality, TALK.comum)
-	return sets.pick_random()
+	return NPCLines.talk(personality)

@@ -65,24 +65,8 @@ func _ready() -> void:
 			GameManager.show_toast("Idade atualizada: atividades do %s" % Learning.grade_name())), 420)
 	v.add_child(age_btn)
 
-	v.add_child(_section("Online (beta)"))
-	var url_row := HBoxContainer.new()
-	var url_lbl := Label.new()
-	url_lbl.text = "Servidor (um adulto preenche):"
-	url_row.add_child(url_lbl)
-	var url_edit := LineEdit.new()
-	url_edit.placeholder_text = "https://seu-app.up.railway.app"
-	url_edit.text = str(Settings.get_value("server_url"))
-	url_edit.custom_minimum_size = Vector2(420, 48)
-	url_edit.text_changed.connect(func(t): Settings.set_value("server_url", t.strip_edges()))
-	url_row.add_child(url_edit)
-	v.add_child(url_row)
-	v.add_child(_check("Jogar online com outras crianças", "online_enabled"))
-	var info := Label.new()
-	info.text = "Chat com frases prontas, filtro de palavras e botão de denúncia. Peça para um adulto acompanhar."
-	info.autowrap_mode = TextServer.AUTOWRAP_WORD
-	info.custom_minimum_size = Vector2(600, 0)
-	v.add_child(info)
+	v.add_child(_section("Privacidade"))
+	v.add_child(_check("Enviar estatísticas anônimas (tempo de jogo, compras com moedas do jogo)", "share_stats"))
 
 	v.add_child(_section("Controles"))
 	v.add_child(_slider("Sensibilidade da câmera", "camera_sensitivity", 0.3, 2.5))

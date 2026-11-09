@@ -149,6 +149,7 @@ func _on_finished(result: Dictionary) -> void:
 	active = null
 	if g:
 		g.queue_free()
+	Telemetry.track("minigame", {"id": str(result.get("id", "")), "won": int(result.get("won", 0)) > 0})
 	game_finished.emit(result)
 
 

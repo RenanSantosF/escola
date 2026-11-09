@@ -29,8 +29,16 @@ func _ready() -> void:
 	theme = UITheme.get_theme()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	visible = false
-	var bg := ColorRect.new()
-	bg.color = Color(0.06, 0.09, 0.18, 0.88)
+	var bg := TextureRect.new()
+	var gt := GradientTexture2D.new()
+	var g := Gradient.new()
+	g.set_color(0, Color("1b2a6b", 0.96))
+	g.set_color(1, Color("5a2d91", 0.96))
+	gt.gradient = g
+	gt.fill_from = Vector2(0, 0)
+	gt.fill_to = Vector2(1, 1)
+	bg.texture = gt
+	bg.stretch_mode = TextureRect.STRETCH_SCALE
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 	var margin := MarginContainer.new()
@@ -48,9 +56,9 @@ func _ready() -> void:
 	for t in TABS:
 		var b := Button.new()
 		b.text = t[1]
-		b.custom_minimum_size = Vector2(190, 56)
+		b.custom_minimum_size = Vector2(196, 58)
 		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_size_override("font_size", 22)
+		b.add_theme_font_size_override("font_size", 25)
 		var tid: String = t[0]
 		b.pressed.connect(func():
 			AudioManager.play_ui("ui_click")
@@ -75,10 +83,10 @@ func _ready() -> void:
 	scroll.add_child(_content)
 	# lateral: prévia + moedas + ação
 	_side = VBoxContainer.new()
-	_side.custom_minimum_size = Vector2(300, 0)
+	_side.custom_minimum_size = Vector2(280, 0)
 	_side.add_theme_constant_override("separation", 10)
 	root.add_child(_side)
-	_coins = UITheme.title_label("", 26, Color("ffe08a"))
+	_coins = UITheme.title_label("", 23, Color("ffe08a"))
 	_side.add_child(_coins)
 	var vpc := SubViewportContainer.new()
 	vpc.custom_minimum_size = Vector2(300, 380)
@@ -97,7 +105,7 @@ func _ready() -> void:
 	env.environment.background_mode = Environment.BG_CLEAR_COLOR
 	env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.environment.ambient_light_color = Color(0.85, 0.85, 0.9)
-	env.environment.ambient_light_energy = 0.7
+	env.environment.ambient_light_energy = 0.9
 	_preview_vp.add_child(env)
 	var cam := Camera3D.new()
 	cam.position = Vector3(0, 1.05, 2.9)
@@ -107,7 +115,7 @@ func _ready() -> void:
 	_info = Label.new()
 	_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info.add_theme_color_override("font_color", Color.WHITE)
-	_info.add_theme_font_size_override("font_size", 20)
+	_info.add_theme_font_size_override("font_size", 22)
 	_info.custom_minimum_size = Vector2(300, 60)
 	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_side.add_child(_info)
@@ -146,7 +154,7 @@ func _refresh() -> void:
 		_tab_buttons[t].add_theme_stylebox_override("normal", UITheme.box(UITheme.ORANGE if on else UITheme.YELLOW, 18, UITheme.DARK.lerp(UITheme.YELLOW, 0.5), 0, 6))
 	for c in _content.get_children():
 		c.queue_free()
-	_coins.text = "Moedas: %d   ·   Nível %d" % [GameManager.coins(), GameManager.level()]
+	_coins.text = "Moedas: %d  ·  Nível %d" % [GameManager.coins(), GameManager.level()]
 	var show_preview := _tab in ["loja", "visual"]
 	if _tab == "brincadeiras" and not GameManager.overlay_open:
 		pass
@@ -172,74 +180,248 @@ func _refresh() -> void:
 
 
 func _title(t: String) -> void:
-	var l := UITheme.title_label(t, 30)
+	var l := UITheme.title_label(t, 38)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_content.add_child(l)
 
 
 func _build_items(shop: bool) -> void:
-	_title("Loja do Recreio" if shop else "Seu guarda-roupa")
+	if shop:
+		_build_shop_header()
+	else:
+		_title("Seu guarda-roupa")
+	# categorias (chips grandes)
 	var cats := HFlowContainer.new()
-	cats.add_theme_constant_override("h_separation", 6)
-	cats.add_theme_constant_override("v_separation", 6)
+	cats.add_theme_constant_override("h_separation", 8)
+	cats.add_theme_constant_override("v_separation", 8)
 	_content.add_child(cats)
 	for c in ShopCatalog.CATEGORIES:
-		if not shop and c[0] in ["gude", "figurinha", "decoracao"]:
+		if not shop and c[0] in ["gude", "figurinha", "decoracao", "pacote"]:
 			continue
 		var b := Button.new()
 		b.text = c[1]
 		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_size_override("font_size", 18)
-		b.custom_minimum_size = Vector2(0, 44)
+		b.add_theme_font_size_override("font_size", 21)
+		b.custom_minimum_size = Vector2(0, 50)
 		var cid: String = c[0]
-		if cid == _cat:
-			b.add_theme_stylebox_override("normal", UITheme.box(UITheme.ORANGE, 14))
+		var on := cid == _cat
+		var col := UITheme.ORANGE if on else Color("fff8e7")
+		if cid == "skin" and not on:
+			col = Color("e9ddff")
+		for st in ["normal", "hover", "pressed", "focus"]:
+			var sb := UITheme.box(col, 26, UITheme.DARK if on else Color(0, 0, 0, 0), 3 if on else 0, 4)
+			sb.content_margin_left = 14
+			sb.content_margin_right = 14
+			b.add_theme_stylebox_override(st, sb)
+		b.add_theme_color_override("font_color", Color.WHITE if on else UITheme.DARK)
+		b.add_theme_color_override("font_hover_color", Color.WHITE if on else UITheme.DARK)
 		b.pressed.connect(func():
+			AudioManager.play_ui("ui_click")
 			_cat = cid
 			_selected = ""
 			_refresh())
 		cats.add_child(b)
 	var grid := GridContainer.new()
 	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
 	_content.add_child(grid)
+	var any := false
 	for item in ShopCatalog.by_cat(_cat):
 		var owned := Progression.owns(item.id)
 		if not shop and not owned:
 			continue
-		grid.add_child(_card(item, owned))
+		grid.add_child(_card(item, owned, shop))
+		any = true
+	if not any:
+		_row("Nada aqui ainda", "Compre itens na Loja para usar no guarda-roupa.")
 
 
-func _card(item: Dictionary, owned: bool) -> Control:
+## Faixa do topo da loja: moedas + ofertas do dia + oferta relâmpago.
+func _build_shop_header() -> void:
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 12)
+	_content.add_child(head)
+	var t := UITheme.title_label("Loja do Recreio", 42, Color("ffcf3f"))
+	t.add_theme_constant_override("outline_size", 10)
+	t.add_theme_color_override("font_outline_color", UITheme.DARK)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	head.add_child(t)
+	head.add_child(_coin_pill(GameManager.coins(), 30))
+	# ofertas
+	var deals := ShopCatalog.deals()
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	_content.add_child(row)
+	for id in deals.keys():
+		var it := ShopCatalog.get_item(id)
+		if it.is_empty():
+			continue
+		row.add_child(_deal_card(it, int(deals[id])))
+
+
+func _deal_card(item: Dictionary, off: int) -> Control:
+	var flash := off >= 50
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(200, 92)
 	b.focus_mode = Control.FOCUS_NONE
-	b.clip_text = true
+	b.custom_minimum_size = Vector2(196 if flash else 148, 132)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var c1 := Color("ff4d6d") if flash else Color("2f8be0")
+	for st in ["normal", "hover", "pressed", "focus"]:
+		var sb := UITheme.box(c1, 20, Color.WHITE if item.id == _selected else c1.darkened(0.3), 4, 6)
+		b.add_theme_stylebox_override(st, sb)
+	var v := VBoxContainer.new()
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 10
+	v.offset_right = -10
+	v.offset_top = 6
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(v)
+	var tag := _label(("RELÂMPAGO -%d%%" % off) if flash else ("OFERTA -%d%%" % off), 16, Color("fff3b0"))
+	v.add_child(tag)
+	var nm := _label(item.name, 18, Color.WHITE)
+	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	nm.clip_text = true
+	v.add_child(nm)
+	var pr := HBoxContainer.new()
+	pr.alignment = BoxContainer.ALIGNMENT_CENTER
+	pr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var old := _label(str(item.price), 16, Color(1, 1, 1, 0.65))
+	pr.add_child(old)
+	pr.add_child(_label(" > ", 16, Color.WHITE))
+	var ci := CoinIcon.new()
+	ci.radius = 11
+	pr.add_child(ci)
+	pr.add_child(_label(" " + str(ShopCatalog.price_of(item)), 24, Color.WHITE))
+	v.add_child(pr)
+	if flash:
+		var s := ShopCatalog.seconds_to_midnight()
+		v.add_child(_label("Acaba em %02d:%02d" % [s / 3600, (s % 3600) / 60], 15, Color("fff3b0")))
+	b.pressed.connect(func():
+		AudioManager.play_ui("ui_click")
+		_cat = item.cat
+		_selected = item.id
+		_refresh())
+	return b
+
+
+func _label(text: String, size: int, col: Color) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_font_override("font", UITheme.bold_font())
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", col)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
+
+func _coin_pill(amount: int, size := 24) -> Control:
+	var p := PanelContainer.new()
+	var sb := UITheme.box(UITheme.DARK, 24, Color("ffcf3f"), 3, 0)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 16
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
+	p.add_theme_stylebox_override("panel", sb)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	p.add_child(h)
+	var ci := CoinIcon.new()
+	ci.radius = size * 0.5
+	h.add_child(ci)
+	h.add_child(_label(str(amount), size, Color("ffe08a")))
+	return p
+
+
+func _card(item: Dictionary, owned: bool, shop := true) -> Control:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(212, 150)
+	b.focus_mode = Control.FOCUS_NONE
 	var locked := GameManager.level() < int(item.lvl)
-	var status := ""
-	if progression.is_equipped(item.id):
-		status = "Equipado"
-	elif owned and not item.get("consumable", false):
-		status = "Seu"
-	elif locked:
-		status = "Nível %d" % item.lvl
-	else:
-		status = "%d moedas" % item.price if item.price > 0 else "Grátis"
-	b.text = "%s\n%s" % [item.name, status]
-	b.add_theme_font_size_override("font_size", 17)
-	var col := ShopCatalog.swatch(item)
+	var rar := ShopCatalog.rarity_of(item)
+	var rcol: Color = ShopCatalog.RARITY[rar][1]
 	var sel: bool = item.id == _selected
-	var sb := UITheme.box(Color("fff8e7") if not locked else Color("d9d4c7"), 14, UITheme.ORANGE if sel else col, 6 if sel else 4, 0)
-	sb.border_width_left = 14
-	b.add_theme_stylebox_override("normal", sb)
-	b.add_theme_stylebox_override("hover", sb)
-	b.add_theme_stylebox_override("pressed", sb)
+	var bg := Color("fffaf0") if not locked else Color("e3e0d8")
+	for st in ["normal", "hover", "pressed", "focus"]:
+		var sb := UITheme.box(bg, 20, Color.WHITE if sel else rcol, 6 if sel else 3, 6)
+		if sel:
+			sb.shadow_color = Color(1, 0.85, 0.2, 0.7)
+			sb.shadow_size = 10
+		b.add_theme_stylebox_override(st, sb)
+	# faixa de raridade
+	var ribbon := ColorRect.new()
+	ribbon.color = rcol
+	ribbon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ribbon.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	ribbon.offset_bottom = 26
+	ribbon.offset_left = 3
+	ribbon.offset_right = -3
+	ribbon.offset_top = 3
+	b.add_child(ribbon)
+	var rl := _label(ShopCatalog.RARITY[rar][0].to_upper(), 15, Color.WHITE)
+	rl.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	rl.offset_top = 3
+	rl.offset_bottom = 26
+	b.add_child(rl)
+	# amostra de cor
+	var sw := Panel.new()
+	sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sw.add_theme_stylebox_override("panel", UITheme.box(ShopCatalog.swatch(item), 22, Color.WHITE, 3, 0))
+	sw.position = Vector2(10, 40)
+	sw.size = Vector2(44, 44)
+	b.add_child(sw)
+	var nm := _label(item.name, 19, UITheme.DARK)
+	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nm.position = Vector2(62, 32)
+	nm.size = Vector2(142, 66)
+	b.add_child(nm)
+	# preço / estado
+	var foot := HBoxContainer.new()
+	foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	foot.position = Vector2(10, 106)
+	foot.size = Vector2(194, 36)
+	foot.add_theme_constant_override("separation", 6)
+	b.add_child(foot)
+	var off := ShopCatalog.discount_of(item.id)
+	if progression.is_equipped(item.id):
+		foot.add_child(_tag("VESTINDO", UITheme.GREEN))
+	elif owned and not item.get("consumable", false):
+		foot.add_child(_tag("É SEU", Color("2f8be0")))
+	elif locked:
+		foot.add_child(_tag("NÍVEL %d" % item.lvl, Color("8a8f99")))
+	elif int(item.price) == 0:
+		foot.add_child(_tag("GRÁTIS", UITheme.GREEN))
+	else:
+		var ci := CoinIcon.new()
+		ci.radius = 12
+		foot.add_child(ci)
+		foot.add_child(_label(str(ShopCatalog.price_of(item)), 26, UITheme.DARK))
+		if off > 0:
+			foot.add_child(_tag("-%d%%" % off, Color("ff4d6d")))
+		if item.has("bundle") or item.has("bundle_packs"):
+			foot.add_child(_tag("-%d" % maxi(ShopCatalog.bundle_value(item) - int(item.price), 0), UITheme.ORANGE))
 	b.pressed.connect(func():
 		AudioManager.play_ui("ui_click")
 		_selected = item.id
 		_refresh())
 	return b
+
+
+func _tag(text: String, col: Color) -> Control:
+	var p := PanelContainer.new()
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := UITheme.box(col, 10, Color(0, 0, 0, 0), 0, 0)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 2
+	sb.content_margin_bottom = 2
+	p.add_theme_stylebox_override("panel", sb)
+	p.add_child(_label(text, 16, Color.WHITE))
+	return p
 
 
 func _update_preview() -> void:
@@ -258,11 +440,21 @@ func _update_preview() -> void:
 	if owned and not item.get("consumable", false):
 		_action.text = "Equipado" if progression.is_equipped(_selected) else "Equipar"
 		_action.disabled = progression.is_equipped(_selected) or not (item.has("look") or item.has("vehicle"))
-		_info.text = item.name + ("\n(fica na sua carteira da sala)" if item.cat == "decoracao" else "")
+		_info.text = item.name + ("\n(fica na sua carteira da sala)" if item.cat == "decoracao" else "") + ("\n" + str(item.desc) if item.has("desc") else "")
 	else:
-		_action.text = "Comprar (%d)" % item.price
-		_action.disabled = GameManager.level() < int(item.lvl) or GameManager.coins() < int(item.price)
-		_info.text = "%s\nPreço: %d moedas%s" % [item.name, item.price, "" if GameManager.level() >= int(item.lvl) else "\nLibera no nível %d" % item.lvl]
+		var price := ShopCatalog.price_of(item)
+		var off := ShopCatalog.discount_of(item.id)
+		_action.text = "Comprar por %d" % price
+		_action.disabled = GameManager.level() < int(item.lvl) or GameManager.coins() < price
+		var lines := [item.name]
+		if item.has("desc"):
+			lines.append(str(item.desc))
+		lines.append(("De %d por %d moedas (-%d%%)" % [item.price, price, off]) if off > 0 else "Preço: %d moedas" % price)
+		if GameManager.level() < int(item.lvl):
+			lines.append("Libera no nível %d" % item.lvl)
+		elif GameManager.coins() < price:
+			lines.append("Faltam %d moedas" % (price - GameManager.coins()))
+		_info.text = "\n".join(lines)
 
 
 func _on_action() -> void:
