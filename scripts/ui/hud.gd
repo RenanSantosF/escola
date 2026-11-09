@@ -26,6 +26,9 @@ var _objective: Label
 var _objective_point: Variant = null
 var _wallet: Label
 var _summary: Control
+var _mg_panel: PanelContainer
+var _mg_label: Label
+var _meter: ProgressBar
 
 
 func _ready() -> void:
@@ -87,6 +90,7 @@ func _ready() -> void:
 
 	_build_emote_panel()
 	_build_status()
+	_build_minigame_hud()
 	_build_pause()
 
 	controls.pause_pressed.connect(open_pause)
@@ -163,6 +167,41 @@ func _build_status() -> void:
 	_banner.add_child(_banner_title)
 	_banner.add_child(_banner_sub)
 	add_child(_banner)
+
+
+func _build_minigame_hud() -> void:
+	_mg_panel = PanelContainer.new()
+	_mg_panel.add_theme_stylebox_override("panel", UITheme.box(Color(0.12, 0.16, 0.27, 0.82), 16))
+	_mg_panel.visible = false
+	_mg_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mg_label = UITheme.title_label("", 26, Color.WHITE)
+	_mg_panel.add_child(_mg_label)
+	add_child(_mg_panel)
+	_meter = ProgressBar.new()
+	_meter.show_percentage = false
+	_meter.custom_minimum_size = Vector2(320, 26)
+	_meter.add_theme_stylebox_override("fill", UITheme.box(Color("ff8a3d"), 10))
+	_meter.add_theme_stylebox_override("background", UITheme.box(Color(1, 1, 1, 0.6), 10))
+	_meter.visible = false
+	add_child(_meter)
+
+
+## Placar/estado do minijogo (texto vazio esconde).
+func set_minigame_text(text: String) -> void:
+	_mg_panel.visible = text != ""
+	_mg_label.text = text
+	var vs := get_viewport_rect().size
+	_mg_panel.reset_size()
+	_mg_panel.position = Vector2((vs.x - _mg_panel.size.x) * 0.5, 96)
+
+
+## Barra de força (0..1); valor negativo esconde.
+func set_meter(value: float) -> void:
+	_meter.visible = value >= 0.0
+	if value >= 0.0:
+		_meter.value = value * 100.0
+		var vs := get_viewport_rect().size
+		_meter.position = Vector2((vs.x - 320.0) * 0.5, vs.y - 120.0)
 
 
 func _update_wallet() -> void:

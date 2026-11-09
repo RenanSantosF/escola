@@ -9,6 +9,7 @@ var hud: HUD
 var npcs: NPCManager
 var nav: NavGraph
 var school_day: SchoolDay
+var minigames: MinigameManager
 var _day_started := false
 var ui_layer: CanvasLayer
 var _loading: Control
@@ -75,6 +76,10 @@ func _ready() -> void:
 	school_day.name = "SchoolDay"
 	add_child(school_day)
 	school_day.setup(world, npcs, player, hud)
+	minigames = MinigameManager.new()
+	minigames.name = "Minigames"
+	add_child(minigames)
+	minigames.setup(world, npcs, player, hud, school_day)
 	ui_layer.move_child(_loading, -1)
 
 	_build_menu()

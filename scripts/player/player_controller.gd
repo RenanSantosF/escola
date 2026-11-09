@@ -29,6 +29,10 @@ var mode := Mode.FREE
 var yaw := 0.0
 var run_active := false
 var input_enabled := true
+## Minijogo ativo: recebe os botões antes do comportamento padrão.
+var minigame: Node = null
+## Trava só o deslocamento (o minijogo lê o joystick para mirar).
+var movement_locked := false
 var current_seat: Seat = null
 var held_item: PickupItem = null
 var nearby: Node = null
@@ -82,7 +86,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_bonk_cd = maxf(_bonk_cd - delta, 0.0)
-	var move := _read_move_input() if input_enabled and GameManager.is_playing() else Vector2.ZERO
+	var move := _read_move_input() if input_enabled and GameManager.is_playing() and not movement_locked else Vector2.ZERO
 
 	match mode:
 		Mode.SITTING:
@@ -205,7 +209,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		emote("wave")
 
 
+func read_move_raw() -> Vector2:
+	return _read_move_input()
+
+
 func request_jump() -> void:
+	if minigame and minigame.on_jump():
+		return
 	if mode == Mode.SITTING:
 		stand_up()
 		return
@@ -217,6 +227,8 @@ func toggle_run() -> void:
 
 
 func request_interact() -> void:
+	if minigame and minigame.on_interact():
+		return
 	if mode == Mode.SITTING:
 		stand_up()
 		return
@@ -229,6 +241,8 @@ func request_interact() -> void:
 
 
 func request_play() -> void:
+	if minigame and minigame.on_play():
+		return
 	if mode != Mode.FREE or not is_on_floor():
 		return
 	if held_item:
@@ -532,6 +546,13 @@ func _emit_context(force := false) -> void:
 		pl = "Chutar"
 	else:
 		pl = "Comemorar"
+	if minigame:
+		var mil: String = minigame.interact_label()
+		var mpl: String = minigame.play_label()
+		if mil != "":
+			il = mil
+		if mpl != "":
+			pl = mpl
 	if force or il != _last_interact_label or pl != _last_play_label:
 		_last_interact_label = il
 		_last_play_label = pl

@@ -40,9 +40,23 @@
       amizades iniciais, XP/moedas/nível e resumo do fim do dia
 - [x] 85 testes automatizados (save de teste separado do save real)
 
-## Fase 3 — Diversão
-Futebol (times, gols, placar), queimada, bolinha de gude (mira/força/colisões),
-aviãozinho de papel (física de voo), convites.
+## ✅ Fase 3 — Diversão (concluída)
+
+8 minijogos independentes (`scripts/minigames/`), cada um com regras, placar, interface e
+recompensas próprias; estações com placa no mapa (só no recreio) e convites de amigos.
+
+- [x] **Futebol**: 4×4 com goleiros, placar, gol pela trave, lateral, chute com mira
+      assistida, passe para o colega, 2 min ou 3 gols; **torneio** (3 vitórias = campeão)
+- [x] **Queimada**: times nas metades da quadra, pegar/arremessar com mira, bola "viva" até
+      quicar, queimados vão ao cemitério e voltam, vitória com 6 queimados ou no tempo
+- [x] **Bolinha de gude**: simulação 2D própria (atrito, colisões elásticas), mira e força,
+      turnos contra a Júlia, bolinhas capturadas entram na **coleção** (7 tipos, 1 rara)
+- [x] **Aviãozinho de papel**: dobrar (timing define a qualidade), mira/força, física de
+      planador (sustentação, arrasto, vento), argolas, alvo de pouso, recorde
+- [x] **Corrida** de 80 m contra dois colegas, **Pular corda** com ritmo crescente,
+      **Pontaria** nas lixeiras de coleta seletiva, **Guerra de bolinhas de papel**
+- [x] Câmera dedicada para enquadramentos de minijogo, barra de força, placar na HUD
+- [x] 122 testes automatizados
 
 ## Fase 4 — Personalidade
 Diretor e professores, ocorrências progressivas e leves, pais, amizades, eventos

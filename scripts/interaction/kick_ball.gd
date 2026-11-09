@@ -9,7 +9,14 @@ const KINDS := {
 	"basketball": {"radius": 0.12, "mass": 0.6, "bounce": 0.75, "colors": [Color("e67e22"), Color("3b2412")]},
 }
 
+signal hit_body(body: Node)
+
 var kind := "football"
+## Bola "viva" (arremessada e ainda sem tocar o chão) — usada na queimada.
+var live := false
+var live_team := -1
+var held_by: Node = null
+var _home_parent: Node
 var radius := 0.11
 var _spawn := Vector3.ZERO
 var _bounce_cd := 0.0
@@ -68,7 +75,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_bounce_cd = maxf(_bounce_cd - delta, 0.0)
-	if global_position.y < -5.0 or global_position.length() > 300.0:
+	if held_by == null and (global_position.y < -5.0 or global_position.length() > 300.0):
 		reset_ball()
 
 
@@ -91,7 +98,39 @@ func nudge(direction: Vector3, strength: float) -> void:
 	apply_central_impulse(direction * strength * mass)
 
 
-func _on_body_entered(_body: Node) -> void:
+## Segurar na mão (queimada).
+func hold(slot: Node3D, who: Node) -> void:
+	held_by = who
+	live = false
+	if _home_parent == null:
+		_home_parent = get_parent()
+	freeze = true
+	collision_layer = 0
+	collision_mask = 0
+	reparent(slot, false)
+	position = Vector3(0, -0.12, 0.06)
+
+
+func throw_from(from: Vector3, vel: Vector3, team: int) -> void:
+	reparent(_home_parent if _home_parent else get_tree().current_scene, false)
+	global_position = from
+	held_by = null
+	collision_layer = 8
+	collision_mask = 1 | 2 | 4 | 8
+	freeze = false
+	linear_velocity = vel
+	angular_velocity = Vector3(randf_range(-6, 6), randf_range(-6, 6), randf_range(-6, 6))
+	live = true
+	live_team = team
+	sleeping = false
+
+
+func _on_body_entered(body: Node) -> void:
+	if live:
+		if body is StaticBody3D or body is CSGShape3D:
+			live = false
+		else:
+			hit_body.emit(body)
 	if _bounce_cd <= 0.0 and linear_velocity.length() > 2.0:
 		_bounce_cd = 0.12
 		AudioManager.play_3d("ball_bounce", global_position, -6.0 + minf(linear_velocity.length(), 8.0))

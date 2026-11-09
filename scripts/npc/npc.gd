@@ -40,6 +40,7 @@ var _prev_yaw := 0.0
 var _cur_speed := 0.0
 var _pending_seat: Seat = null
 var _on_arrive: Callable
+var _seat_tween: Tween
 
 
 func setup(entry: Dictionary, mgr: Node) -> void:
@@ -106,7 +107,22 @@ func set_active(on: bool) -> void:
 		remove_from_group("interactable")
 
 
+## Sai do assento imediatamente (sem animação/tween).
+func force_unseat() -> void:
+	if _seat_tween and _seat_tween.is_valid():
+		_seat_tween.kill()
+	if seat:
+		seat.release()
+	seat = null
+	sitting = false
+	_pending_seat = null
+	visual.stop_action(false)
+	visual.stop_upper(false)
+
+
 func teleport(pos: Vector3, yaw_rad := 0.0) -> void:
+	if sitting or (_seat_tween and _seat_tween.is_valid()):
+		force_unseat()
 	global_position = pos
 	yaw = yaw_rad
 	visual.rotation.y = yaw
@@ -157,9 +173,9 @@ func _leave_seat() -> void:
 		var out := seat.global_position + fwd * 0.45
 		seat.release()
 		seat = null
-		var tw := create_tween()
-		tw.tween_interval(0.35)
-		tw.tween_property(self, "global_position", out, 0.3)
+		_seat_tween = create_tween()
+		_seat_tween.tween_interval(0.35)
+		_seat_tween.tween_property(self, "global_position", out, 0.3)
 
 
 func say(text: String, duration := 2.6) -> void:
@@ -285,7 +301,8 @@ func _arrive() -> void:
 		_pending_seat = null
 		seat = s
 		sitting = true
-		var tw := create_tween().set_parallel(true)
+		_seat_tween = create_tween().set_parallel(true)
+		var tw := _seat_tween
 		tw.tween_property(self, "global_position", s.global_position, 0.35)
 		var ty := s.global_rotation.y
 		tw.tween_method(func(v: float): yaw = v, yaw, yaw + wrapf(ty - yaw, -PI, PI), 0.35)

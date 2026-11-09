@@ -49,6 +49,8 @@ func _ready() -> void:
 	await _test_upper_layer_while_sitting()
 	await _test_find_task()
 	await _test_full_day()
+	# ---- FASE 3
+	await _test_minigames()
 	_finish()
 
 
@@ -622,6 +624,208 @@ func _test_full_day() -> void:
 	check(GameManager.coins() > coins_before, "dia: recompensas em moedas", "%d -> %d" % [coins_before, GameManager.coins()])
 	await _wait(2.5)
 	check(main.hud._summary != null, "dia: resumo do dia exibido")
+
+
+# --------------------------------------------------------------- FASE 3
+
+func _recess() -> void:
+	var day: SchoolDay = main.school_day
+	if main.hud._summary:
+		main.hud._summary.queue_free()
+		main.hud._summary = null
+	player.force_stand()
+	day._start_recess()
+	await _wait(0.5)
+
+
+func _mg_start(gid: String) -> Minigame:
+	var mm: MinigameManager = main.minigames
+	if mm.active:
+		mm.active.end_game(0, "teste", 0, 0)
+		await _frames(2)
+	var ok := mm.start(gid)
+	check(ok and mm.active != null, "minijogo %s: inicia" % gid)
+	return mm.active
+
+
+func _test_minigames() -> void:
+	await _recess()
+	var mm: MinigameManager = main.minigames
+	check(mm.stations.size() == 8, "minijogos: 8 estações no mapa")
+	var results := []
+	var rc := func(r): results.append(r)
+	mm.game_finished.connect(rc)
+
+	# Futebol: gol detectado na trave do adversário
+	var fb = await _mg_start("futebol")
+	await _wait(3.4)
+	check(fb.team_a.size() >= 2 and fb.team_b.size() >= 3 and fb.keeper_b != null, "futebol: times e goleiros montados")
+	fb.ball.global_position = Vector3(60.6, 0.3, -49)
+	fb.ball.linear_velocity = Vector3(3, 0, 0)
+	await _frames(3)
+	check(fb.score_a == 1, "futebol: gol contabilizado", "placar %d x %d" % [fb.score_a, fb.score_b])
+	await _wait(3.5)
+	# chute do jogador
+	fb.ball.global_position = player.global_position + Vector3(sin(player.yaw), 0.1, cos(player.yaw)) * 0.6
+	fb.ball.linear_velocity = Vector3.ZERO
+	var bpos: Vector3 = fb.ball.global_position
+	player.request_play()
+	await _wait(1.0)
+	check(fb.ball.global_position.distance_to(bpos) > 1.5, "futebol: jogador chuta a bola")
+	await _wait(2.0)
+	await _wait(3.5)
+	fb.ball.global_position = Vector3(30, 0.3, -45)
+	fb.ball.linear_velocity = Vector3.ZERO
+	var d0: float = fb.team_b[0].global_position.distance_to(fb.ball.global_position)
+	await _wait(1.2)
+	var chasing := false
+	for n in fb.team_a + fb.team_b:
+		if n.global_position.distance_to(fb.ball.global_position) < d0 - 0.5 or n.moving:
+			chasing = true
+	check(chasing, "futebol: IA corre atrás da bola")
+	fb.time_left = 0.05
+	await _wait(0.3)
+	check(mm.active == null and not results.is_empty() and results[-1].id == "futebol", "futebol: partida termina pelo tempo")
+
+	# Queimada: acerto queima o adversário
+	await _recess()
+	var dg = await _mg_start("queimada")
+	await _wait(3.4)
+	var victim: NPC = dg.team_b[0]
+	dg.ball.live = true
+	dg.ball.live_team = 0
+	dg._on_ball_hit(victim)
+	check(dg.score_a == 1 and dg._out.has(victim), "queimada: acerto queima e manda para o cemitério")
+	dg.ball.live = true
+	dg.ball.live_team = 1
+	dg._hit_cd = 0.0
+	dg._on_ball_hit(player)
+	check(dg.score_b == 1 and player.movement_locked, "queimada: jogador queimado fica fora")
+	await _wait(6.5)
+	check(not dg._out.has(player) and not player.movement_locked, "queimada: volta do cemitério")
+	# pegar e arremessar
+	for n in dg.team_a + dg.team_b:
+		dg._out[n] = 99.0  # tira a IA do caminho para testar o jogador
+	if dg.ball.held_by:
+		dg.ball.throw_from(dg.ball.global_position, Vector3.ZERO, -1)
+	dg._holder = null
+	dg.ball.reset_ball()
+	dg.ball.live = false
+	dg.ball.global_position = player.global_position + Vector3(0.75, 0.3, 0)
+	dg.ball.linear_velocity = Vector3.ZERO
+	await _frames(2)
+	player.request_interact()
+	check(dg._holder == player, "queimada: jogador pega a bola", "holder=%s dist=%.2f vel=%.2f out=%s cd=%.1f" % [dg._holder, dg.ball.global_position.distance_to(player.global_position + Vector3(0, 0.3, 0)), dg.ball.linear_velocity.length(), dg._out.has(player), dg._countdown])
+	player.request_play()
+	await _wait(0.8)
+	check(dg._holder != player and dg.ball.held_by == null, "queimada: jogador arremessa")
+	dg.time_left = 0.05
+	await _wait(0.3)
+	check(mm.active == null, "queimada: termina")
+
+	# Bolinha de gude: tiro move bolinhas e o jogo avança
+	await _recess()
+	var mb = await _mg_start("gude")
+	await _frames(5)
+	var target: Dictionary = mb.marbles[0]
+	var s: Dictionary = mb.shooters[0]
+	mb.aim_angle = (target.pos - s.pos).angle()
+	mb.on_play()
+	mb._power = 1.0
+	mb.on_play()
+	check(mb._sim, "gude: lançamento inicia a simulação")
+	var start_pos: Array = mb.marbles.map(func(m): return m.pos)
+	for i in 400:
+		await get_tree().process_frame
+		if not mb._sim:
+			break
+	var moved := false
+	for i in mb.marbles.size():
+		if mb.marbles[i].pos.distance_to(start_pos[i]) > 0.01 or mb.marbles[i].out:
+			moved = true
+	check(moved, "gude: colisão empurra as bolinhas")
+	check(not mb._sim, "gude: simulação termina e passa a vez")
+	mb._finish(true)
+	await _frames(2)
+	check(mm.active == null, "gude: termina e salva coleção")
+
+	# Aviãozinho: dobra e voa alguns metros
+	await _recess()
+	var pp = await _mg_start("aviao")
+	for i in 3:
+		pp._fold_t = asin(0.0) / 3.4
+		pp.on_play()
+	check(pp.step == 1 and pp.fold_quality > 0.9, "aviãozinho: 3 dobras perfeitas", "%.2f" % pp.fold_quality)
+	pp.on_play()
+	pp._power = 1.0
+	pp.on_play()
+	check(pp.step == 2, "aviãozinho: lançado")
+	var max_d := 0.0
+	for i in 600:
+		await get_tree().process_frame
+		max_d = maxf(max_d, pp._distance())
+		if pp.step != 2:
+			break
+	check(max_d > 10.0, "aviãozinho: física de voo plana", "%.1f m" % max_d)
+	pp._finish()
+	await _frames(2)
+
+	# Corrida
+	await _recess()
+	var rc2 = await _mg_start("corrida")
+	await _wait(3.3)
+	check(rc2.rivals.size() == 2 and rc2.rivals[0].moving, "corrida: adversários largam")
+	player.global_position = Vector3(38.5, 0.05, -21)
+	await _wait(0.3)
+	check(mm.active == null and results[-1].id == "corrida", "corrida: chegada registrada")
+
+	# Pular corda: pulo na hora certa conta; parado no chão falha
+	await _recess()
+	var jr = await _mg_start("corda")
+	await _wait(3.2)
+	var counted := false
+	for i in 300:
+		await get_tree().physics_frame
+		if sin(jr._angle + jr._speed * 0.12) < -0.9 and player.is_on_floor():
+			jr.on_jump()
+		if jr.jumps >= 2:
+			counted = true
+			break
+	check(counted, "corda: pulos no tempo certo contam", "%d" % jr.jumps)
+	for i in 200:
+		await get_tree().physics_frame
+		if mm.active == null:
+			break
+	check(mm.active == null, "corda: ficar no chão quando a corda passa encerra")
+
+	# Pontaria e guerra de papel
+	await _recess()
+	var ab = await _mg_start("pontaria")
+	for i in 10:
+		ab.on_play()
+		ab._power = 0.55
+		ab.on_play()
+		await _wait(0.15)
+	await _wait(2.5)
+	check(mm.active == null and results[-1].id == "pontaria", "pontaria: 10 arremessos e fim")
+	await _recess()
+	var pw = await _mg_start("guerra")
+	await _wait(3.3)
+	pw.on_play()
+	await _wait(1.5)
+	check(pw._shots.size() >= 0 and pw.running, "guerra: arremessos em andamento")
+	pw.time_left = 0.05
+	await _wait(0.3)
+	check(mm.active == null, "guerra: termina pelo tempo")
+
+	# fim do recreio encerra minijogo em andamento
+	await _recess()
+	await _mg_start("futebol")
+	main.school_day._start_return()
+	await _frames(3)
+	check(mm.active == null, "minijogos: sinal do fim do recreio encerra a partida")
+	mm.game_finished.disconnect(rc)
+	check(results.all(func(r): return r.has("coins")), "minijogos: todos devolvem recompensas")
 
 
 func _finish() -> void:

@@ -101,6 +101,19 @@ func spend_coins(amount: int) -> bool:
 	return true
 
 
+signal achievement_unlocked(id: String)
+
+
+## Conquistas (catálogo em Achievements). Retorna true se for nova.
+func unlock_achievement(id: String) -> bool:
+	var a: Dictionary = SaveManager.section("achievements")
+	if a.has(id):
+		return false
+	a[id] = {"day": int(SaveManager.section("progress").get("days_completed", 0)) + 1}
+	achievement_unlocked.emit(id)
+	return true
+
+
 ## Comportamentos (o sistema disciplinar escuta este sinal).
 func report_behavior(kind: String) -> void:
 	behavior_reported.emit(kind)

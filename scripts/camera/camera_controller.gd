@@ -25,6 +25,10 @@ var _shake := 0.0
 var _focus := Vector3.ZERO
 var _cur_distance := 4.6
 var follow_offset_y := 0.0
+## Enquadramento fixo usado por minijogos (gude, aviãozinho).
+var override_active := false
+var override_xf := Transform3D()
+var override_cam: Camera3D
 
 
 func _ready() -> void:
@@ -44,6 +48,13 @@ func _ready() -> void:
 	camera.far = 260.0
 	arm.add_child(camera)
 	_cur_distance = distance
+	override_cam = Camera3D.new()
+	override_cam.name = "OverrideCamera"
+	override_cam.top_level = true
+	override_cam.fov = 62.0
+	override_cam.near = 0.03
+	override_cam.far = 260.0
+	add_child(override_cam)
 	if target:
 		snap_to_target()
 
@@ -91,6 +102,10 @@ func _unhandled_input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	if showcase:
 		_process_showcase(delta)
+		return
+	if override_active:
+		var k := 1.0 - exp(-5.0 * delta)
+		override_cam.global_transform = override_cam.global_transform.interpolate_with(override_xf, k)
 		return
 	if target == null:
 		return
@@ -151,6 +166,20 @@ func _process_showcase(delta: float) -> void:
 	rotation = Vector3.ZERO
 	arm.rotation = Vector3.ZERO
 	camera.look_at(showcase_center + Vector3(0, 2, 0), Vector3.UP)
+
+
+func set_override(xf: Variant) -> void:
+	if xf == null:
+		if override_active:
+			override_active = false
+			camera.make_current()
+		return
+	if not override_active:
+		override_cam.global_transform = camera.global_transform
+		override_cam.far = camera.far
+		override_cam.make_current()
+	override_active = true
+	override_xf = xf
 
 
 func set_showcase(enabled: bool) -> void:
