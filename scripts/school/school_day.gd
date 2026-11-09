@@ -26,6 +26,8 @@ var dialogue: DialogueUI
 var phase: int = Phase.ARRIVAL
 var day := 1
 var recess_left := 0.0
+## Pique-pega online em andamento: o recreio espera a brincadeira acabar.
+var hold_recess := false
 var lesson: Array = []
 var lesson_index := 0
 var lesson_results: Array = []
@@ -433,7 +435,8 @@ func _process(delta: float) -> void:
 		_check_exit()
 	match phase:
 		Phase.RECESS:
-			recess_left -= delta
+			if not hold_recess:
+				recess_left -= delta
 			if recess_left <= 20.0 and recess_left + delta > 20.0:
 				GameManager.show_toast("O recreio está acabando!")
 			if recess_left <= 0.0:

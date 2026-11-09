@@ -62,6 +62,7 @@ func _ready() -> void:
 	await _test_revisao1()
 	await _test_revisao2()
 	await _test_revisao3()
+	await _test_online_tag()
 	_finish()
 
 
@@ -1125,6 +1126,41 @@ func _finish() -> void:
 		print(l)
 	print("Total: %d ok, %d falhas" % [passed, failed])
 	get_tree().quit(0 if failed == 0 else 1)
+
+
+func _test_online_tag() -> void:
+	await _recess()
+	_place(Vector3(0, 0.05, -6), 180)
+	var sess := OnlineSession.new()
+	sess.npcs = main.npcs
+	sess.day = main.school_day
+	main.add_child(sess)
+	sess.setup(player, main.world, main.ui_layer, main.hud)
+	NetworkManager.my_id = "eu"
+	var nm := NetworkManager
+	nm._handle({"t": "welcome", "id": "eu", "name": "Eu", "room": "sala-1234", "code": "1234", "private": true, "token": "x", "quick": ["Oi!"], "players": [{"id": "amigo", "name": "Amigo", "level": 3, "pos": [2, 0, -6]}]})
+	await _frames(2)
+	check(sess.remotes.has("amigo"), "online: colega remoto aparece")
+	nm._handle({"t": "tag_event", "kind": "invite", "from": "amigo", "fromName": "Amigo", "names": {}})
+	check(sess.tag._invite_box.visible, "pique-pega: convite aparece para a sala")
+	var names := {"eu": "Eu", "amigo": "Amigo"}
+	nm._handle({"t": "tag", "state": "playing", "host": "amigo", "players": ["eu", "amigo"], "it": "eu", "left": 100, "names": names})
+	await _frames(2)
+	check(main.school_day.hold_recess and sess.tag._marker.visible and sess.tag._marker.get_parent() == player, "pique-pega: marcador no pegador e recreio esperando")
+	nm._handle({"t": "tag", "state": "playing", "host": "amigo", "players": ["eu", "amigo"], "it": "amigo", "left": 90, "names": names})
+	await _frames(2)
+	check(sess.tag._marker.get_parent() == sess.remotes["amigo"].root, "pique-pega: marcador passa para o colega")
+	var coins_before := GameManager.coins()
+	nm._handle({"t": "tag_event", "kind": "end", "results": [{"id": "eu", "name": "Eu", "secondsIt": 10, "tags": 3}, {"id": "amigo", "name": "Amigo", "secondsIt": 90, "tags": 1}], "names": names})
+	await _frames(2)
+	check(GameManager.coins() == coins_before + 40 and not main.school_day.hold_recess and not sess.tag._marker.visible, "pique-pega: 1º lugar ganha prêmio e recreio volta")
+	NetworkManager.last_channel = "near"
+	sess._on_chat("amigo", "Amigo", "Oi!")
+	check(sess.chat_panel._lines.get_child_count() > 0 and (sess.chat_panel._lines.get_child(sess.chat_panel._lines.get_child_count() - 1) as Button).text.begins_with("[Perto]"), "chat: canal Perto de mim")
+	sess.chat_panel.queue_free()
+	sess.queue_free()
+	NetworkManager.my_id = ""
+	await _frames(2)
 
 
 func _test_revisao3() -> void:

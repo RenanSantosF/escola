@@ -164,3 +164,66 @@ test('servidor: hello, estados, frases rápidas e chat bloqueado para menores', 
   a.ws.close(); b.ws.close();
   srv.close();
 });
+
+test('pique-pega: lobby, sorteio, pegar, imunidade e resultado', () => {
+  const { TagGame } = require('../src/tag_game');
+  const g = new TagGame({}, 0);
+  g.invite('a', 0);
+  g.join('b');
+  g.join('c');
+  const pos = { a: [0, 0, 0], b: [10, 0, 0], c: [20, 0, 0] };
+  let ev = g.tick((id) => pos[id], 25000);
+  assert.equal(ev[0].kind, 'start');
+  assert.equal(g.state, 'playing');
+  g.it = 'a'; g.itSince = 25000; g.lastTagAt = 0; g.lastTagger = null;
+  pos.b = [1, 0, 0]; // b encostou no pegador
+  ev = g.tick((id) => pos[id], 30000);
+  assert.deepEqual(ev[0], { kind: 'tagged', from: 'a', to: 'b' });
+  assert.equal(g.it, 'b');
+  // não vale pegar de volta logo em seguida
+  ev = g.tick((id) => pos[id], 31500);
+  assert.equal(ev.length, 0);
+  ev = g.tick((id) => pos[id], 34000);
+  assert.equal(ev[0].to, 'a');
+  ev = g.tick((id) => pos[id], 30000 + 125000);
+  assert.equal(ev[0].kind, 'end');
+  assert.equal(ev[0].results[0].id, 'c'); // c nunca foi pegador
+});
+
+test('pique-pega: cancela sem jogadores suficientes', () => {
+  const { TagGame } = require('../src/tag_game');
+  const g = new TagGame({}, 0);
+  g.invite('a', 0);
+  const ev = g.tick(() => [0, 0, 0], 21000);
+  assert.equal(ev[0].kind, 'cancel');
+});
+
+test('servidor: canal Perto, reações e convite de pique-pega', async () => {
+  const srv = createServer({ adminToken: 'x', dataDir: '' });
+  await new Promise((r) => srv.server.listen(0, r));
+  const port = srv.server.address().port;
+  const [a, b, c] = [await connect(port), await connect(port), await connect(port)];
+  for (const p of [a, b, c]) { p.ws.send(JSON.stringify({ t: 'hello', age: 9, mode: 'quick' })); await wait(40); }
+  a.ws.send(JSON.stringify({ t: 'state', pos: [0, 0, 0], yaw: 0, anim: 'idle' }));
+  b.ws.send(JSON.stringify({ t: 'state', pos: [5, 0, 0], yaw: 0, anim: 'idle' }));
+  c.ws.send(JSON.stringify({ t: 'state', pos: [80, 0, 0], yaw: 0, anim: 'idle' }));
+  await wait(60);
+  a.ws.send(JSON.stringify({ t: 'quick', i: 1, ch: 'near' }));
+  a.ws.send(JSON.stringify({ t: 'emote', name: 'wave' }));
+  a.ws.send(JSON.stringify({ t: 'tag_invite' }));
+  await wait(120);
+  assert.ok(b.inbox.some((m) => m.t === 'chat' && m.ch === 'near'));
+  assert.ok(!c.inbox.some((m) => m.t === 'chat' && m.ch === 'near'));
+  assert.ok(c.inbox.some((m) => m.t === 'emote' && m.name === 'wave'));
+  assert.ok(c.inbox.some((m) => m.t === 'tag_event' && m.kind === 'invite'));
+  b.ws.send(JSON.stringify({ t: 'tag_join' }));
+  await wait(60);
+  a.ws.send(JSON.stringify({ t: 'tag_start' }));
+  await wait(120);
+  assert.ok(b.inbox.some((m) => m.t === 'tag_event' && m.kind === 'start'));
+  const last = [...b.inbox].reverse().find((m) => m.t === 'tag');
+  assert.equal(last.state, 'playing');
+  assert.equal(last.players.length, 2);
+  for (const p of [a, b, c]) p.ws.close();
+  srv.close();
+});

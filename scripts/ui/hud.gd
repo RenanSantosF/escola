@@ -25,6 +25,7 @@ var _banner_tween: Tween
 var _objective: Label
 var _objective_point: Variant = null
 var _mission_point: Variant = null
+var _game_point: Variant = null  # ponto de encontro de brincadeiras online
 var _wallet: Label
 var _summary: Control
 var _mg_panel: PanelContainer
@@ -274,6 +275,11 @@ func set_objective_point(p: Variant) -> void:
 	queue_redraw()
 
 
+func set_game_point(p: Variant) -> void:
+	_game_point = p
+	queue_redraw()
+
+
 func set_mission_point(p: Variant) -> void:
 	_mission_point = p
 	queue_redraw()
@@ -286,6 +292,8 @@ func _draw() -> void:
 		_draw_pointer(_objective_point, Color("ffcf3f"))
 	if _mission_point != null:
 		_draw_pointer(_mission_point, Color("5ec8ff"))
+	if _game_point != null:
+		_draw_pointer(_game_point, Color("ff4d6d"))
 
 
 ## Seta na borda da tela apontando para um ponto fora de vista.

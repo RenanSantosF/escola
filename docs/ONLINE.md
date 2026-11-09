@@ -31,6 +31,29 @@ Os alunos-bot continuam no online: a cada jogador a mais na sala, 2 alunos-bot d
 turmas deixam de aparecer no recreio, com um mínimo de 4. Os colegas de turma (que dão
 missões), o Seu Zé, a Dona Lúcia e os adultos ficam sempre.
 
+## Chat, reações e pique-pega
+
+- **Canais:** "Todos da sala" e "Perto de mim" (só quem está a até 18 m recebe).
+  Frases rápidas sempre; texto livre só para 13+ ou com liberação do responsável.
+- **Reações:** acenar, comemorar, palmas, levantar a mão — os outros veem o personagem fazer.
+- **Pique-pega online:** botão "Pique-pega!" chama a sala toda (convite na tela de todos).
+  Quem aceita vai para a árvore do pátio central (seta vermelha). Começa depois de 20 s ou
+  quando quem chamou toca em "Começar agora" (mínimo 2). O **servidor** confere quem
+  encostou em quem (< 1,4 m), com 3 s de "não vale pegar de volta". 2 minutos; ganha quem
+  passou menos tempo como pegador (1º: 40 moedas, 2º: 25, 3º: 15, demais: 8). Enquanto
+  brincam, o recreio de quem está jogando não acaba.
+
+## Chamada de voz — decisão
+
+Não implementada de propósito. Para crianças menores de 13, voz ao vivo é o canal mais
+difícil de moderar (não dá para filtrar palavrão nem pedido de dado pessoal em tempo
+real) e a voz é dado pessoal pela LGPD/COPPA. A Google Play (programa Famílias) exige
+cuidado extra com comunicação entre usuários. Se for fazer no futuro: só 13+ com
+consentimento do responsável, só entre amigos aceitos, botão "aperte para falar",
+botão de denúncia e silenciar na hora — e exige servidor de voz (WebRTC + TURN) e um
+plugin nativo no Godot. A alternativa segura já existente são as frases rápidas, o canal
+"Perto de mim" e as reações.
+
 ## Painel e estatísticas anônimas
 
 O jogo envia (a cada minuto, se houver internet e a opção estiver ligada em

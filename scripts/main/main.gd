@@ -348,6 +348,7 @@ func _join_online(mode: String, code: String) -> void:
 		online.name = "Online"
 		add_child(online)
 		online.npcs = npcs
+		online.day = school_day
 		online.setup(player, world, ui_layer, hud)
 	for c in NetworkManager.welcomed.get_connections():
 		if c.callable == _on_online_welcome:

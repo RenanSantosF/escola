@@ -14,6 +14,9 @@ signal notice(text: String)
 signal join_error(text: String)
 signal count_changed(n: int)
 signal look_changed(id: String, look: Dictionary, level: int)
+signal emote_received(id: String, emote: String)
+signal tag_state(st: Dictionary)
+signal tag_event(ev: Dictionary)
 
 ## Servidor oficial no Railway.
 const SERVER_URL := "wss://escola-production-061f.up.railway.app"
@@ -26,6 +29,8 @@ var room := ""
 var free_chat := false
 var quick_phrases: Array = []
 var room_code := ""
+## Canal da última mensagem recebida ("all" ou "near").
+var last_channel := "all"
 var room_private := false
 var players_in_room := 1
 var _retry_t := 0.0
@@ -167,6 +172,12 @@ func _handle(m: Dictionary) -> void:
 				_send_hello()
 				return
 			join_error.emit(str(m.get("text", "Não deu para entrar.")))
+		"emote":
+			emote_received.emit(str(m.id), str(m.name))
+		"tag":
+			tag_state.emit(m)
+		"tag_event":
+			tag_event.emit(m)
 		"look":
 			look_changed.emit(str(m.id), m.get("look", {}), int(m.get("level", 1)))
 		"count":
@@ -179,6 +190,7 @@ func _handle(m: Dictionary) -> void:
 		"states":
 			states.emit(m.get("list", []))
 		"chat":
+			last_channel = str(m.get("ch", "all"))
 			chat.emit(str(m.id), str(m.name), str(m.text))
 		"notice":
 			notice.emit(str(m.text))
@@ -198,17 +210,37 @@ func send_look() -> void:
 	send({"t": "look", "look": p.get("appearance", {}), "level": int(p.get("level", 1))})
 
 
-func send_quick(i: int) -> void:
-	send({"t": "quick", "i": i})
+func send_quick(i: int, ch := "all") -> void:
+	send({"t": "quick", "i": i, "ch": ch})
 
 
-func send_chat(text: String) -> void:
+func send_emote(emote_name: String) -> void:
+	send({"t": "emote", "name": emote_name})
+
+
+func tag_invite() -> void:
+	send({"t": "tag_invite"})
+
+
+func tag_join() -> void:
+	send({"t": "tag_join"})
+
+
+func tag_leave() -> void:
+	send({"t": "tag_leave"})
+
+
+func tag_start() -> void:
+	send({"t": "tag_start"})
+
+
+func send_chat(text: String, ch := "all") -> void:
 	# filtro local antes de enviar (o servidor filtra de novo)
 	var r := ChatFilter.check(text)
 	if not r.ok:
 		notice.emit(r.reason)
 		return
-	send({"t": "chat", "text": r.text})
+	send({"t": "chat", "text": r.text, "ch": ch})
 
 
 func report(target: String, reason: String) -> void:

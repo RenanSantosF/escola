@@ -10,11 +10,16 @@
 //   {t:'chat', text}                                 texto livre (só se liberado)
 //   {t:'report', target, reason}                     denuncia jogador
 //   {t:'block', target}                              bloqueia jogador
+//   {t:'quick'|'chat', ..., ch:'near'}               canal "Perto de mim" (18 m)
+//   {t:'emote', name}                                reação (aceno, comemorar...)
+//   {t:'tag_invite'|'tag_join'|'tag_leave'|'tag_start'}  pique-pega online
 // Servidor -> cliente
 //   {t:'welcome', token, id, name, room, code, private, freeChat, quick, players, phase}
 //   {t:'join_error', text}   código errado / sala cheia (a conexão continua)
 //   {t:'join', player} {t:'leave', id} {t:'states', list}
-//   {t:'chat', id, name, text} {t:'notice', text}
+//   {t:'chat', id, name, text, ch} {t:'notice', text} {t:'emote', id, name}
+//   {t:'tag', state, host, players, it, lobbyLeft, left, names}
+//   {t:'tag_event', kind:'invite'|'start'|'tagged'|'end'|'cancel', ...}
 
 const http = require('http');
 const { WebSocketServer } = require('ws');
@@ -23,6 +28,10 @@ const { Safety } = require('./safety');
 const { RoomManager } = require('./rooms');
 const { Accounts } = require('./accounts');
 const { Analytics } = require('./analytics');
+const { TagGame } = require('./tag_game');
+
+const NEAR_DIST = 18; // metros do canal "Perto de mim"
+const EMOTES = new Set(['wave', 'celebrate', 'clap', 'sad', 'stretch', 'scratch_head', 'look_around', 'raise_hand']);
 const fs = require('fs');
 const path = require('path');
 
@@ -123,12 +132,38 @@ function createServer(opts = {}) {
     }
   }
 
-  function pushChat(room, p, text) {
+  function near(a, b) {
+    return Math.hypot(a.pos[0] - b.pos[0], a.pos[2] - b.pos[2]) <= NEAR_DIST && Math.abs(a.pos[1] - b.pos[1]) < 6;
+  }
+
+  function pushChat(room, p, text, ch = 'all') {
     const list = recentChat.get(room.id) || [];
-    list.push({ id: p.id, text, at: Date.now() });
-    if (list.length > 20) list.shift();
+    list.push({ id: p.id, text, ch, at: Date.now() });
+    if (list.length > 30) list.shift();
     recentChat.set(room.id, list);
-    broadcast(room, { t: 'chat', id: p.id, name: p.name, text }, null, (viewer) => !safety.isBlocked(viewer.id, p.id));
+    const nearOnly = ch === 'near';
+    broadcast(room, { t: 'chat', id: p.id, name: p.name, text, ch: nearOnly ? 'near' : 'all' }, null,
+      (viewer) => !safety.isBlocked(viewer.id, p.id) && (!nearOnly || viewer.id === p.id || near(viewer, p)));
+  }
+
+  function names(room) {
+    const out = {};
+    for (const p of room.players.values()) out[p.id] = p.name;
+    return out;
+  }
+
+  function sendTag(room) {
+    if (!room.tag) return;
+    broadcast(room, { t: 'tag', ...room.tag.snapshot(), names: names(room) });
+  }
+
+  function tagEvents(room, evs) {
+    for (const e of evs) {
+      if (e.kind === 'end') e.results = e.results.map((r) => ({ ...r, name: (room.players.get(r.id) || {}).name || '?' }));
+      broadcast(room, { t: 'tag_event', ...e, names: names(room) });
+    }
+    if (evs.length) sendTag(room);
+    if (room.tag && room.tag.state === 'over') room.tag = null;
   }
 
   wss.on('connection', (ws) => {
@@ -176,7 +211,7 @@ function createServer(opts = {}) {
           if (i < 0 || i >= QUICK_PHRASES.length) return;
           const why = safety.canSend(player.id);
           if (why) return send(ws, { t: 'notice', text: why });
-          pushChat(room, player, QUICK_PHRASES[i]);
+          pushChat(room, player, QUICK_PHRASES[i], m.ch === 'near' ? 'near' : 'all');
           break;
         }
         case 'chat': {
@@ -190,7 +225,7 @@ function createServer(opts = {}) {
             const muted = safety.onBlockedMessage(player.id);
             return send(ws, { t: 'notice', text: muted ? 'Você foi silenciado por 10 minutos.' : r.reason });
           }
-          pushChat(room, player, r.text);
+          pushChat(room, player, r.text, m.ch === 'near' ? 'near' : 'all');
           break;
         }
         case 'report': {
@@ -199,6 +234,44 @@ function createServer(opts = {}) {
           const r = safety.report(player.id, target, String(m.reason || 'outro'), { room: room.id, messages: ctx });
           send(ws, { t: 'notice', text: r.ok ? 'Obrigado! A denúncia foi enviada para a equipe.' : 'Não foi possível denunciar.' });
           if (r.ok) safety.block(player.id, target);
+          break;
+        }
+        case 'emote': {
+          const name = String(m.name || '');
+          if (!EMOTES.has(name)) return;
+          if (player.lastEmote && Date.now() - player.lastEmote < 800) return;
+          player.lastEmote = Date.now();
+          broadcast(room, { t: 'emote', id: player.id, name }, player.id);
+          break;
+        }
+        case 'tag_invite': {
+          if (room.tag && room.tag.state !== 'over') {
+            room.tag.join(player.id);
+            sendTag(room);
+            return send(ws, { t: 'notice', text: 'Já tem um pique-pega rolando: você entrou!' });
+          }
+          room.tag = new TagGame(room);
+          room.tag.invite(player.id);
+          broadcast(room, { t: 'tag_event', kind: 'invite', from: player.id, fromName: player.name, names: names(room) });
+          sendTag(room);
+          break;
+        }
+        case 'tag_join': {
+          if (room.tag && room.tag.join(player.id)) sendTag(room);
+          break;
+        }
+        case 'tag_leave': {
+          if (room.tag) {
+            room.tag.leave(player.id);
+            sendTag(room);
+          }
+          break;
+        }
+        case 'tag_start': {
+          if (room.tag && room.tag.state === 'lobby' && room.tag.host === player.id) {
+            if (room.tag.start()) tagEvents(room, [{ kind: 'start', it: room.tag.it }]);
+            else send(ws, { t: 'notice', text: 'Precisa de pelo menos 2 jogadores para começar.' });
+          }
           break;
         }
         case 'look': {
@@ -222,6 +295,10 @@ function createServer(opts = {}) {
       if (!player) return;
       const r = rooms.leave(player);
       if (r) {
+        if (r.tag) {
+          r.tag.leave(player.id);
+          sendTag(r);
+        }
         broadcast(r, { t: 'leave', id: player.id });
         broadcast(r, { t: 'count', n: r.players.size });
       }
@@ -238,6 +315,13 @@ function createServer(opts = {}) {
         list.push({ id: p.id, pos: p.pos, yaw: p.yaw, anim: p.anim });
       }
       if (list.length) broadcast(r, { t: 'states', list });
+      // pique-pega: o servidor confere quem encostou em quem
+      if (r.tag) {
+        const evs = r.tag.tick((id) => (r.players.get(id) || {}).pos);
+        tagEvents(r, evs);
+        r.tagSync = (r.tagSync || 0) + 1;
+        if (r.tag && r.tagSync % 10 === 0) sendTag(r); // relógio 1x por segundo
+      }
     }
   }, TICK_MS);
   // mantém a conexão viva no Railway e derruba quem caiu sem avisar

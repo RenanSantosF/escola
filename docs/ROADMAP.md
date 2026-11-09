@@ -172,6 +172,13 @@ recompensas próprias; estações com placa no mapa (só no recreio) e convites 
   oferta relâmpago com contagem regressiva, letras maiores, cartões coloridos.
 - Skin/roupa nova aparece na hora para os outros jogadores online.
 
+## ✅ Revisão 4 (concluída)
+
+- Chat com canais "Todos da sala" e "Perto de mim"; reações sincronizadas.
+- Pique-pega online com convite para a sala, ponto de encontro, pegador decidido pelo
+  servidor, marcador sobre o pegador, placar e prêmios.
+- Chamada de voz avaliada e não feita (ver docs/ONLINE.md).
+
 ## Próximos passos sugeridos
 
 - Testar em aparelhos Android reais (o ambiente de desenvolvimento não tinha SDK) e

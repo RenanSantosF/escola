@@ -12,6 +12,8 @@ var chat_panel: ChatPanel
 var remotes := {}  # id -> {root, visual, label, from, to, t, yaw}
 var _send_t := 0.0
 var npcs: NPCManager
+var day: SchoolDay
+var tag: OnlineTag
 var _badge: Label
 
 
@@ -19,7 +21,20 @@ func setup(p: PlayerController, w: Node3D, ui_parent: Node, hud: HUD) -> void:
 	player = p
 	world = w
 	chat_panel = ChatPanel.new()
+	chat_panel.player = p
 	ui_parent.add_child(chat_panel)
+	tag = OnlineTag.new()
+	tag.name = "OnlineTag"
+	add_child(tag)
+	tag.setup(self, p, hud, day, ui_parent)
+	chat_panel.tag_pressed.connect(tag.invite)
+	# reações: o que eu faço os outros veem
+	p.emote_started.connect(func(e):
+		if NetworkManager.is_online():
+			NetworkManager.send_emote(e))
+	NetworkManager.emote_received.connect(func(id, e):
+		if remotes.has(id):
+			(remotes[id].visual as CharacterVisual).play(e))
 	if hud and hud.controls:
 		hud.controls.blockers.append(chat_panel)
 	var nm := NetworkManager
@@ -134,7 +149,7 @@ func _on_states(list: Array) -> void:
 
 func _on_chat(id: String, sender: String, text: String) -> void:
 	var mine := id == NetworkManager.my_id
-	chat_panel.add_line(id if not mine else "", ("Você" if mine else sender) + ": " + text, false)
+	chat_panel.add_line(id if not mine else "", ("Você" if mine else sender) + ": " + text, false, NetworkManager.last_channel)
 	if remotes.has(id):
 		remotes[id].label.text = text
 		var r: Dictionary = remotes[id]
