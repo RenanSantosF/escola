@@ -11,9 +11,13 @@ Servidor oficial: `https://escola-production-061f.up.railway.app` (já fixo no j
 
 - **Painel do administrador:** abra `https://escola-production-061f.up.railway.app/admin`
   e entre com o `ADMIN_TOKEN` (variável do serviço no Railway).
-- **Guardar os dados entre reinícios (recomendado):** no Railway, clique no serviço →
-  **Settings → Volumes → Add Volume** com *mount path* `/data`, e em **Variables** crie
-  `DATA_DIR=/data`. Sem isso as estatísticas ficam só na memória e zeram a cada deploy.
+- **Banco de dados (recomendado):** no projeto do Railway → **+ New → Database → Add
+  PostgreSQL**. Depois, no serviço do jogo → **Variables → New Variable** → nome
+  `DATABASE_URL`, valor `${{Postgres.DATABASE_URL}}` (o Railway completa sozinho; ninguém
+  copia senha). No próximo deploy o servidor cria as tabelas e passa a guardar contas,
+  denúncias, silenciamentos, bloqueios e estatísticas. Confira em `/health` → `"db": true`.
+  (Sem banco, dá para usar um Volume em `/data` com `DATA_DIR=/data`; sem nenhum dos dois,
+  tudo fica em memória e zera a cada deploy.)
 - Deploy: Railway → serviço → Settings → Source (branch do GitHub) e Root Directory `/server`.
 
 Testes do servidor: `cd server && npm install && npm test`.
@@ -125,8 +129,9 @@ create table mutes (account_id text, until timestamptz, reason text);
 create table blocks (account_id text, blocked_id text, primary key (account_id, blocked_id));
 ```
 
-Hoje o servidor guarda tudo em memória (reiniciou = zera). Trocar `Accounts` e
-`Safety` por versões com Postgres não muda o protocolo.
+Com `DATABASE_URL` o servidor cria estas tabelas sozinho (`server/src/db.js`): accounts
+(token guardado só como hash SHA-256), events, reports, mutes e blocks. Testes com banco
+real: `TEST_DATABASE_URL=postgres://... npm test`.
 
 ## Protocolo (JSON por WebSocket)
 

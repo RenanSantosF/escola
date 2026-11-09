@@ -29,6 +29,7 @@ const { RoomManager } = require('./rooms');
 const { Accounts } = require('./accounts');
 const { Analytics } = require('./analytics');
 const { TagGame } = require('./tag_game');
+const { Database } = require('./db');
 
 const NEAR_DIST = 18; // metros do canal "Perto de mim"
 const EMOTES = new Set(['wave', 'celebrate', 'clap', 'sad', 'stretch', 'scratch_head', 'look_around', 'raise_hand']);
@@ -42,10 +43,36 @@ const MAX_MSG_BYTES = 2048;
 
 function createServer(opts = {}) {
   const adminToken = opts.adminToken ?? process.env.ADMIN_TOKEN ?? '';
+  const db = opts.db || new Database(opts.dbUrl !== undefined ? { url: opts.dbUrl } : {});
+  const dbSafe = (p) => { if (p && p.catch) p.catch((e) => console.error('db:', e.message)); };
   const accounts = opts.accounts || new Accounts();
-  const safety = opts.safety || new Safety();
+  const safety = opts.safety || new Safety({
+    onMute: (id, until) => dbSafe(db.saveMute(id, until)),
+    onReport: (e) => dbSafe(db.insertReport(e)),
+    onBlock: (id, other) => dbSafe(db.saveBlock(id, other)),
+  });
   const rooms = new RoomManager();
-  const analytics = opts.analytics || new Analytics(opts.dataDir !== undefined ? { dataDir: opts.dataDir } : {});
+  const analytics = opts.analytics || new Analytics({
+    ...(opts.dataDir !== undefined ? { dataDir: opts.dataDir } : {}),
+    ...(db.enabled ? { dataDir: '' } : {}),
+    onIngest: (list) => dbSafe(db.insertEvents(list)),
+  });
+  // carrega o que está no banco (contas são buscadas sob demanda no login)
+  const ready = (async () => {
+    if (!db.enabled) return false;
+    try {
+      await db.init();
+      analytics.events = await db.loadEvents();
+      safety.reports = await db.loadReports();
+      for (const [id, until] of await db.loadMutes()) safety.mutedUntil.set(id, until);
+      for (const [id, other] of await db.loadBlocks()) safety.block(id, other, false);
+      console.log('Banco de dados conectado: ' + analytics.events.length + ' eventos carregados');
+      return true;
+    } catch (e) {
+      console.error('db: não conectou (seguindo em memória):', e.message);
+      return false;
+    }
+  })();
   const recentChat = new Map(); // roomId -> últimas mensagens (contexto p/ denúncia)
 
   function isAdmin(req) {
@@ -71,7 +98,7 @@ function createServer(opts = {}) {
     const url = (req.url || '/').split('?')[0];
     if (url === '/health') {
       const l = liveInfo();
-      return json(200, { ok: true, rooms: l.rooms, players: l.online });
+      return json(200, { ok: true, rooms: l.rooms, players: l.online, db: db.ready });
     }
     if (url === '/' || url === '/admin') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
@@ -92,7 +119,8 @@ function createServer(opts = {}) {
       const st = analytics.stats(liveInfo());
       st.live.roomList = [...rooms.rooms.values()].map((r) => ({ ...r.info(), ages: [...r.players.values()].map((p) => p.acc.age) }));
       st.reports = safety.reports.slice(-50).reverse();
-      st.storage = analytics.file ? 'volume' : 'memória (zera ao reiniciar)';
+      st.storage = db.ready ? 'banco PostgreSQL' : (analytics.file ? 'volume' : 'memória (zera ao reiniciar)');
+      st.db = db.ready ? await db.counts().catch(() => null) : null;
       return json(200, st);
     }
     if ((url === '/mod/reports' || url === '/api/admin/reports') && req.method === 'GET') {
@@ -109,10 +137,10 @@ function createServer(opts = {}) {
     if ((url === '/parent/unlock' || url === '/api/admin/unlock') && req.method === 'POST') {
       if (!isAdmin(req)) return json(403, { ok: false });
       const b = await readJson(req);
-      for (const acc of accounts.byToken.values()) {
-        if (acc.id === b.id) { acc.freeChat = !!b.allow; return json(200, { ok: true }); }
-      }
-      return json(404, { ok: false });
+      const acc = accounts.findById(String(b.id || ''));
+      if (acc) acc.freeChat = !!b.allow;
+      const inDb = await db.setFreeChat(String(b.id || ''), b.allow).catch(() => false);
+      return (acc || inDb) ? json(200, { ok: true }) : json(404, { ok: false });
     }
     json(404, { ok: false });
   });
@@ -171,29 +199,45 @@ function createServer(opts = {}) {
     ws.on('pong', () => { ws.isAlive = true; });
     let player = null;
     let room = null;
+    let pendingHello = false;
+
+    async function handleHello(m) {
+      const token = typeof m.token === 'string' ? m.token.slice(0, 80) : '';
+      // conta que já existe no banco (outro dia, outro deploy)
+      if (token && !accounts.byToken.has(token) && db.ready) {
+        const found = await db.findAccount(token).catch(() => null);
+        if (found) accounts.adopt(found);
+      }
+      if (ws.readyState !== 1) return;
+      const acc = accounts.getOrCreate(token, { age: m.age, level: m.level, look: m.look });
+      if (Number.isFinite(m.age)) acc.age = Math.max(5, Math.min(18, m.age | 0));
+      dbSafe(db.saveAccount(acc));
+      player = { id: acc.id, name: acc.name, level: acc.level, look: acc.look, pos: [0, 0, 70], yaw: 0, anim: 'idle', ws, acc, dirty: true };
+      let r;
+      if (m.mode === 'create') r = rooms.create(player, true);
+      else if (m.mode === 'code') r = rooms.joinCode(player, m.code);
+      else r = rooms.join(player, typeof m.room === 'string' ? m.room.slice(0, 8) : null);
+      if (r.error) {
+        player = null;
+        return send(ws, { t: 'join_error', text: r.error });
+      }
+      room = r;
+      send(ws, {
+        t: 'welcome', token: acc.token, id: acc.id, name: acc.name, room: room.id, code: room.code, private: room.private,
+        freeChat: accounts.canFreeChat(acc), quick: QUICK_PHRASES, players: room.snapshot(acc.id), phase: room.phase,
+      });
+      broadcast(room, { t: 'join', player: { id: player.id, name: player.name, level: player.level, look: player.look, pos: player.pos, yaw: player.yaw, anim: player.anim } }, player.id);
+      broadcast(room, { t: 'count', n: room.players.size });
+    }
+
     ws.on('message', (raw) => {
       let m;
       try { m = JSON.parse(raw.toString()); } catch { return; }
       if (!m || typeof m.t !== 'string') return;
       if (!player) {
-        if (m.t !== 'hello') return;
-        const acc = accounts.getOrCreate(typeof m.token === 'string' ? m.token : '', { age: m.age, level: m.level, look: m.look });
-        player = { id: acc.id, name: acc.name, level: acc.level, look: acc.look, pos: [0, 0, 70], yaw: 0, anim: 'idle', ws, acc, dirty: true };
-        let r;
-        if (m.mode === 'create') r = rooms.create(player, true);
-        else if (m.mode === 'code') r = rooms.joinCode(player, m.code);
-        else r = rooms.join(player, typeof m.room === 'string' ? m.room.slice(0, 8) : null);
-        if (r.error) {
-          player = null;
-          return send(ws, { t: 'join_error', text: r.error });
-        }
-        room = r;
-        send(ws, {
-          t: 'welcome', token: acc.token, id: acc.id, name: acc.name, room: room.id, code: room.code, private: room.private,
-          freeChat: accounts.canFreeChat(acc), quick: QUICK_PHRASES, players: room.snapshot(acc.id), phase: room.phase,
-        });
-        broadcast(room, { t: 'join', player: { id: player.id, name: player.name, level: player.level, look: player.look, pos: player.pos, yaw: player.yaw, anim: player.anim } }, player.id);
-        broadcast(room, { t: 'count', n: room.players.size });
+        if (m.t !== 'hello' || pendingHello) return;
+        pendingHello = true;
+        handleHello(m).catch((e) => console.error('hello:', e.message)).finally(() => { pendingHello = false; });
         return;
       }
       switch (m.t) {
@@ -281,6 +325,8 @@ function createServer(opts = {}) {
             player.acc.look = m.look;
             if (Number.isFinite(m.level)) player.level = Math.max(1, Math.min(99, m.level | 0));
             broadcast(room, { t: 'look', id: player.id, look: player.look, level: player.level }, player.id);
+            player.acc.level = player.level;
+            dbSafe(db.saveAccount(player.acc));
           }
           break;
         }
@@ -335,15 +381,22 @@ function createServer(opts = {}) {
   const flushTimer = setInterval(() => analytics.flush(), 10000);
   server.on('close', () => { clearInterval(timer); clearInterval(heartbeat); clearInterval(flushTimer); analytics.flush(); });
 
-  return { server, wss, rooms, accounts, safety, analytics, close: () => { clearInterval(timer); clearInterval(heartbeat); clearInterval(flushTimer); analytics.flush(); wss.close(); server.close(); server.closeAllConnections(); } };
+  return { server, wss, rooms, accounts, safety, analytics, db, ready, close: () => { clearInterval(timer); clearInterval(heartbeat); clearInterval(flushTimer); analytics.flush(); wss.close(); server.close(); server.closeAllConnections(); } };
 }
 
 if (require.main === module) {
   const port = Number(process.env.PORT) || 8080;
   const app = createServer();
-  app.server.listen(port, () => console.log('Recreio online na porta ' + port + (app.analytics.file ? ' · dados em ' + app.analytics.file : ' · dados em memória')));
+  app.ready.then((dbOk) => {
+    const where = dbOk ? 'banco PostgreSQL' : (app.analytics.file ? app.analytics.file : 'memória');
+    app.server.listen(port, () => console.log('Recreio online na porta ' + port + ' · dados em ' + where));
+  });
   // Railway manda SIGTERM ao reiniciar: grava o que falta antes de sair
-  process.on('SIGTERM', () => { app.analytics.flush(); process.exit(0); });
+  process.on('SIGTERM', async () => {
+    app.analytics.flush();
+    await app.db.close().catch(() => {});
+    process.exit(0);
+  });
 }
 
 module.exports = { createServer };

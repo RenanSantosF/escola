@@ -33,6 +33,7 @@ class Analytics {
     this.dir = opts.dataDir ?? process.env.DATA_DIR ?? '';
     this.file = this.dir ? path.join(this.dir, 'events.jsonl') : '';
     this._buffer = [];
+    this.onIngest = opts.onIngest || null;
     if (this.file) this._load();
   }
 
@@ -74,6 +75,7 @@ class Analytics {
       this._buffer.push(ev);
       ok++;
     }
+    if (ok && this.onIngest) this.onIngest(this.events.slice(-ok));
     if (this.events.length > MAX_EVENTS) this.events.splice(0, this.events.length - MAX_EVENTS);
     return ok;
   }

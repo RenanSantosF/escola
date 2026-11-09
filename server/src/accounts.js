@@ -42,6 +42,15 @@ class Accounts {
     this.byToken.set(acc.token, acc);
     return acc;
   }
+  /** Coloca na memória uma conta vinda do banco. */
+  adopt(acc) {
+    this.byToken.set(acc.token, acc);
+    return acc;
+  }
+  findById(id) {
+    for (const a of this.byToken.values()) if (a.id === id) return a;
+    return null;
+  }
   canFreeChat(acc) {
     return acc.age >= 13 || acc.freeChat === true;
   }

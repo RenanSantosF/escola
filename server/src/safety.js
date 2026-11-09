@@ -21,6 +21,10 @@ class Safety {
     this.reports = []; // fila de moderação
     this.reportsAgainst = new Map(); // id -> Set(reporterId)
     this.blocks = new Map(); // id -> Set(blockedId)
+    // ganchos de persistência (banco de dados)
+    this.onMute = opts.onMute || null;
+    this.onReport = opts.onReport || null;
+    this.onBlock = opts.onBlock || null;
   }
 
   isMuted(id, now = Date.now()) {
@@ -29,6 +33,7 @@ class Safety {
 
   mute(id, ms = this.muteMs, now = Date.now()) {
     this.mutedUntil.set(id, now + ms);
+    if (this.onMute) this.onMute(id, now + ms);
   }
 
   /** Retorna null se pode enviar, ou o motivo. */
@@ -57,6 +62,7 @@ class Safety {
     if (!REPORT_REASONS.includes(reason)) reason = 'outro';
     const entry = { at: new Date().toISOString(), reporterId, targetId, reason, context };
     this.reports.push(entry);
+    if (this.onReport) this.onReport(entry);
     const set = this.reportsAgainst.get(targetId) || new Set();
     set.add(reporterId);
     this.reportsAgainst.set(targetId, set);
@@ -68,10 +74,11 @@ class Safety {
     return { ok: true, autoMuted };
   }
 
-  block(id, otherId) {
+  block(id, otherId, persist = true) {
     const set = this.blocks.get(id) || new Set();
     set.add(otherId);
     this.blocks.set(id, set);
+    if (persist && this.onBlock) this.onBlock(id, otherId);
   }
 
   isBlocked(viewerId, senderId) {
