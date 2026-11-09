@@ -34,6 +34,11 @@ var input_enabled := true
 var minigame: Node = null
 ## Trava só o deslocamento (o minijogo lê o joystick para mirar).
 var movement_locked := false
+## Veículo equipado ("" / skate / patinete / bike) e se está montado.
+var vehicle := ""
+var riding := false
+var _vehicle_node: VehicleVisual
+const VEHICLE_SPEED := {"skate": 7.0, "patinete": 7.6, "bike": 9.5}
 var current_seat: Seat = null
 var held_item: PickupItem = null
 var nearby: Node = null
@@ -112,6 +117,11 @@ func _physics_process(delta: float) -> void:
 		_stop_timer = 0.0
 	var running := (run_active or Input.is_action_pressed("run")) and mag > 0.5
 	var target_speed := mag * (run_speed if running else walk_speed)
+	if riding:
+		target_speed = mag * VEHICLE_SPEED.get(vehicle, 7.0)
+		if world and world.get("player_indoor"):
+			toggle_ride()
+			GameManager.show_toast("Desceu: dentro dos prédios é a pé!")
 	var target_vel := wish.normalized() * target_speed if mag > 0.01 else Vector3.ZERO
 
 	# Aceleração horizontal
@@ -126,7 +136,7 @@ func _physics_process(delta: float) -> void:
 	# Giro suave para a direção do movimento
 	if mag > 0.1:
 		var target_yaw := atan2(wish.x, wish.z)
-		var k := 1.0 - exp(-turn_speed * delta)
+		var k := 1.0 - exp(-(turn_speed * (0.45 if riding else 1.0)) * delta)
 		yaw = lerp_angle(yaw, target_yaw, k)
 		_idle_time = 0.0
 	visual.rotation.y = yaw
@@ -170,6 +180,9 @@ func _physics_process(delta: float) -> void:
 			_idle_time = -randf_range(4.0, 8.0)
 			visual.play(["look_around", "stretch", "scratch_head"].pick_random())
 	_update_animator(delta, Vector3(velocity.x, 0, velocity.z).length())
+	if riding and _vehicle_node:
+		_vehicle_node.spin(Vector3(velocity.x, 0, velocity.z).length(), delta)
+		visual.position.y = 0.075 if vehicle != "bike" else 0.0
 
 
 func _is_upper_action(a: String) -> bool:
@@ -209,8 +222,41 @@ func _unhandled_input(event: InputEvent) -> void:
 		request_interact()
 	elif event.is_action_pressed("play"):
 		request_play()
+	elif event.is_action_released("play"):
+		request_play_release()
 	elif event.is_action_pressed("emote"):
 		emote("wave")
+
+
+func set_vehicle(kind: String) -> void:
+	if riding:
+		toggle_ride()
+	vehicle = kind
+	if controls and controls.has_method("set_ride_available"):
+		controls.set_ride_available(kind != "")
+
+
+func toggle_ride() -> void:
+	if vehicle == "":
+		return
+	if not riding:
+		if mode != Mode.FREE or minigame != null:
+			return
+		if world and world.get("player_indoor"):
+			GameManager.show_toast("Não pode andar de %s dentro dos prédios!" % vehicle.replace("bike", "bicicleta"))
+			return
+		riding = true
+		_vehicle_node = VehicleVisual.create(vehicle)
+		visual.add_child(_vehicle_node)
+		visual.animator.ride_mode = 2 if vehicle == "bike" else 1
+		AudioManager.play_ui("pickup", -4.0)
+	else:
+		riding = false
+		if _vehicle_node:
+			_vehicle_node.queue_free()
+			_vehicle_node = null
+		visual.animator.ride_mode = 0
+		visual.position.y = 0.0
 
 
 func read_move_raw() -> Vector2:
@@ -244,6 +290,11 @@ func request_interact() -> void:
 		drop_item()
 
 
+func request_play_release() -> void:
+	if minigame and minigame.has_method("on_play_release"):
+		minigame.on_play_release()
+
+
 func request_play() -> void:
 	if minigame and minigame.on_play():
 		return
@@ -253,8 +304,40 @@ func request_play() -> void:
 		_start_busy("throw", null)
 	elif nearby_ball:
 		_start_busy("kick", nearby_ball)
+	elif _shove_target():
+		_shove(_shove_target())
 	else:
 		emote("celebrate")
+
+
+## NPC bem à frente (para empurrar).
+func _shove_target() -> NPC:
+	var fwd := Vector3(sin(yaw), 0, cos(yaw))
+	for n in get_tree().get_nodes_in_group("npc"):
+		var npc := n as NPC
+		if not npc.active or npc.sitting or npc.activity in ["cutscene", "minigame"]:
+			continue
+		var to := npc.global_position - global_position
+		to.y = 0
+		if to.length() < 1.25 and fwd.dot(to.normalized()) > 0.7:
+			return npc
+	return null
+
+
+func _shove(npc: NPC) -> void:
+	mode = Mode.BUSY
+	_busy_action = "push"
+	visual.play("push")
+	var dir := (npc.global_position - global_position)
+	dir.y = 0
+	dir = dir.normalized()
+	get_tree().create_timer(0.25).timeout.connect(func():
+		npc.stop()
+		npc.visual.play("hit")
+		var tw := npc.create_tween()
+		tw.tween_property(npc, "global_position", npc.global_position + dir * 1.2, 0.35).set_ease(Tween.EASE_OUT)
+		AudioManager.play_3d("bonk", npc.global_position + Vector3.UP, -6.0)
+		GameManager.report_shove(npc))
 
 
 func emote(name: String) -> void:
@@ -289,6 +372,8 @@ func _start_busy(action: String, target: Node) -> void:
 func sit_on(seat: Seat) -> void:
 	if mode != Mode.FREE or seat.occupant != null:
 		return
+	if riding:
+		toggle_ride()
 	mode = Mode.SITTING
 	current_seat = seat
 	seat.occupy(self)
@@ -415,7 +500,7 @@ func _on_action_finished(action: String) -> void:
 	match action:
 		"stand_up":
 			_finish_stand()
-		"kick", "throw", "pickup", "drink", "hit":
+		"kick", "throw", "pickup", "drink", "hit", "push":
 			if action == "drink" and _busy_target is WaterFountain:
 				(_busy_target as WaterFountain).stop_water()
 			if mode == Mode.BUSY:
@@ -552,6 +637,8 @@ func _emit_context(force := false) -> void:
 		pl = "Arremessar"
 	elif nearby_ball:
 		pl = "Chutar"
+	elif _shove_target():
+		pl = "Empurrar"
 	else:
 		pl = "Comemorar"
 	if minigame:

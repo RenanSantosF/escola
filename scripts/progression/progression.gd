@@ -76,6 +76,9 @@ func setup(p: PlayerController, w: SchoolWorld, m: NPCManager, day: SchoolDay, m
 		AudioManager.play_ui("celebrate", -6.0))
 	apply_wardrobe()
 	_build_decor()
+	var veh: String = inventory().get("equipped", {}).get("veiculo", "")
+	if veh != "":
+		player.set_vehicle(ShopCatalog.get_item(veh).get("vehicle", ""))
 
 
 static func inventory() -> Dictionary:
@@ -111,6 +114,9 @@ func buy(id: String) -> String:
 				GameManager.show_toast("+3 bolinhas de gude na coleção!")
 	else:
 		inventory().owned.append(id)
+		if item.has("vehicle"):
+			equip(id)
+			GameManager.show_toast("Toque no botão de %s para montar!" % item.name.to_lower())
 		if item.cat == "decoracao":
 			inventory().decor.append(item.decor)
 			_build_decor()
@@ -124,6 +130,11 @@ func buy(id: String) -> String:
 
 func equip(id: String) -> void:
 	var item := ShopCatalog.get_item(id)
+	if item.has("vehicle") and owns(id):
+		inventory().equipped["veiculo"] = id
+		player.set_vehicle(item.vehicle)
+		inventory_changed.emit()
+		return
 	if item.is_empty() or not owns(id) or not item.has("look"):
 		return
 	var slot: String = item.cat

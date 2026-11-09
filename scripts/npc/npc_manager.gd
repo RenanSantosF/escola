@@ -471,14 +471,22 @@ func _think(n: NPC) -> void:
 			if not n.moving and n._hop_t < 0.0:
 				var sp: Dictionary = n.activity_data.get("spot", {})
 				var hops: int = n.activity_data.get("hops", 0)
-				if hops < 7:
+				var plan: Array = n.activity_data.get("hop_plan", [])
+				if plan.is_empty():
+					plan = preload("res://scripts/minigames/hopscotch.gd").hop_plan(rng.randi_range(1, 8))
+					n.activity_data["hop_plan"] = plan
+				if hops < plan.size() - 1:
 					n.activity_data["hops"] = hops + 1
+					var st: Dictionary = plan[hops]
 					n.hop()
-					var fwd := Vector3(sin(n.yaw), 0, cos(n.yaw))
 					var tw := create_tween()
-					tw.tween_property(n, "global_position", n.global_position + fwd * 0.9, 0.42)
+					tw.tween_property(n, "global_position", st.pos, 0.42)
+					if st.pose != "":
+						get_tree().create_timer(0.42).timeout.connect(func(): n.visual.play(st.pose))
 				elif sp:
 					n.activity_data["hops"] = 0
+					n.activity_data.erase("hop_plan")
+					n.visual.stop_action()
 					var nn := n
 					n.go_to(sp.pos, false, func(): nn.yaw = sp.get("yaw", nn.yaw))
 		"class":

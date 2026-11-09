@@ -106,6 +106,11 @@ func spend_coins(amount: int) -> bool:
 
 
 signal achievement_unlocked(id: String)
+signal shoved(npc: Node)
+
+
+func report_shove(npc: Node) -> void:
+	shoved.emit(npc)
 
 
 ## Conquistas (catálogo em Achievements). Retorna true se for nova.

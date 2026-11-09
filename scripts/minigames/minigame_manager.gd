@@ -8,14 +8,15 @@ signal game_started(id: String)
 signal game_finished(result: Dictionary)
 
 const GAMES := {
-	"futebol": {"script": "res://scripts/minigames/football_match.gd", "title": "Futebol", "pos": Vector3(40, 0.05, -37.6), "yaw": PI},
-	"queimada": {"script": "res://scripts/minigames/dodgeball.gd", "title": "Queimada", "pos": Vector3(-40, 0.05, -42.6), "yaw": PI},
-	"gude": {"script": "res://scripts/minigames/marbles.gd", "title": "Bolinha de gude", "pos": Vector3(-43.6, 0.05, -9.0), "yaw": -PI * 0.5},
-	"aviao": {"script": "res://scripts/minigames/paper_plane.gd", "title": "Aviãozinho", "pos": Vector3(12, 0.05, 3.2), "yaw": 0.0},
-	"corrida": {"script": "res://scripts/minigames/race.gd", "title": "Corrida", "pos": Vector3(-43.5, 0.05, -19.2), "yaw": PI * 0.5},
-	"corda": {"script": "res://scripts/minigames/jump_rope.gd", "title": "Pular corda", "pos": Vector3(-24, 0.05, 0.5), "yaw": 0.0},
-	"pontaria": {"script": "res://scripts/minigames/aim_bin.gd", "title": "Pontaria na lixeira", "pos": Vector3(24, 0.05, -17.0), "yaw": 0.0},
-	"guerra": {"script": "res://scripts/minigames/paper_war.gd", "title": "Guerra de papel", "pos": Vector3(35.5, 0.05, -2.6), "yaw": 0.0},
+	"futebol": {"script": "res://scripts/minigames/football_match.gd", "title": "Futebol", "pos": Vector3(40, 0.05, -37.6), "yaw": PI, "color": Color("2ecc71"), "icon": "F", "desc": "4 contra 4 com goleiros. Chute com mira assistida e passe para os colegas."},
+	"queimada": {"script": "res://scripts/minigames/dodgeball.gd", "title": "Queimada", "pos": Vector3(-40, 0.05, -42.6), "yaw": PI, "color": Color("e74c3c"), "icon": "Q", "desc": "Pegue a bola, segure para mirar e queime o time adversário."},
+	"gude": {"script": "res://scripts/minigames/marbles.gd", "title": "Bolinha de gude", "pos": Vector3(-43.6, 0.05, -9.0), "yaw": -PI * 0.5, "color": Color("3fa7d6"), "icon": "G", "desc": "Mire, carregue a força e tire as bolinhas do círculo."},
+	"amarelinha": {"script": "res://scripts/minigames/hopscotch.gd", "title": "Amarelinha", "pos": Vector3(-14, 0.05, 0.8), "yaw": 0.0, "color": Color("f6e05e"), "icon": "1", "desc": "Jogue a pedrinha e pule as casas no ritmo, sem pisar na pedra."},
+	"aviao": {"script": "res://scripts/minigames/paper_plane.gd", "title": "Aviãozinho", "pos": Vector3(12, 0.05, 3.2), "yaw": 0.0, "color": Color("ecf0f1"), "icon": "A", "desc": "Dobre bem o avião, mire e faça ele planar pelas argolas."},
+	"corrida": {"script": "res://scripts/minigames/race.gd", "title": "Corrida", "pos": Vector3(-43.5, 0.05, -19.2), "yaw": PI * 0.5, "color": Color("ff8a3d"), "icon": "C", "desc": "80 metros contra dois colegas. Use o botão Correr!"},
+	"corda": {"script": "res://scripts/minigames/jump_rope.gd", "title": "Pular corda", "pos": Vector3(-24, 0.05, 0.5), "yaw": 0.0, "color": Color("e84393"), "icon": "P", "desc": "Pule quando a corda passar pelo chão. Ela vai acelerando!"},
+	"pontaria": {"script": "res://scripts/minigames/aim_bin.gd", "title": "Pontaria na lixeira", "pos": Vector3(24, 0.05, -17.0), "yaw": 0.0, "color": Color("27ae60"), "icon": "L", "desc": "Segure para mirar e acerte as lixeiras de reciclagem."},
+	"guerra": {"script": "res://scripts/minigames/paper_war.gd", "title": "Guerra de papel", "pos": Vector3(35.5, 0.05, -2.6), "yaw": 0.0, "color": Color("9b59b6"), "icon": "W", "desc": "Segure para mirar, solte para jogar. Desvie dos círculos vermelhos!"},
 }
 ## Quem convida para o quê.
 const INVITES := {
@@ -54,21 +55,57 @@ func setup(w: SchoolWorld, m: NPCManager, p: PlayerController, h: HUD, d: School
 		st.rotation.y = g.yaw
 		world.add_child(st)
 		stations[gid] = st
+		_build_sign(st, g)
+	d.phase_changed.connect(_on_phase)
+
+
+## Placa de madeira colorida + anel no chão (fácil de achar e ler).
+func _build_sign(st: Node3D, g: Dictionary) -> void:
+	var col: Color = g.color
+	var md := MeshData.new()
+	md.cur_color = Color("8a5a32")
+	md.add_box(Transform3D(Basis(), Vector3(0.9, 0.9, 0)), Vector3(0.1, 1.8, 0.1))
+	md.cur_color = col.darkened(0.25)
+	md.add_box(Transform3D(Basis(), Vector3(0.9, 2.0, 0)), Vector3(2.5, 0.8, 0.08))
+	md.cur_color = col
+	md.add_box(Transform3D(Basis(), Vector3(0.9, 2.0, 0)), Vector3(2.35, 0.67, 0.1))
+	var mi := MeshInstance3D.new()
+	mi.mesh = md.build_mesh(SchoolMaterials.get_mat("plain"))
+	st.add_child(mi)
+	var ring_md := MeshData.new()
+	ring_md.cur_color = col
+	for k in 24:
+		var a := k * TAU / 24.0
+		ring_md.add_box(Transform3D(Basis(Vector3.UP, -a), Vector3(cos(a), 0.03, sin(a)) * 1.6), Vector3(0.08, 0.03, 0.3))
+	var rmat := StandardMaterial3D.new()
+	rmat.vertex_color_use_as_albedo = true
+	rmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var ring := MeshInstance3D.new()
+	ring.mesh = ring_md.build_mesh(rmat)
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	st.add_child(ring)
+	for side: float in [1.0, -1.0]:
 		var lb := Label3D.new()
 		lb.text = g.title.to_upper()
 		lb.font = UITheme.bold_font()
-		lb.font_size = 56
-		lb.pixel_size = 0.006
-		lb.outline_size = 14
-		lb.modulate = Color("ffcf3f")
-		lb.outline_modulate = Color("1f2a44")
-		lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		lb.position = g.pos + Vector3(0, 2.4, 0)
-		lb.visibility_range_end = 40.0
-		lb.visible = false
-		world.add_child(lb)
-		_labels.append(lb)
-	d.phase_changed.connect(_on_phase)
+		# ajusta a fonte para nenhuma palavra ser quebrada no meio
+		var fs := 64
+		var longest := 0.0
+		for wd in lb.text.split(" "):
+			longest = maxf(longest, lb.font.get_string_size(wd, HORIZONTAL_ALIGNMENT_LEFT, -1, 64).x)
+		if longest > 450.0:
+			fs = int(64.0 * 450.0 / longest)
+		lb.font_size = fs
+		lb.pixel_size = 0.0045
+		lb.outline_size = 10
+		lb.modulate = Color("1f2a44") if col.get_luminance() > 0.6 else Color.WHITE
+		lb.outline_modulate = Color(0, 0, 0, 0)
+		lb.width = 490
+		lb.autowrap_mode = TextServer.AUTOWRAP_WORD
+		lb.position = Vector3(0.9, 2.0, 0.06 * side)
+		lb.rotation.y = 0.0 if side > 0 else PI
+		lb.visibility_range_end = 45.0
+		st.add_child(lb)
 
 
 func is_recess() -> bool:
@@ -77,8 +114,6 @@ func is_recess() -> bool:
 
 func _on_phase(_p: int) -> void:
 	var rec := is_recess()
-	for lb in _labels:
-		lb.visible = rec
 	if not rec and active:
 		active.end_game(0, "O sinal tocou!", 5, 10)
 	_invite_t = randf_range(30.0, 50.0)
@@ -117,9 +152,28 @@ func _on_finished(result: Dictionary) -> void:
 	game_finished.emit(result)
 
 
+var guide_id := ""
+
+
+## "Mostrar no mapa": guia até a estação escolhida.
+func guide_to(gid: String) -> void:
+	guide_id = gid
+	GameManager.show_toast("Siga a seta azul até: %s" % GAMES[gid].title)
+
+
 func _process(delta: float) -> void:
 	if not GameManager.is_playing():
 		return
+	var mk := []
+	for gid in GAMES.keys():
+		mk.append({"pos": GAMES[gid].pos, "color": GAMES[gid].color, "icon": GAMES[gid].icon})
+	hud.minimap.set_markers("brincadeiras", mk)
+	if guide_id != "":
+		var gp: Vector3 = GAMES[guide_id].pos
+		hud.set_mission_point(gp + Vector3(0, 1, 0))
+		if player.global_position.distance_to(gp) < 3.0:
+			guide_id = ""
+			hud.set_mission_point(null)
 	if active:
 		active.tick(delta)
 		return

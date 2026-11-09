@@ -58,6 +58,8 @@ func _ready() -> void:
 	await _test_progression()
 	# ---- FASE 6
 	await _test_polish()
+	# ---- Revisão 1
+	await _test_revisao1()
 	_finish()
 
 
@@ -662,7 +664,7 @@ func _mg_start(gid: String) -> Minigame:
 func _test_minigames() -> void:
 	await _recess()
 	var mm: MinigameManager = main.minigames
-	check(mm.stations.size() == 8, "minijogos: 8 estações no mapa")
+	check(mm.stations.size() == MinigameManager.GAMES.size(), "minijogos: estações no mapa")
 	var results := []
 	var rc := func(r): results.append(r)
 	mm.game_finished.connect(rc)
@@ -728,7 +730,9 @@ func _test_minigames() -> void:
 	player.request_interact()
 	check(dg._holder == player, "queimada: jogador pega a bola", "holder=%s dist=%.2f vel=%.2f out=%s cd=%.1f" % [dg._holder, dg.ball.global_position.distance_to(player.global_position + Vector3(0, 0.3, 0)), dg.ball.linear_velocity.length(), dg._out.has(player), dg._countdown])
 	player.request_play()
-	await _wait(0.8)
+	await _wait(0.3)
+	player.request_play_release()
+	await _wait(0.6)
 	check(dg._holder != player and dg.ball.held_by == null, "queimada: jogador arremessa")
 	dg.time_left = 0.05
 	await _wait(0.3)
@@ -814,8 +818,9 @@ func _test_minigames() -> void:
 	var ab = await _mg_start("pontaria")
 	for i in 10:
 		ab.on_play()
+		await _wait(0.05)
 		ab._power = 0.55
-		ab.on_play()
+		ab.on_play_release()
 		await _wait(0.15)
 	await _wait(2.5)
 	check(mm.active == null and results[-1].id == "pontaria", "pontaria: 10 arremessos e fim")
@@ -823,7 +828,9 @@ func _test_minigames() -> void:
 	var pw = await _mg_start("guerra")
 	await _wait(3.3)
 	pw.on_play()
-	await _wait(1.5)
+	await _wait(0.4)
+	pw.on_play_release()
+	await _wait(1.1)
 	check(pw._shots.size() >= 0 and pw.running, "guerra: arremessos em andamento")
 	pw.time_left = 0.05
 	await _wait(0.3)
@@ -1109,3 +1116,75 @@ func _finish() -> void:
 		print(l)
 	print("Total: %d ok, %d falhas" % [passed, failed])
 	get_tree().quit(0 if failed == 0 else 1)
+
+
+func _test_revisao1() -> void:
+	# idade -> nível das perguntas
+	check(ClassroomTasks.level_for_age(8) < ClassroomTasks.level_for_age(12), "idade: 8 anos tem perguntas mais fáceis que 12")
+	var gen := ClassroomTasks.new()
+	var subjects_ok := true
+	for subj in ClassroomTasks.SUBJECTS:
+		var l: Array = gen.make_lesson(4, false, subj)
+		if l.size() < 4:
+			subjects_ok = false
+	check(subjects_ok and ClassroomTasks.SUBJECTS.size() >= 6, "matérias: todas geram aula (%d)" % ClassroomTasks.SUBJECTS.size())
+	# amarelinha: plano de pulos cai nas casas pintadas
+	var plan: Array = preload("res://scripts/minigames/hopscotch.gd").hop_plan(3)
+	var picks := plan.filter(func(e): return e.get("pick", false)).size()
+	var on_cells := true
+	for e in plan:
+		if e.pose == "hop_one" and e.row.size() == 1 and e.pos.distance_to(preload("res://scripts/minigames/hopscotch.gd").cell_pos(e.row[0])) > 0.01:
+			on_cells = false
+	check(picks == 1 and on_cells and plan[-1].get("end", false), "amarelinha: pés nas casas e pega a pedra uma vez")
+	# filtro do chat local
+	check(ChatFilter.check("Bora jogar?").ok, "chat: frase normal passa")
+	check(not ChatFilter.check("seu 1d10ta").ok, "chat: palavrão disfarçado bloqueado")
+	check(not ChatFilter.check("meu zap 11 98765-4321").ok, "chat: telefone bloqueado")
+	check(not NetworkManager.is_online(), "online: desligado por padrão")
+	# missões: oferecer, aceitar e concluir um passo
+	await _recess()
+	var qs: QuestSystem = main.quests
+	if qs.active_id != "":
+		qs.abandon()
+	check(qs.QUESTS.size() >= 15, "missões: catálogo grande (%d)" % qs.QUESTS.size())
+	var avail := qs.QUESTS.keys().filter(func(q): return qs.is_available(q))
+	check(avail.size() >= 5, "missões: várias disponíveis no recreio (%d)" % avail.size())
+	qs.start("horta_plantar")
+	await _frames(2)
+	check(qs.active_id == "horta_plantar" and qs._target_pos() != null, "missões: ativa com destino no mapa")
+	qs.abandon()
+	check(qs.active_id == "", "missões: abandonar")
+	# veículo: só fora dos prédios e mais rápido
+	_place(Vector3(0, 0.05, 66), 0)
+	await _frames(3)
+	player.set_vehicle("skate")
+	player.toggle_ride()
+	check(player.riding, "veículo: sobe no skate no pátio")
+	player.toggle_ride()
+	player.set_vehicle("")
+	check(not player.riding, "veículo: desce")
+	# empurrão sem testemunha: colega fica chateado
+	var disc: DisciplineSystem = main.discipline
+	_adults_away()
+	var kid: NPC = null
+	for n in main.npcs.npcs:
+		if n.role == "student" and n.active:
+			kid = n
+			break
+	SaveManager.section("discipline")["reputation"] = 60
+	var before := Friendship.points(kid.data.id)
+	disc.strikes_today = 0.0
+	disc.on_shove(kid)
+	check(disc.strikes_today == 1.0 and Friendship.points(kid.data.id) < before, "empurrão: sem testemunha vira falta leve e chateia o colega")
+	# matar aula: diretor e inspetora procuram
+	disc.start_search()
+	check(disc.truant and main.npcs.director.activity == "search", "matar aula: busca começa")
+	disc.stop_search()
+	check(not disc.truant, "matar aula: busca termina")
+	# Bloco C: caminho até o 2º andar
+	var p: PackedVector3Array = main.npcs.nav.path(Vector3(-76, 0.05, 30), Vector3(-80, 3.9, 30))
+	var top := -INF
+	for v in p:
+		top = maxf(top, v.y)
+	check(p.size() > 2 and top > 3.0, "Bloco C: rota de navegação sobe a escada", "pts=%d top=%.1f" % [p.size(), top])
+	_place(Vector3(0, 0.05, 66), 0)

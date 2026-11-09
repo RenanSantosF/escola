@@ -6,10 +6,11 @@ extends Control
 
 signal closed
 
-const TABS := [["loja", "Loja"], ["visual", "Guarda-roupa"], ["colecoes", "Coleções"], ["missoes", "Missões"],
+const TABS := [["brincadeiras", "Brincadeiras"], ["loja", "Loja"], ["visual", "Guarda-roupa"], ["colecoes", "Coleções"], ["missoes", "Missões"],
 	["conquistas", "Conquistas"], ["amigos", "Amigos"], ["ficha", "Ficha"]]
 
 var progression: Progression
+var minigames: Node
 var _tab := "loja"
 var _cat := "camiseta"
 var _selected := ""
@@ -147,12 +148,16 @@ func _refresh() -> void:
 		c.queue_free()
 	_coins.text = "Moedas: %d   ·   Nível %d" % [GameManager.coins(), GameManager.level()]
 	var show_preview := _tab in ["loja", "visual"]
+	if _tab == "brincadeiras" and not GameManager.overlay_open:
+		pass
 	_side.get_child(1).visible = show_preview
 	_action.visible = false
 	_info.text = ""
 	match _tab:
 		"loja", "visual":
 			_build_items(_tab == "loja")
+		"brincadeiras":
+			_build_games()
 		"colecoes":
 			_build_collections()
 		"missoes":
@@ -252,7 +257,7 @@ func _update_preview() -> void:
 	_action.disabled = false
 	if owned and not item.get("consumable", false):
 		_action.text = "Equipado" if progression.is_equipped(_selected) else "Equipar"
-		_action.disabled = progression.is_equipped(_selected) or not item.has("look")
+		_action.disabled = progression.is_equipped(_selected) or not (item.has("look") or item.has("vehicle"))
 		_info.text = item.name + ("\n(fica na sua carteira da sala)" if item.cat == "decoracao" else "")
 	else:
 		_action.text = "Comprar (%d)" % item.price
@@ -291,6 +296,40 @@ func _row(text: String, sub: String, col := Color("fff8e7")) -> void:
 	v.add_child(b)
 	p.add_child(v)
 	_content.add_child(p)
+
+
+func _build_games() -> void:
+	_title("Brincadeiras do recreio")
+	var stats: Dictionary = SaveManager.section("stats")
+	for gid in MinigameManager.GAMES.keys():
+		var g: Dictionary = MinigameManager.GAMES[gid]
+		var st: Dictionary = stats.get("mg_" + gid, {}) if stats.get("mg_" + gid) is Dictionary else {}
+		var p := PanelContainer.new()
+		p.add_theme_stylebox_override("panel", UITheme.box(Color(g.color).lerp(Color.WHITE, 0.7), 14))
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 12)
+		var v := VBoxContainer.new()
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var a := Label.new()
+		a.text = g.title
+		a.add_theme_font_override("font", UITheme.bold_font())
+		a.add_theme_font_size_override("font_size", 22)
+		var b := Label.new()
+		b.text = "%s\nJogou %d · venceu %d · recorde %d" % [g.desc, int(st.get("played", 0)), int(st.get("won", 0)), int(st.get("best", 0))]
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.add_theme_font_size_override("font_size", 17)
+		v.add_child(a)
+		v.add_child(b)
+		h.add_child(v)
+		var go := UITheme.make_button("Mostrar no mapa", func():
+			if minigames:
+				minigames.guide_to(gid)
+			close_menu(), 220)
+		go.custom_minimum_size = Vector2(220, 56)
+		go.add_theme_font_size_override("font_size", 19)
+		h.add_child(go)
+		p.add_child(h)
+		_content.add_child(p)
 
 
 func _build_collections() -> void:

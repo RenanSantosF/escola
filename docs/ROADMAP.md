@@ -109,6 +109,37 @@ recompensas próprias; estações com placa no mapa (só no recreio) e convites 
       ([MONETIZACAO.md](MONETIZACAO.md))
 - [x] 170 testes automatizados
 
+## ✅ Revisão 1 — retorno do primeiro teste (concluída)
+
+- Sala de aula com carteiras 4×4 e corredores largos; porta livre.
+- Perguntas pela idade real (pergunta na primeira vez, explica o porquê, ajustável
+  nas configurações) + dificuldade adaptativa: acertou muito sobe, errou muito desce.
+- 10 matérias: Matemática, Português, Ciências, Geografia, História, Inglês, Artes,
+  Física, Química e Música — perguntas mais divertidas e problemas por nível.
+- Correr no corredor liberado.
+- Missões com ícone "!" sobre quem oferece, aceitar/recusar, seta guia na tela,
+  marcador no mundo e no minimapa. ~18 missões (horta, plantar árvore, química,
+  física, biblioteca, reciclagem, história, música, inglês, geografia...).
+- Brincadeiras com placas grandes, anel no chão, aba "Brincadeiras" na mochila com
+  "Mostrar no mapa". Amarelinha jogável com pés nas casas pintadas.
+- Segurar para mirar / soltar para jogar (guerra de papel, queimada, pontaria) com
+  arco de trajetória visível e alvos de aviso dos inimigos.
+- Tetos com luminárias nas salas; câmera mais perto dentro dos prédios.
+- NPCs entram pelas portas (navegação por linha de visão e componente principal).
+- Dia começa no portão; fim do dia pede para ir ao portão e só então mostra o resumo.
+- Sentar respeita a direção do banco/cadeira.
+- Cores mais vivas (tonemap/saturação), personagens com olhos, dedos, gola, cinto;
+  carros remodelados; praça com fonte, rampas e degraus.
+- Skate, patinete e bicicleta na loja (caros: 900/1300/2000 moedas, nível 4–6).
+- Minimapa com "você está aqui" pulsando.
+- Matar aula: diretor e inspetora procuram e correm atrás; ser pego = ocorrência grave.
+- Empurrar colegas/adultos: consequências altas se alguém vê.
+- Bloco C com 2º andar (laboratórios de Química e Física, Robótica, Idiomas,
+  Grêmio, Mirante), escada interna e escada externa.
+- Fonte dos desejos (1 moeda = surpresa).
+- Base do modo online (desligado por padrão): servidor Node para Railway, salas com
+  entrada no meio da partida, chat seguro, denúncia e bloqueio — ver docs/ONLINE.md.
+
 ## Próximos passos sugeridos
 
 - Testar em aparelhos Android reais (o ambiente de desenvolvimento não tinha SDK) e
@@ -116,3 +147,5 @@ recompensas próprias; estações com placa no mapa (só no recreio) e convites 
 - Opcional: substituir as animações procedurais por animações Mixamo retargetadas
   (o esqueleto já usa os nomes do perfil humanoide do Godot).
 - Mais conteúdo: novas tarefas, eventos (festa junina no palco!), mais figurinhas.
+- Online: banco Postgres, contas com consentimento parental, painel de moderação,
+  sincronizar fase do dia/brincadeiras entre jogadores (ver docs/ONLINE.md).

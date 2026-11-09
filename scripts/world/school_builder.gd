@@ -22,7 +22,8 @@ var classrooms := {}  # nome -> {rect, board, teacher, door_in, door_out, board_
 var nav_points: Array = []  # pontos extras de navegação (portas, corredores)
 var nav_links: Array = []  # pares [a, b] que devem ser ligados (passagem por portas)
 var spots: Array = []  # pontos de atividade do recreio {type, pos, yaw}
-var spawn := Vector3(0, 0.05, 52)
+var chunk_offsets := {}  # chunk -> altura (prédios de vários andares)
+var spawn := Vector3(0, 0.05, 70)
 var spawn_yaw := PI
 var rng := RandomNumberGenerator.new()
 
@@ -94,6 +95,8 @@ func build_all(step: Callable) -> void:
 	_playground()
 	_garden_and_woods()
 	await step.call(0.74, "Espalhando as árvores...")
+	BuildingC.build(self)
+	_fountain_plaza()
 	_general_zones()
 	_recess_spots()
 
@@ -108,6 +111,38 @@ func build_all(step: Callable) -> void:
 ##        inner_mat, doors:[[lado, centro, largura, altura]],
 ##        windows:[[lado, centro, largura]], auto_windows:[lados],
 ##        open:[lados], kind, label, colonnade:[lado]}
+## Constrói um andar de prédio numa altura base (segundo andar etc.).
+## Tudo o que o andar criar (chunks, zonas, assentos, rótulos, pontos de
+## navegação) é deslocado para cima por base_y.
+func build_building_at(def: Dictionary, base_y: float) -> void:
+	var chunk_before := chunks.keys()
+	var zb := zones.size()
+	var sb := Props.seats.size()
+	var lb := labels.size()
+	var nb := nav_points.size()
+	var lk := nav_links.size()
+	var fb := Props.fountains.size()
+	build_building(def)
+	for k in chunks.keys():
+		if not k in chunk_before:
+			chunk_offsets[k] = base_y
+	for i in range(zb, zones.size()):
+		zones[i]["y0"] = base_y - 0.5
+		zones[i]["y1"] = base_y + def.height
+	for i in range(sb, Props.seats.size()):
+		Props.seats[i].pos += Vector3(0, base_y, 0)
+		Props.seats[i].seat_top += base_y
+	for i in range(lb, labels.size()):
+		labels[i].pos += Vector3(0, base_y, 0)
+	for i in range(nb, nav_points.size()):
+		nav_points[i] += Vector3(0, base_y, 0)
+	for i in range(lk, nav_links.size()):
+		nav_links[i] = [nav_links[i][0] + Vector3(0, base_y, 0), nav_links[i][1] + Vector3(0, base_y, 0)]
+	for i in range(fb, Props.fountains.size()):
+		Props.fountains[i].pos += Vector3(0, base_y, 0)
+		Props.fountains[i].spout += Vector3(0, base_y, 0)
+
+
 func build_building(def: Dictionary) -> void:
 	var id: String = def.id
 	var H: float = def.height
@@ -181,9 +216,12 @@ func build_building(def: Dictionary) -> void:
 		if not always:
 			interior_chunks[id].append(inner_chunk_name)
 		var fmat: String = room.get("floor", "tile")
-		shell.slab(fmat, Vector3(r.get_center().x, FLOOR_TOP - 0.03, r.get_center().y), Vector3(r.size.x, 0.06, r.size.y), room.get("floor_col", Color("e9e4da")))
+		if not room.get("no_floor", false):
+			shell.slab(fmat, Vector3(r.get_center().x, FLOOR_TOP - 0.03, r.get_center().y), Vector3(r.size.x, 0.06, r.size.y), room.get("floor_col", Color("e9e4da")))
 		# teto (visto de dentro) com luminárias; também segura a câmera
-		if not "n" in room.get("open", []) or room.get("kind", "") == "hall":
+		if def.get("floor_collider", false) and not room.get("no_floor", false):
+			shell.collider(Vector3(r.get_center().x, FLOOR_TOP - 0.1, r.get_center().y), Vector3(r.size.x, 0.2, r.size.y))
+		if (not "n" in room.get("open", []) or room.get("kind", "") == "hall") and not room.get("no_ceiling", false):
 			var ceil_col: Color = room.get("ceil_col", Color("f3ead2"))
 			ib.box("paint", Vector3(r.get_center().x, H - 0.04, r.get_center().y), Vector3(r.size.x, 0.08, r.size.y), ceil_col, 0.0, false)
 			ib.collider(Vector3(r.get_center().x, H + 0.05, r.get_center().y), Vector3(r.size.x, 0.2, r.size.y))
@@ -224,7 +262,7 @@ func build_building(def: Dictionary) -> void:
 		add_zone(room_name, r, true, id, 10, room.get("map_col", Color(0.85, 0.82, 0.75)))
 		add_surface(r, "hard")
 		# pontos internos de navegação (grade de 2,5 m dentro da sala)
-		var gx: float = r.position.x + 1.25
+		var gx: float = r.position.x + 1.25 if not room.get("no_nav", false) else r.end.x
 		while gx < r.end.x - 0.5:
 			var gz: float = r.position.y + 1.25
 			while gz < r.end.y - 0.5:
@@ -689,9 +727,9 @@ func _front_yard() -> void:
 	# pisos de pedra portuguesa (faixas) no caminho
 	for i in 12:
 		f.slab("plain", Vector3(0, 0.018, 61.5 + i * 1.1), Vector3(7.6, 0.02, 0.18), Color("8c8273"))
-	Props.flagpole(f, Vector3(-8, 0.012, 52), Color("2e9e4f"))
-	Props.flagpole(f, Vector3(-11, 0.012, 52), Color("2f5fa8"))
-	Props.flagpole(f, Vector3(-5, 0.012, 52), Color("f1c40f"))
+	Props.flagpole(f, Vector3(-9, 0.012, 51.5), Color("2e9e4f"))
+	Props.flagpole(f, Vector3(-12, 0.012, 51.5), Color("2f5fa8"))
+	Props.flagpole(f, Vector3(-15, 0.012, 51.5), Color("f1c40f"))
 	var fr := RandomNumberGenerator.new()
 	fr.seed = 99
 	for sx: float in [-1.0, 1.0]:
@@ -699,7 +737,7 @@ func _front_yard() -> void:
 		for k in 5:
 			_tree("palmeira", Vector3(sx * 5.5, 0.0, 63 + k * 2.6), 0.8 + 0.05 * k, Color.WHITE, f)
 		Props.bench(f, Vector3(sx * 12.5, 0.012, 54.5), PI * 0.5 * -sx)
-		Props.lamp_post(f, Vector3(sx * 4.6, 0.012, 58))
+		Props.lamp_post(f, Vector3(sx * 6.0, 0.012, 50.5))
 		Props.lamp_post(f, Vector3(sx * 4.6, 0.012, 70))
 	for k in 10:
 		var x := -80.0 + k * 11.0
@@ -1096,12 +1134,12 @@ func _garden_and_woods() -> void:
 	# Jardim oeste
 	var j := chunk("jardim_oeste")
 	for k in 16:
-		var p := Vector3(rng.randf_range(-88, -66), 0, rng.randf_range(-42, 46))
+		var p := Vector3(rng.randf_range(-88, -66), 0, rng.randf_range(-42, 16))
 		_tree(["copa", "ipe", "arbusto", "palmeira"][k % 4], p, rng.randf_range(0.8, 1.2), [Color("3f8a3a"), Color("e86aa6"), Color("4a9a45"), Color.WHITE][k % 4], j)
 	for k in 5:
 		Props.bench(j, Vector3(-64.5, 0.0, -36 + k * 12.0), PI * 0.5)
-	Props.planter(j, Vector3(-75, 0.0, 30), Vector2(6, 3), fr)
 	Props.planter(j, Vector3(-75, 0.0, 10), Vector2(6, 3), fr)
+	Props.planter(j, Vector3(-75, 0.0, -2), Vector2(6, 3), fr)
 	add_zone("Jardim Oeste", R(-90, -44, -62, 50), false, "", 3, Color(0.42, 0.66, 0.4))
 
 	# árvores espalhadas pelos cantos do terreno
@@ -1120,6 +1158,55 @@ func _general_zones() -> void:
 	add_zone("Lateral Oeste", R(-90, 20, -60, 52), false, "", 0, Color(0.5, 0.72, 0.45))
 	add_zone("Escola", LOT, false, "", -5, Color(0.5, 0.72, 0.45))
 	zones.sort_custom(func(a, b): return a.priority > b.priority)
+
+
+## Praça da fonte na entrada: plataforma elevada com rampas (caminho
+## principal) e degraus nas laterais, chafariz com água animada.
+func _fountain_plaza() -> void:
+	var f := chunk("fonte")
+	var c := Vector3(0, 0, 58.0)
+	var h := 0.42
+	var r := 5.2
+	# plataforma
+	f.cylinder("concrete", c + Vector3(0, h * 0.5, 0), r, r + 0.15, h, Color("d8c39a"), 28)
+	f.cylinder("tile", c + Vector3(0, h + 0.005, 0), r - 0.2, r - 0.2, 0.01, Color("e9d8b4"), 28, false)
+	f.collider_cyl(c + Vector3(0, h * 0.5, 0), r, h)
+	# rampas norte e sul (caminho da entrada)
+	for side: float in [1.0, -1.0]:
+		var len := 3.2
+		var ang := atan2(h, len)
+		var mid := c + Vector3(0, h * 0.5, side * (r + len * 0.5 - 0.1))
+		var xf := Transform3D(Basis(Vector3.RIGHT, ang * side), mid)
+		f.box_xf("concrete", xf, Vector3(3.6, 0.1, len / cos(ang)), Color("cdb68c"))
+		f.collider_xf(xf, Vector3(3.6, 0.1, len / cos(ang)))
+		for sx: float in [-1.85, 1.85]:
+			f.box_xf("metal", Transform3D(Basis(Vector3.RIGHT, ang * side), mid + Vector3(sx, 0.5, 0)), Vector3(0.05, 0.05, len / cos(ang)), Color("2f5fa8"))
+			f.box("metal", mid + Vector3(sx, 0.25, side * len * 0.45), Vector3(0.05, 0.5, 0.05), Color("2f5fa8"))
+	# degraus leste e oeste (com rampa invisível de colisão)
+	for side: float in [1.0, -1.0]:
+		for k in 3:
+			var hk := h * (k + 1) / 3.0
+			f.box("concrete", c + Vector3(side * (r + 0.9 - k * 0.35), hk * 0.5, 0), Vector3(0.36, hk, 4.0), Color("cdb68c").darkened(k * 0.03))
+		var ang2 := atan2(h, 1.1)
+		var xf2 := Transform3D(Basis(Vector3.BACK, -ang2 * side), c + Vector3(side * (r + 0.55), h * 0.5, 0))
+		f.collider_xf(xf2, Vector3(1.2 / cos(ang2), 0.06, 4.0))
+	# chafariz
+	var bc := c + Vector3(0, h, 0)
+	f.cylinder("brick", bc + Vector3(0, 0.3, 0), 2.6, 2.7, 0.6, Color("c9744d"), 24)
+	f.cylinder("concrete", bc + Vector3(0, 0.62, 0), 2.75, 2.75, 0.06, Color("e3d3b0"), 24)
+	f.collider_cyl(bc + Vector3(0, 0.35, 0), 2.7, 0.7)
+	f.cylinder("concrete", bc + Vector3(0, 0.9, 0), 0.35, 0.45, 1.6, Color("e3d3b0"), 12)
+	f.cylinder("concrete", bc + Vector3(0, 1.75, 0), 1.0, 0.6, 0.18, Color("e3d3b0"), 16)
+	f.cylinder("concrete", bc + Vector3(0, 2.1, 0), 0.12, 0.18, 0.6, Color("e3d3b0"), 8)
+	fountains_water.append({"pos": bc + Vector3(0, 0.5, 0), "r": 2.55, "top": bc + Vector3(0, 2.45, 0)})
+	# bancos ao redor da fonte
+	for k in 4:
+		var a := PI * 0.25 + k * PI * 0.5
+		Props.bench(f, c + Vector3(cos(a), 0, sin(a)) * 3.95 + Vector3(0, h, 0), atan2(cos(a), sin(a)), 1.4, false)
+	add_zone("Praça da Fonte", R(-6.5, 52, 6.5, 64), false, "", 4, Color(0.55, 0.75, 0.9))
+
+
+var fountains_water: Array = []
 
 
 ## Pontos de atividade usados pelos alunos (NPCs) no recreio.

@@ -233,16 +233,41 @@ static func umbrella_table(b: WorldBatcher, o: Vector3, col: Color) -> void:
 
 
 static func parked_car(b: WorldBatcher, o: Vector3, r: float, col: Color) -> void:
-	_bx(b, "metal", o, r, Vector3(0, 0.55, 0), Vector3(1.75, 0.6, 4.1), col)
-	_bx(b, "metal", o, r, Vector3(0, 1.08, -0.2), Vector3(1.55, 0.5, 2.1), col)
-	_bx(b, "glass", o, r, Vector3(0, 1.08, -0.2), Vector3(1.57, 0.38, 1.9), Color("2c3e50"))
+	var dark := Color("2d3436")
+	# carroceria em duas partes com cantos chanfrados
+	_bx(b, "metal", o, r, Vector3(0, 0.62, 0), Vector3(1.78, 0.5, 3.9), col)
+	_bx(b, "metal", o, r, Vector3(0, 0.5, 1.98), Vector3(1.7, 0.36, 0.12), col.darkened(0.08))
+	_bx(b, "metal", o, r, Vector3(0, 0.5, -1.98), Vector3(1.7, 0.36, 0.12), col.darkened(0.08))
+	var cabin := Transform3D(Basis(Vector3.UP, r), _p(o, r, Vector3(0, 1.1, -0.25)))
+	b.box_xf("metal", cabin, Vector3(1.58, 0.5, 2.0), col)
+	# vidros (para-brisa inclinado, laterais e traseiro)
+	b.box_xf("glass", Transform3D(Basis(Vector3.UP, r) * Basis(Vector3.RIGHT, -0.55), _p(o, r, Vector3(0, 1.08, 0.82))), Vector3(1.5, 0.52, 0.04), Color("2c3e50"))
+	b.box_xf("glass", Transform3D(Basis(Vector3.UP, r) * Basis(Vector3.RIGHT, 0.5), _p(o, r, Vector3(0, 1.08, -1.3))), Vector3(1.5, 0.48, 0.04), Color("2c3e50"))
+	for sx: float in [-1.0, 1.0]:
+		_bx(b, "glass", o, r, Vector3(0.8 * sx, 1.12, -0.25), Vector3(0.02, 0.36, 1.7), Color("34495e"))
+		_bx(b, "metal", o, r, Vector3(0.8 * sx, 1.12, -0.25), Vector3(0.03, 0.36, 0.06), col.darkened(0.2))
+		_bx(b, "metal", o, r, Vector3(0.9 * sx, 0.95, 0.75), Vector3(0.14, 0.08, 0.1), col.darkened(0.15))
+		_bx(b, "metal", o, r, Vector3(0.895 * sx, 0.72, 0.1), Vector3(0.02, 0.03, 0.14), Color("bdc3c7"))
+		_bx(b, "metal", o, r, Vector3(0.895 * sx, 0.72, -0.85), Vector3(0.02, 0.03, 0.14), Color("bdc3c7"))
+		_bx(b, "metal", o, r, Vector3(0.892 * sx, 0.68, -0.38), Vector3(0.01, 0.42, 0.02), col.darkened(0.3))
+	# para-choques, faróis, lanternas e placa
+	_bx(b, "plain", o, r, Vector3(0, 0.36, 2.06), Vector3(1.82, 0.16, 0.14), dark)
+	_bx(b, "plain", o, r, Vector3(0, 0.36, -2.06), Vector3(1.82, 0.16, 0.14), dark)
+	_bx(b, "plain", o, r, Vector3(0, 0.58, 2.05), Vector3(0.7, 0.14, 0.03), Color("1e272e"))
+	_bx(b, "plain", o, r, Vector3(0, 0.36, 2.14), Vector3(0.5, 0.12, 0.02), Color("f5f6fa"))
+	_bx(b, "plain", o, r, Vector3(0, 0.36, -2.14), Vector3(0.5, 0.12, 0.02), Color("f5f6fa"))
+	for sx: float in [-1.0, 1.0]:
+		_bx(b, "plain", o, r, Vector3(0.62 * sx, 0.64, 2.05), Vector3(0.34, 0.13, 0.04), Color("fff6c8"))
+		_bx(b, "plain", o, r, Vector3(0.66 * sx, 0.66, -2.05), Vector3(0.3, 0.14, 0.04), Color("e74c3c"))
+	# rodas com pneu, calota e caixa de roda escura
 	for wx: float in [-0.82, 0.82]:
 		for wz: float in [-1.3, 1.3]:
-			var xf := Transform3D(Basis(Vector3.UP, r) * Basis(Vector3.FORWARD, PI / 2), _p(o, r, Vector3(wx, 0.32, wz)))
-			b.cylinder_xf("plain", xf, 0.32, 0.32, 0.22, Color("222222"), 10)
-	_bx(b, "plain", o, r, Vector3(0.6, 0.62, 2.06), Vector3(0.3, 0.12, 0.02), Color("fff6c8"))
-	_bx(b, "plain", o, r, Vector3(-0.6, 0.62, 2.06), Vector3(0.3, 0.12, 0.02), Color("fff6c8"))
-	b.collider(_p(o, r, Vector3(0, 0.7, 0)), Vector3(1.8, 1.4, 4.1), r)
+			var xf := Transform3D(Basis(Vector3.UP, r) * Basis(Vector3.FORWARD, PI / 2), _p(o, r, Vector3(wx, 0.33, wz)))
+			b.cylinder_xf("plain", xf, 0.33, 0.33, 0.24, Color("1e1e1e"), 12)
+			var xf2 := Transform3D(Basis(Vector3.UP, r) * Basis(Vector3.FORWARD, PI / 2), _p(o, r, Vector3(wx * 1.08, 0.33, wz)))
+			b.cylinder_xf("metal", xf2, 0.19, 0.19, 0.04, Color("c8d6e5"), 10)
+			_bx(b, "plain", o, r, Vector3(wx * 1.01, 0.62, wz), Vector3(0.06, 0.12, 0.8), dark)
+	b.collider(_p(o, r, Vector3(0, 0.7, 0)), Vector3(1.8, 1.4, 4.2), r)
 
 
 ## Casa simples vista de fora do muro (cenário de fundo).

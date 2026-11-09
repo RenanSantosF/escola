@@ -305,6 +305,29 @@ static func _build() -> void:
 			[0.8, {"LeftUpperArm": Vector3(-55, -30, 10), "RightUpperArm": Vector3(-55, 30, -10), "LeftLowerArm": Vector3(-50, 0, 0), "RightLowerArm": Vector3(-50, 0, 0), "mouth": 1.6}],
 			[1.0, {}]],
 	}
+	_defs["push"] = {
+		"duration": 0.6, "events": {"push": 0.4},
+		"keys": [[0.0, {}],
+			[0.35, {"LeftUpperArm": Vector3(-25, 0, 12), "RightUpperArm": Vector3(-25, 0, -12), "LeftLowerArm": Vector3(-90, 0, 0), "RightLowerArm": Vector3(-90, 0, 0), "Spine": Vector3(-6, 0, 0), "hips": Vector3(0, -0.03, -0.05)}],
+			[0.5, {"LeftUpperArm": Vector3(-85, 0, 10), "RightUpperArm": Vector3(-85, 0, -10), "LeftLowerArm": Vector3(-5, 0, 0), "RightLowerArm": Vector3(-5, 0, 0), "Spine": Vector3(16, 0, 0), "hips": Vector3(0, -0.04, 0.08),
+				"LeftUpperLeg": Vector3(-20, 0, 0), "RightUpperLeg": Vector3(14, 0, 0), "LeftLowerLeg": Vector3(14, 0, 0)}],
+			[1.0, {}]],
+	}
+	_defs["hop_one"] = {
+		"duration": 0.2, "hold": true, "fade_in": 0.05,
+		"keys": [[0.0, {}], [1.0, {"hips": Vector3(0, -0.03, 0),
+			"LeftUpperLeg": Vector3(-35, 0, 6), "LeftLowerLeg": Vector3(85, 0, 0), "LeftFoot": Vector3(20, 0, 0),
+			"RightLowerLeg": Vector3(8, 0, 0), "LeftUpperArm": Vector3(-10, 0, 35), "RightUpperArm": Vector3(-10, 0, -35),
+			"Spine": Vector3(6, 0, 0)}]],
+	}
+	_defs["hop_two"] = {
+		"duration": 0.2, "hold": true, "fade_in": 0.05,
+		"keys": [[0.0, {}], [1.0, {"hips": Vector3(0, -0.09, 0),
+			"LeftUpperLeg": Vector3(-6, 0, 24), "RightUpperLeg": Vector3(-6, 0, -24),
+			"LeftLowerLeg": Vector3(14, 0, 0), "RightLowerLeg": Vector3(14, 0, 0),
+			"LeftFoot": Vector3(-6, 0, -18), "RightFoot": Vector3(-6, 0, 18),
+			"LeftUpperArm": Vector3(-15, 0, 40), "RightUpperArm": Vector3(-15, 0, -40)}]],
+	}
 	_defs["scratch_head"] = {
 		"duration": 1.8, "mask": "upper",
 		"keys": [

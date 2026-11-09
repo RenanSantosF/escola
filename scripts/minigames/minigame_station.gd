@@ -12,9 +12,11 @@ func _ready() -> void:
 
 
 func can_interact(_player: Node) -> bool:
-	return mgr != null and mgr.active == null and mgr.is_recess()
+	return mgr != null and mgr.active == null
 
 
 func interact(_player: Node) -> void:
-	if mgr:
+	if mgr and not mgr.is_recess():
+		GameManager.show_toast("As brincadeiras são no recreio! Espere o sinal.")
+	elif mgr:
 		mgr.start(game_id)

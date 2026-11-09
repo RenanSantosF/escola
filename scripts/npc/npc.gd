@@ -41,6 +41,7 @@ var _cur_speed := 0.0
 var _pending_seat: Seat = null
 var _on_arrive: Callable
 var _seat_tween: Tween
+var _seg_from := Vector3.ZERO
 
 
 func setup(entry: Dictionary, mgr: Node) -> void:
@@ -141,6 +142,7 @@ func go_to(target: Vector3, run := false, on_arrive := Callable()) -> void:
 	path_i = 0
 	moving = true
 	_stuck_t = 0.0
+	_seg_from = global_position
 	look_at_target = null
 
 
@@ -257,6 +259,7 @@ func tick(delta: float) -> void:
 		var final := path_i == path.size() - 1
 		if d < (0.25 if final else 0.6):
 			path_i += 1
+			_seg_from = global_position
 			if path_i >= path.size():
 				_arrive()
 				return
@@ -273,7 +276,10 @@ func tick(delta: float) -> void:
 		var dir := to / d
 		var vel := dir * spd + separation
 		global_position += vel * delta
-		global_position.y = target.y if final else global_position.y
+		# sobe/desce escadas e rampas acompanhando a altura do trecho
+		var seg := Vector2(target.x - _seg_from.x, target.z - _seg_from.z).length()
+		var k := clampf(1.0 - d / maxf(seg, 0.01), 0.0, 1.0)
+		global_position.y = lerpf(_seg_from.y, target.y, k)
 		yaw = lerp_angle(yaw, atan2(vel.x, vel.z), 1.0 - exp(-8.0 * delta))
 		speed = spd
 		# destrava se ficar parado tempo demais

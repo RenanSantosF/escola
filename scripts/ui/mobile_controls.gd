@@ -22,6 +22,7 @@ var btn_run: TouchButton
 var btn_pause: TouchButton
 var btn_emote: TouchButton
 var btn_bag: TouchButton
+var btn_ride: TouchButton
 var buttons: Array[TouchButton] = []
 var blockers: Array[Control] = []  # áreas da HUD que não giram a câmera
 
@@ -46,7 +47,14 @@ func _ready() -> void:
 	btn_pause = _make_button(TouchButton.Icon.PAUSE, Color("ffffff"), "")
 	btn_emote = _make_button(TouchButton.Icon.EMOTE, Color("ffffff"), "")
 	btn_bag = _make_button(TouchButton.Icon.BAG, Color("ffffff"), "")
+	btn_ride = _make_button(TouchButton.Icon.RIDE, Color("c7a6ff"), "Montar")
+	btn_ride.visible = false
+	btn_ride.pressed.connect(func():
+		if player:
+			player.toggle_ride()
+			btn_ride.label = "Descer" if player.riding else "Montar")
 	btn_play.pressed.connect(_on_play)
+	btn_play.released.connect(_on_play_release)
 	btn_jump.pressed.connect(_on_jump)
 	btn_interact.pressed.connect(_on_interact)
 	btn_run.pressed.connect(_on_run)
@@ -63,6 +71,11 @@ func _ready() -> void:
 func _on_play() -> void:
 	if player:
 		player.request_play()
+
+
+func _on_play_release() -> void:
+	if player:
+		player.request_play_release()
 
 
 func _on_jump() -> void:
@@ -133,6 +146,7 @@ func _layout() -> void:
 	_place(btn_pause, Vector2(br.x - m - 36, sr.position.y + m + 36), 72)
 	_place(btn_emote, Vector2(br.x - m - 122, sr.position.y + m + 36), 72)
 	_place(btn_bag, Vector2(br.x - m - 208, sr.position.y + m + 36), 72)
+	_place(btn_ride, br + Vector2(-m - 215, -m - 345), 88)
 	_joy_rest = Vector2(sr.position.x + m + 150, br.y - m - 140)
 	if _joy_index == -1:
 		_joy_center = _joy_rest
@@ -142,6 +156,10 @@ func _layout() -> void:
 func _place(b: TouchButton, center: Vector2, diameter: float) -> void:
 	b.size = Vector2(diameter, diameter)
 	b.position = center - b.size * 0.5
+
+
+func set_ride_available(on: bool) -> void:
+	btn_ride.visible = on
 
 
 func get_move_vector() -> Vector2:

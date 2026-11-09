@@ -19,6 +19,7 @@ const DEFAULTS := {
 	"fps_limit_30": false,
 	"controls_opacity": 0.8,
 	"run_toggle": true,
+	"online_enabled": false,
 }
 
 var values: Dictionary = DEFAULTS.duplicate()

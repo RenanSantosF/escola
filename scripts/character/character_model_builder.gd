@@ -164,12 +164,16 @@ func _make_mesh() -> ArrayMesh:
 
 	# Pelve / bermuda
 	_capsule("Hips", pants, Vector3(0, 0.03, 0), 0.145, 0.30, Vector3(1.06 * bw, 1, 0.72))
-	_cyl("Hips", pants.darkened(0.15), Vector3(0, 0.13, 0), 0.152 * bw, 0.152 * bw, 0.035, Vector3.ZERO, 12)
+	_cyl("Hips", Color("3b2a1e"), Vector3(0, 0.13, 0), 0.153 * bw, 0.153 * bw, 0.035, Vector3.ZERO, 14)
+	_box("Hips", Color("d4af37"), Vector3(0, 0.13, 0.108), Vector3(0.04, 0.03, 0.012))
 	# Barriga e peito (camiseta)
 	_capsule("Spine", shirt, Vector3(0, 0.08, 0), 0.148, 0.36, Vector3(1.0 * bw, 1, 0.7))
 	_capsule("Chest", shirt, Vector3(0, 0.11, 0), 0.165, 0.34, Vector3(1.05 * bw, 1, 0.72))
-	# Gola
+	# Gola polo
 	_cyl("Chest", trim, Vector3(0, 0.255, 0.0), 0.072, 0.085, 0.035, Vector3.ZERO, 12)
+	for sx: float in [1.0, -1.0]:
+		_box("Chest", trim, Vector3(0.045 * sx, 0.235, 0.085), Vector3(0.06, 0.012, 0.05), Vector3(-35, 0, 18 * sx))
+	_box("Chest", shirt.darkened(0.08), Vector3(0, 0.17, 0.118), Vector3(0.012, 0.09, 0.008))
 	if a.shirt_logo:
 		_box("Chest", trim, Vector3(0.075, 0.13, 0.118), Vector3(0.055, 0.055, 0.012))
 		_box("Chest", Color("f2c230"), Vector3(0.075, 0.13, 0.124), Vector3(0.03, 0.03, 0.006))
@@ -185,8 +189,12 @@ func _make_mesh() -> ArrayMesh:
 		_cyl(side + "UpperArm", trim, Vector3(0, -0.15, 0), 0.064, 0.064, 0.028)
 		_capsule(side + "UpperArm", skin, Vector3(0, -0.15, 0), 0.046, 0.21)
 		_capsule(side + "LowerArm", skin, Vector3(0, -0.11, 0), 0.043, 0.25)
-		_sphere(side + "Hand", skin, Vector3(0, -0.055, 0.005), 0.05, Vector3(0.75, 1.15, 0.95))
-		_sphere(side + "Hand", skin.darkened(0.03), Vector3(0.02 * sx, -0.03, 0.035), 0.02, Vector3(1, 1.4, 1))
+		# palma + 4 dedos + polegar
+		_sphere(side + "Hand", skin, Vector3(0, -0.045, 0.005), 0.042, Vector3(0.7, 1.0, 1.0))
+		for f in 4:
+			var fz := -0.018 + f * 0.013
+			_capsule(side + "Hand", skin.darkened(0.02 * (f % 2)), Vector3(0.0, -0.09, fz + 0.005), 0.0085, 0.05 - absf(f - 1.5) * 0.006, Vector3.ONE, Vector3(8, 0, 0), 6)
+		_capsule(side + "Hand", skin.darkened(0.03), Vector3(0.012 * sx, -0.04, 0.035), 0.009, 0.045, Vector3.ONE, Vector3(-35, 0, 25 * sx), 6)
 
 	# Pernas
 	for side: String in ["Left", "Right"]:
@@ -205,6 +213,9 @@ func _make_mesh() -> ArrayMesh:
 		_capsule(foot, a.shoe_color, Vector3(0, -0.025, 0.045), 0.058, 0.25, Vector3(1, 0.85, 1), Vector3(90, 0, 0))
 		_box(foot, a.shoe_sole, Vector3(0, -0.062, 0.045), Vector3(0.11, 0.026, 0.25))
 		_box(foot, a.shoe_color.darkened(0.25), Vector3(0, 0.012, 0.085), Vector3(0.05, 0.012, 0.08), Vector3(-20, 0, 0))
+		for l in 3:
+			_box(foot, Color("fdfdfd") if a.shoe_color.get_luminance() < 0.7 else Color("2d3436"), Vector3(0, 0.016 + l * 0.008, 0.06 + l * 0.022), Vector3(0.056, 0.007, 0.008), Vector3(-20, 0, 0))
+		_box(foot, a.shoe_color.lerp(Color.WHITE, 0.4), Vector3(0.056, -0.03, 0.03), Vector3(0.006, 0.03, 0.12))
 
 	if a.backpack:
 		var bp := a.backpack_color
@@ -236,8 +247,11 @@ func _make_head() -> void:
 	_sphere("Head", skin.darkened(0.08), c + Vector3(0, -0.025, 0.152), 0.022, Vector3(1.0, 0.9, 0.8), Vector3.ZERO, 8, 6)
 	# Olhos (osso próprio para piscar)
 	for side: String in ["Left", "Right"]:
-		_sphere(side + "Eye", a.eye_color, Vector3.ZERO, 0.026, Vector3(0.95, 1.25, 0.5), Vector3.ZERO, 10, 7)
-		_sphere(side + "Eye", Color.WHITE, Vector3(0.008, 0.013, 0.011), 0.0075, Vector3.ONE, Vector3.ZERO, 6, 4)
+		# esclera branca, íris colorida, pupila e brilho
+		_sphere(side + "Eye", Color("fbfbf8"), Vector3(0, 0, -0.004), 0.031, Vector3(1.0, 1.2, 0.42), Vector3.ZERO, 12, 8)
+		_sphere(side + "Eye", a.eye_color.lightened(0.15), Vector3(0, -0.002, 0.007), 0.019, Vector3(1.0, 1.2, 0.4), Vector3.ZERO, 10, 7)
+		_sphere(side + "Eye", Color("15100c"), Vector3(0, -0.002, 0.010), 0.0105, Vector3(1.0, 1.15, 0.4), Vector3.ZERO, 8, 5)
+		_sphere(side + "Eye", Color.WHITE, Vector3(0.007, 0.009, 0.013), 0.0055, Vector3.ONE, Vector3.ZERO, 6, 4)
 		var sx := 1.0 if side == "Left" else -1.0
 		_box(side + "Brow", a.hair_color.darkened(0.1), Vector3.ZERO, Vector3(0.05, 0.012, 0.014), Vector3(0, 0, 8 * sx))
 	# Boca (sorriso simples)

@@ -99,6 +99,7 @@ func build(progress: Callable) -> void:
 	for key in builder.chunks.keys():
 		var wb: WorldBatcher = builder.chunks[key]
 		_chunk_nodes[key] = wb.build(geo)
+		_chunk_nodes[key].position.y = builder.chunk_offsets.get(key, 0.0)
 		n += 1
 		if n % 12 == 0:
 			await get_tree().process_frame
@@ -179,6 +180,12 @@ func _spawn_interactables() -> void:
 		wf.rotation.y = f.yaw
 		wf.spout = f.spout
 		seats_root.add_child(wf)
+	for fw in builder.fountains_water:
+		var wf := WishFountain.new()
+		wf.radius = fw.r
+		wf.top = fw.top
+		wf.position = fw.pos
+		seats_root.add_child(wf)
 	for b in builder.balls:
 		var ball := KickBall.create(b.kind)
 		ball.position = b.pos
@@ -215,7 +222,7 @@ func interior_hidden_at(pos: Vector3) -> bool:
 		return false
 	var p := Vector2(pos.x, pos.z)
 	for z in builder.zones:
-		if z.indoor and z.rect.has_point(p):
+		if z.indoor and z.rect.has_point(p) and _y_ok(z, pos.y):
 			var rid: String = z.roof
 			if rid == "" or rid == "C":
 				return false
@@ -223,10 +230,14 @@ func interior_hidden_at(pos: Vector3) -> bool:
 	return false
 
 
+func _y_ok(z: Dictionary, y: float) -> bool:
+	return not z.has("y0") or (y >= z.y0 and y < z.y1)
+
+
 func zone_at(pos: Vector3) -> Dictionary:
 	var p := Vector2(pos.x, pos.z)
 	for z in builder.zones:
-		if z.rect.has_point(p):
+		if z.rect.has_point(p) and _y_ok(z, pos.y):
 			return z
 	return {}
 
@@ -247,7 +258,7 @@ func _process(delta: float) -> void:
 	var p := Vector2(_player.global_position.x, _player.global_position.z)
 	var zone: Dictionary = {}
 	for z in builder.zones:
-		if z.rect.has_point(p):
+		if z.rect.has_point(p) and _y_ok(z, _player.global_position.y):
 			zone = z
 			break
 	if zone.is_empty():

@@ -65,6 +65,15 @@ func _ready() -> void:
 			GameManager.show_toast("Idade atualizada: atividades do %s" % Learning.grade_name())), 420)
 	v.add_child(age_btn)
 
+	if NetworkManager.available():
+		v.add_child(_section("Online (beta)"))
+		v.add_child(_check("Jogar online com outras crianças", "online_enabled"))
+		var info := Label.new()
+		info.text = "Chat com frases prontas, filtro de palavras e botão de denúncia. Peça para um adulto acompanhar."
+		info.autowrap_mode = TextServer.AUTOWRAP_WORD
+		info.custom_minimum_size = Vector2(600, 0)
+		v.add_child(info)
+
 	v.add_child(_section("Controles"))
 	v.add_child(_slider("Sensibilidade da câmera", "camera_sensitivity", 0.3, 2.5))
 	v.add_child(_slider("Opacidade dos botões", "controls_opacity", 0.3, 1.0))

@@ -17,11 +17,14 @@ var _power_dir := 1.0
 var _charging := false
 var _flying: Array = []  # {node, pos, vel, done}
 var _root: Node3D
+var _arc: AimArc
 
 
 func begin() -> void:
 	_root = Node3D.new()
 	world.add_child(_root)
+	_arc = AimArc.new()
+	_root.add_child(_arc)
 	player.force_stand()
 	player.global_position = FROM
 	player.yaw = PI
@@ -37,7 +40,7 @@ func _update_hud() -> void:
 
 
 func play_label() -> String:
-	return "Arremessar!" if _charging else "Força"
+	return "Soltar!" if _charging else "Segure p/ mirar"
 
 
 func interact_label() -> String:
@@ -55,9 +58,15 @@ func on_play() -> bool:
 	if not _charging:
 		_charging = true
 		_power = 0.0
-	else:
+		_power_dir = 1.0
+	return true
+
+
+func on_play_release() -> bool:
+	if _charging:
 		_charging = false
 		hud.set_meter(-1.0)
+		_arc.hide_arc()
 		_throw()
 	return true
 
@@ -94,6 +103,9 @@ func tick(delta: float) -> void:
 			_power_dir *= -1.0
 			_power = clampf(_power, 0.0, 1.0)
 		hud.set_meter(_power)
+		var d := Vector3(sin(_yaw), 0, cos(_yaw))
+		var sp := lerpf(4.0, 10.0, _power)
+		_arc.show_arc(FROM + Vector3(0, 1.5, 0) + d * 0.3, d * sp * 0.8 + Vector3(0, sp * 0.6, 0), 0.05)
 	for f in _flying:
 		if f.done:
 			continue

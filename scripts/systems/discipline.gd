@@ -28,6 +28,7 @@ const CALL_OUTS := {
 	"bagunca_aula": ["Comportamento!"],
 }
 const KIND_TEXT := {
+	"matou_aula": "matar aula", "empurrao": "empurrar um colega", "empurrou_adulto": "empurrar um funcionário da escola",
 	"esbarrao_forte": "sair esbarrando nos colegas", "esbarrao_repetido": "empurrar um colega de propósito",
 	"correr_corredor": "correr pelo corredor", "bolinha_em_colega": "jogar bolinha de papel nos colegas",
 	"levantou_na_aula": "levantar no meio da aula", "bagunca_aula": "bagunçar na aula",
@@ -148,6 +149,8 @@ func _on_behavior(kind: String) -> void:
 func _process(delta: float) -> void:
 	if not GameManager.is_playing() or in_cutscene:
 		return
+	if truant:
+		_update_search(delta)
 	# correr no corredor/hall
 	_corridor_cd -= delta
 	var z := GameManager.current_zone
@@ -183,15 +186,19 @@ func _on_phase(p: int) -> void:
 		get_tree().create_timer(1.5).timeout.connect(func(): start_occurrence(k))
 
 
-func start_occurrence(kind: String) -> void:
+## severity: faltas graves (empurrar, matar aula) contam em dobro.
+func start_occurrence(kind: String, severity := 1) -> void:
 	if in_cutscene:
 		return
 	in_cutscene = true
+	stop_search()
 	if player.minigame:
 		player.minigame.end_game(0, "Chamado na diretoria!", 0, 0)
+	if player.riding:
+		player.toggle_ride()
 	var d := data()
 	d["occurrences"] = int(d.get("occurrences", 0)) + 1
-	d["active"] = int(d.get("active", 0)) + 1
+	d["active"] = int(d.get("active", 0)) + severity
 	var log: Array = d.get("log", [])
 	log.append({"day": day.day, "kind": kind})
 	d["log"] = log.slice(-20)
@@ -295,6 +302,110 @@ func _lines_for(kind: String, n: int) -> Array:
 					[dname, "Mas é sério: %s não pode. Banco do hall, por favor." % what]],
 			]
 			return variants[n % variants.size()]
+
+
+# ------------------------------------------------------------- matar aula
+
+signal truant_caught
+
+var truant := false
+var _searchers: Array[NPC] = []
+var _chasing := {}  # npc -> segundos sem ver o jogador
+var _search_think := 0.0
+const SEARCH_POINTS := [Vector3(-70, 0.05, -60), Vector3(-75, 0.05, -50), Vector3(0, 0.05, -10), Vector3(40, 0.05, -48),
+	Vector3(-40, 0.05, -50), Vector3(78, 0.05, -50), Vector3(-0, 0.05, -64), Vector3(38, 0.05, 43), Vector3(46, 0.05, 43),
+	Vector3(-30, 0.05, 12), Vector3(-75, 0.05, 20), Vector3(60, 0.05, 30), Vector3(-50, 0.05, 36), Vector3(30, 0.05, 36)]
+
+
+func start_search() -> void:
+	if truant:
+		return
+	truant = true
+	_searchers = [npcs.director, npcs.inspector]
+	_chasing.clear()
+	for s in _searchers:
+		s.stop()
+		s.activity = "search"
+		s.run_speed = 4.6
+		s.say("Cadê aquele aluno?!", 2.5)
+	hud.show_banner("Matando aula!", "O diretor e a Dona Cida estão procurando você...")
+	AudioManager.play_ui("whistle", -6.0)
+
+
+func stop_search() -> void:
+	if not truant:
+		return
+	truant = false
+	for s in _searchers:
+		s.activity = "director_office" if s == npcs.director else "inspector_hall"
+		s.run_speed = 3.0
+		s.running = false
+		s.go_to(Vector3(-25, 0.05, 44.4) if s == npcs.director else Vector3(3, 0.05, 30))
+	_searchers.clear()
+	_chasing.clear()
+
+
+## Adulto vê o jogador? (distância, campo de visão e linha livre)
+func _sees(n: NPC) -> bool:
+	var to := player.global_position - n.global_position
+	to.y = 0
+	var d := to.length()
+	if d > 17.0:
+		return false
+	var fwd := Vector3(sin(n.yaw), 0, cos(n.yaw))
+	if d > 3.0 and fwd.angle_to(to.normalized()) > deg_to_rad(65):
+		return false
+	return npcs.nav.is_clear(n.global_position, player.global_position)
+
+
+func _update_search(delta: float) -> void:
+	_search_think -= delta
+	for s in _searchers:
+		if s.global_position.distance_to(player.global_position) < 1.15 and _chasing.has(s):
+			s.say("Peguei você!", 2.5)
+			truant_caught.emit()
+			start_occurrence("matou_aula", 2)
+			return
+		if _chasing.has(s):
+			if _sees(s):
+				_chasing[s] = 0.0
+			else:
+				_chasing[s] += delta
+				if _chasing[s] > 9.0:
+					_chasing.erase(s)
+					s.say("Sumiu... ele estava aqui!", 2.0)
+		elif _sees(s):
+			_chasing[s] = 0.0
+			s.say(["Ei! Você aí! Volta pra sala!", "Parado aí, mocinho!"].pick_random(), 2.5)
+			AudioManager.play_ui("whistle", -4.0)
+	if _search_think > 0.0:
+		return
+	_search_think = 0.35
+	for s in _searchers:
+		if _chasing.has(s):
+			s.running = true
+			s.go_to(player.global_position, true)
+		elif not s.moving:
+			s.go_to(SEARCH_POINTS.pick_random(), true)
+
+
+# ------------------------------------------------------------- empurrar
+
+## O jogador empurrou alguém (botão amarelo perto de alguém).
+func on_shove(target: NPC) -> void:
+	var adult := target.role != "student"
+	var w := witness()
+	if adult or w != null:
+		if w:
+			w.say("EU VI ISSO! Diretoria, agora!", 3.0)
+		change_reputation(-20 if adult else -15)
+		start_occurrence("empurrou_adulto" if adult else "empurrao", 2)
+	else:
+		strikes_today += 1.0
+		change_reputation(-6)
+		Friendship.add(target.data.get("id", ""), -12, "empurrao")
+		target.say("Vou contar pra professora!", 2.5)
+		GameManager.show_toast("Ninguém viu... mas o colega ficou muito chateado.")
 
 
 func _apply_consequence(n: int) -> void:

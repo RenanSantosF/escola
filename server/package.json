@@ -1,0 +1,17 @@
+{
+  "name": "recreio-server",
+  "version": "0.1.0",
+  "description": "Servidor online do Recreio — salas em tempo real, chat seguro para crianças e denúncias",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "ws": "8.18.0"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}

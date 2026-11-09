@@ -27,6 +27,7 @@ AudioManager="*res://autoloads/audio_manager.gd"
 GameManager="*res://autoloads/game_manager.gd"
 Effects="*res://autoloads/effects.gd"
 AdsManager="*res://autoloads/ads_manager.gd"
+NetworkManager="*res://autoloads/network_manager.gd"
 
 [display]
 

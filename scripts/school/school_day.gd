@@ -46,6 +46,8 @@ var _marker_target: Variant = null
 var _board_label: Label3D
 var _gen: ClassroomTasks
 var _subjects: Array = []
+var discipline: Node = null
+var _out_of_class := 0.0
 var events: Node = null  # SchoolEvents
 var quests: Node = null  # QuestSystem
 
@@ -121,6 +123,8 @@ func start_day() -> void:
 
 func _set_phase(p: int) -> void:
 	phase = p
+	if discipline and discipline.truant and p != Phase.CLASS_1 and p != Phase.CLASS_2:
+		discipline.stop_search()
 	if p != Phase.CLASS_1 and p != Phase.CLASS_2:
 		classroom_ui.hide_panel()
 		_task_active = false
@@ -296,6 +300,12 @@ func _player_at_desk() -> bool:
 func _on_player_sat(seat: Seat) -> void:
 	if seat != npcs.player_desk:
 		return
+	_out_of_class = 0.0
+	if discipline and discipline.truant:
+		discipline.stop_search()
+		npcs.teacher.say("Onde você estava?! Não saia mais da aula!", 3.0)
+		discipline.strikes_today += 1.0
+		discipline.change_reputation(-5)
 	# câmera mais próxima e alta para enxergar a lousa por cima dos colegas
 	if player.camera_rig:
 		player.camera_rig.distance = 2.4
@@ -445,6 +455,19 @@ func _process(delta: float) -> void:
 				else:
 					get_tree().create_timer(1.0).timeout.connect(_present_task)
 			elif not _player_at_desk() and not _task_active and _find_task.is_empty():
+				# saiu da sala durante a aula = matando aula
+				var zn: String = world.zone_at(player.global_position).get("name", "")
+				if zn != NPCManager.CLASS_ROOM:
+					_out_of_class += delta
+					if _out_of_class > 4.0 and discipline and not discipline.truant:
+						discipline.start_search()
+					if _out_of_class > 100.0:
+						_out_of_class = 0.0
+						npcs.teacher.say("Vou continuar sem ele...", 2.0)
+						lesson_index = lesson.size()
+						_end_class()
+				else:
+					_out_of_class = 0.0
 				_nag_timer -= delta
 				if _nag_timer <= 0.0:
 					_nag_timer = 7.0

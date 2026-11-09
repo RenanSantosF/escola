@@ -75,7 +75,7 @@ func _team_of(node: Node) -> int:
 
 
 func play_label() -> String:
-	return "Arremessar" if _holder == player else "Desviar!"
+	return ("Soltar!" if _aiming else "Segure p/ mirar") if _holder == player else "Desviar!"
 
 
 func interact_label() -> String:
@@ -92,11 +92,24 @@ func on_interact() -> bool:
 	return true
 
 
+var _aiming := false
+var _arc: AimArc
+
+
 func on_play() -> bool:
 	if _holder == player and _countdown <= 0.0:
+		_aiming = true
+	return true
+
+
+func on_play_release() -> bool:
+	if _aiming and _holder == player:
+		_aiming = false
+		if _arc:
+			_arc.hide_arc()
 		var target := _pick_target(player, team_b)
 		_throw(player, target, 0)
-		return true
+	_aiming = false
 	return true
 
 
@@ -148,8 +161,7 @@ func _throw(who: Node3D, target: Node3D, team: int) -> void:
 			aim = start + Vector3(sin(from_holder.yaw), 0, cos(from_holder.yaw)) * 10.0
 		var d := aim - start
 		var speed := 13.0 if from_holder == player else 10.5
-		var t := d.length() / speed
-		var vel := d / maxf(t, 0.05) + Vector3(0, 0.5 * 9.8 * t, 0)
+		var vel := AimArc.solve(start, aim, speed)
 		ball.throw_from(start, vel, team)
 		AudioManager.play_3d("whoosh", start, -3.0))
 
@@ -228,6 +240,14 @@ func tick(delta: float) -> void:
 		ball.global_position = Vector3(-40, 0.4, -50)
 		ball.linear_velocity = Vector3.ZERO
 	_npc_ai(delta)
+	if _aiming and _holder == player:
+		if _arc == null:
+			_arc = AimArc.new()
+			world.add_child(_arc)
+		var t := _pick_target(player, team_b)
+		var start: Vector3 = player.visual.hand_position() + Vector3(0, 0.1, 0)
+		var aim: Vector3 = (t.global_position + Vector3(0, 1.0, 0)) if t else start + Vector3(sin(player.yaw), 0, cos(player.yaw)) * 10.0
+		_arc.show_arc(start, AimArc.solve(start, aim, 13.0), 0.05, Color("ff8a3d"))
 	player._emit_context()
 
 
@@ -291,6 +311,8 @@ func _finish() -> void:
 
 func cleanup() -> void:
 	player.movement_locked = false
+	if _arc:
+		_arc.queue_free()
 	if is_instance_valid(ball):
 		if ball.held_by:
 			ball.throw_from(ball.global_position, Vector3.ZERO, -1)

@@ -27,6 +27,9 @@ var vertical_velocity := 0.0
 var yaw_rate := 0.0
 var forward_accel := 0.0
 var look_target_yaw := 0.0  # graus, olhar da cabeça (para NPCs)
+## 0 a pé, 1 skate/patinete (em pé), 2 bicicleta (pedalando)
+var ride_mode := 0
+var _pedal := 0.0
 
 var skel: Skeleton3D
 var bone_idx := {}
@@ -176,7 +179,7 @@ func update(delta: float) -> void:
 	_time += delta
 
 	_update_params(delta)
-	var pose := _base_pose(delta)
+	var pose := _base_pose(delta) if ride_mode == 0 else _ride_pose(delta)
 	_apply_air(pose)
 	_apply_action(pose, delta)
 	_apply_upper(pose, delta)
@@ -310,6 +313,50 @@ func _base_pose(_delta: float) -> Dictionary:
 	p["hips"] = hips
 	p["eyes"] = 1.0 - _blink
 	p["mouth"] = 1.0
+	p["brow"] = 0.0
+	return p
+
+
+func _ride_pose(delta: float) -> Dictionary:
+	var p := {}
+	var lean := clampf(-yaw_rate * _smooth_speed * 1.2, -18.0, 18.0)
+	if ride_mode == 2:
+		_pedal += _smooth_speed * delta * 1.3
+		var s := sin(_pedal * TAU)
+		var c := cos(_pedal * TAU)
+		p["hips"] = Vector3(0, 0.11, -0.22)
+		p["Spine"] = Vector3(22, 0, lean)
+		p["Chest"] = Vector3(8, 0, 0)
+		p["Head"] = Vector3(-24, 0, -lean * 0.5)
+		p["LeftUpperLeg"] = Vector3(-62 + 22 * s, 0, 4)
+		p["RightUpperLeg"] = Vector3(-62 - 22 * s, 0, -4)
+		p["LeftLowerLeg"] = Vector3(78 - 22 * c, 0, 0)
+		p["RightLowerLeg"] = Vector3(78 + 22 * c, 0, 0)
+		p["LeftFoot"] = Vector3(-14, 0, 0)
+		p["RightFoot"] = Vector3(-14, 0, 0)
+		p["LeftUpperArm"] = Vector3(-62, 0, 12)
+		p["RightUpperArm"] = Vector3(-62, 0, -12)
+		p["LeftLowerArm"] = Vector3(-22, 0, 0)
+		p["RightLowerArm"] = Vector3(-22, 0, 0)
+	else:
+		# de lado na prancha, joelhos levemente flexionados, braços abertos
+		var push := clampf(forward_accel * 0.2, 0.0, 1.0) * sin(_time * 7.0)
+		p["hips"] = Vector3(0, -0.06, 0)
+		p["Hips"] = Vector3(0, 35, lean)
+		p["Spine"] = Vector3(8, -25, lean * 0.6)
+		p["Head"] = Vector3(0, -12, 0)
+		p["LeftUpperLeg"] = Vector3(-14, 0, 8)
+		p["RightUpperLeg"] = Vector3(12 + push * 30.0, 0, -8)
+		p["LeftLowerLeg"] = Vector3(22, 0, 0)
+		p["RightLowerLeg"] = Vector3(20, 0, 0)
+		p["LeftFoot"] = Vector3(-8, 0, 0)
+		p["RightFoot"] = Vector3(-8, 0, 0)
+		p["LeftUpperArm"] = Vector3(-10, 0, 38 + lean)
+		p["RightUpperArm"] = Vector3(10, 0, -38 + lean)
+		p["LeftLowerArm"] = Vector3(-20, 0, 0)
+		p["RightLowerArm"] = Vector3(-20, 0, 0)
+	p["eyes"] = 1.0 - _blink
+	p["mouth"] = 1.2
 	p["brow"] = 0.0
 	return p
 

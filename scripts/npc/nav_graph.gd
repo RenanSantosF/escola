@@ -49,6 +49,8 @@ func build(world: Node3D, builder: SchoolBuilder, lot: Rect2) -> void:
 			if other <= id or astar.are_points_connected(id, other):
 				continue
 			var q := astar.get_point_position(other)
+			if absf(p.y - q.y) > 0.6:
+				continue
 			var d := p.distance_to(q)
 			var lim := LINK_RADIUS
 			if _is_extra(id) or _is_extra(other):
@@ -155,7 +157,7 @@ func _nearest_id(p: Vector3, max_d: float) -> int:
 
 func _walkable(p: Vector3) -> bool:
 	for h: float in [0.45, 1.0]:
-		_shape_q.transform = Transform3D(Basis(), Vector3(p.x, h, p.z))
+		_shape_q.transform = Transform3D(Basis(), Vector3(p.x, p.y + h, p.z))
 		if not _space.intersect_shape(_shape_q, 1).is_empty():
 			return false
 	return true
@@ -166,8 +168,8 @@ func _clear(a: Vector3, b: Vector3) -> bool:
 	dir.y = 0.0
 	var side := Vector3(-dir.z, 0, dir.x).normalized() * 0.26
 	for o in [[side, 0.5], [-side, 0.5], [Vector3.ZERO, 1.25]]:
-		_ray_q.from = Vector3(a.x, o[1], a.z) + o[0]
-		_ray_q.to = Vector3(b.x, o[1], b.z) + o[0]
+		_ray_q.from = Vector3(a.x, a.y + o[1], a.z) + o[0]
+		_ray_q.to = Vector3(b.x, b.y + o[1], b.z) + o[0]
 		if not _space.intersect_ray(_ray_q).is_empty():
 			return false
 	return true

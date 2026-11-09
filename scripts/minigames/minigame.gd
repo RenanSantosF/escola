@@ -38,6 +38,10 @@ func on_play() -> bool:
 	return false
 
 
+func on_play_release() -> bool:
+	return false
+
+
 func on_interact() -> bool:
 	return false
 

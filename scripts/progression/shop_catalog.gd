@@ -6,7 +6,7 @@ extends RefCounted
 const CATEGORIES := [
 	["camiseta", "Camisetas"], ["calca", "Calças"], ["calcado", "Tênis"], ["mochila", "Mochilas"],
 	["bone", "Bonés"], ["penteado", "Penteados"], ["acessorio", "Acessórios"], ["decoracao", "Decoração"],
-	["gude", "Bolinhas de gude"], ["figurinha", "Figurinhas"],
+	["gude", "Bolinhas de gude"], ["figurinha", "Figurinhas"], ["veiculo", "Skate e bike"],
 ]
 
 const ITEMS := [
@@ -66,6 +66,10 @@ const ITEMS := [
 	{"id": "dec_caneca", "cat": "decoracao", "name": "Caneca de lápis", "price": 45, "lvl": 2, "decor": "caneca"},
 	{"id": "dec_globo", "cat": "decoracao", "name": "Mini globo", "price": 120, "lvl": 4, "decor": "globo"},
 	{"id": "dec_trofeu", "cat": "decoracao", "name": "Mini troféu", "price": 220, "lvl": 6, "decor": "trofeu"},
+	# veículos (caros: exigem dias de jogo)
+	{"id": "vei_skate", "cat": "veiculo", "name": "Skate", "price": 900, "lvl": 4, "vehicle": "skate"},
+	{"id": "vei_patinete", "cat": "veiculo", "name": "Patinete", "price": 1300, "lvl": 5, "vehicle": "patinete"},
+	{"id": "vei_bike", "cat": "veiculo", "name": "Bicicleta", "price": 2000, "lvl": 6, "vehicle": "bike"},
 	# consumíveis
 	{"id": "gude_saco", "cat": "gude", "name": "Saquinho com 3 bolinhas", "price": 30, "lvl": 1, "consumable": true},
 	{"id": "fig_pacote", "cat": "figurinha", "name": "Pacote com 4 figurinhas", "price": 25, "lvl": 1, "consumable": true},
@@ -96,6 +100,7 @@ static func swatch(item: Dictionary) -> Color:
 		"decoracao": return Color("a0663a")
 		"gude": return Color("3fa7d6")
 		"figurinha": return Color("f2b632")
+		"veiculo": return Color("e74c3c")
 		"penteado": return Color("3b2417")
 		"acessorio": return Color("1c1c1c")
 	return Color("cccccc")

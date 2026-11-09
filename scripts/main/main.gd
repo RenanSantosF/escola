@@ -90,7 +90,17 @@ func _ready() -> void:
 	add_child(discipline)
 	discipline.setup(npcs, player, hud, school_day, world)
 	minigames.discipline = discipline
+	school_day.discipline = discipline
+	discipline.truant_caught.connect(func():
+		# depois da diretoria, volta direto para a carteira
+		await get_tree().create_timer(0.3).timeout
+		while discipline.in_cutscene:
+			await get_tree().process_frame
+		if school_day.phase == SchoolDay.Phase.CLASS_1 or school_day.phase == SchoolDay.Phase.CLASS_2:
+			player.global_position = npcs.player_desk.global_position
+			player.sit_on(npcs.player_desk))
 	player.picked_up.connect(discipline.on_player_picked)
+	GameManager.shoved.connect(discipline.on_shove)
 	events = SchoolEvents.new()
 	events.name = "Events"
 	add_child(events)
@@ -107,10 +117,14 @@ func _ready() -> void:
 	progression.setup(player, world, npcs, school_day, minigames)
 	profile_menu = ProfileMenu.new()
 	profile_menu.progression = progression
+	profile_menu.minigames = minigames
 	ui_layer.add_child(profile_menu)
 	hud.controls.bag_pressed.connect(profile_menu.open_menu)
 	ui_layer.move_child(_loading, -1)
 
+	Settings.changed.connect(func(k):
+		if k == "online_enabled" and _day_started:
+			_update_online())
 	_build_menu()
 	_show_menu()
 	var tw := create_tween()
@@ -284,6 +298,24 @@ func _start_game() -> void:
 	if not _day_started:
 		_day_started = true
 		school_day.start_day()
+	_update_online()
+
+
+## Modo online (beta): só existe se a build tiver SERVER_URL e o jogador ativar.
+var online: OnlineSession
+
+
+func _update_online() -> void:
+	var want: bool = NetworkManager.available() and bool(Settings.get_value("online_enabled"))
+	if want and online == null:
+		online = OnlineSession.new()
+		online.name = "Online"
+		add_child(online)
+		online.setup(player, world, ui_layer, hud)
+	elif not want and online:
+		online.chat_panel.queue_free()
+		online.queue_free()
+		online = null
 
 
 func _back_to_menu() -> void:

@@ -45,7 +45,7 @@ godot --rendering-driver opengl3 --path . res://tests/capture_world.tscn -- --ou
 ## Estrutura
 
 ```
-autoloads/       GameManager, Settings, SaveManager, AudioManager, Effects, AdsManager
+autoloads/       GameManager, Settings, SaveManager, AudioManager, Effects, AdsManager, NetworkManager
 scenes/          main (entrada), character/player, school (raiz do mundo)
 scripts/
   character/     aparência, construtor do modelo, animador procedural, ações
@@ -55,19 +55,21 @@ scripts/
   interaction/   assentos, bebedouros, bolas, objetos arremessáveis
   npc/           NPCs, elenco, gerenciador (rotinas/atividades), grafo de navegação
   school/        ciclo do dia escolar e gerador de tarefas da aula
-  minigames/     futebol, queimada, gude, aviãozinho, corrida, corda, pontaria, guerra de papel
-  systems/       disciplina, eventos e missões, amizades, figurinhas
+  minigames/     futebol, queimada, gude, amarelinha, aviãozinho, corrida, corda, pontaria, guerra de papel
+  systems/       disciplina (inclui matar aula/empurrão), eventos, missões (quest_system), amizades, figurinhas
+  online/        cliente online (sessão, colegas remotos, chat seguro, filtro local)
   progression/   catálogo da loja, inventário, missões diárias, conquistas
   ui/            tema, controles de toque, HUD, minimapa, menus, aula, diálogo
   main/          fluxo carregamento → menu → jogo
 assets/          texturas e sons gerados (ver tools/)
 tools/           scripts Python que geram as texturas e os sons
 tests/           testes automatizados e cenas de captura
-docs/            arquitetura, roadmap, guia Android
+docs/            arquitetura, roadmap, guia Android, modo online
+server/          servidor online Node.js (Railway): salas, chat seguro, denúncias
 ```
 
 Mais detalhes em [docs/ARQUITETURA.md](docs/ARQUITETURA.md), [docs/ANDROID.md](docs/ANDROID.md),
-[docs/GOOGLE_PLAY.md](docs/GOOGLE_PLAY.md) e [docs/MONETIZACAO.md](docs/MONETIZACAO.md).
+[docs/GOOGLE_PLAY.md](docs/GOOGLE_PLAY.md), [docs/MONETIZACAO.md](docs/MONETIZACAO.md) e [docs/ONLINE.md](docs/ONLINE.md).
 
 ## Assets e licenças
 
