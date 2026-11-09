@@ -1,90 +1,192 @@
 class_name ClassroomTasks
 extends RefCounted
-## Gerador de tarefas rápidas da aula (lógica pura, testável).
+## Gerador de tarefas da aula (lógica pura, testável).
+## Nível 1–9 = ano escolar (definido pela idade real + ajuste automático
+## pelo desempenho). 10 matérias; cada aula tem uma matéria principal.
 ## Tipos: math, word, quiz, order, match, find.
-## Cada tarefa: {type, subject, prompt, ...}
-##  - choice (math/word/quiz): options[], answer (índice)
-##  - order: items[] (embaralhados), answer_order[] (índices na ordem certa)
-##  - match: left[], right[] (embaralhado), pairs {i_left: i_right}
-##  - find: item (tipo de objeto), item_name
 
+const SUBJECTS := ["Matemática", "Português", "Ciências", "Geografia", "História", "Inglês", "Artes", "Física", "Química", "Música"]
+
+## [nível mín, nível máx, pergunta, certa, errada1, errada2, errada3]
+const BANK := {
+	"Português": [
+		[1, 3, "Qual palavra começa com a mesma letra de BOLA?", "Bota", "Casa", "Dado", "Pato"],
+		[1, 3, "Quantas sílabas tem a palavra BORBOLETA?", "4", "3", "5", "2"],
+		[2, 4, "Qual é o plural de PÃO?", "Pães", "Pãos", "Pãoes", "Pãns"],
+		[2, 5, "Qual é o contrário de ALEGRE?", "Triste", "Feliz", "Contente", "Animado"],
+		[3, 6, "Qual palavra é um sinônimo de BONITO?", "Belo", "Feio", "Grande", "Rápido"],
+		[3, 6, "Complete: Ontem eu ___ ao parque.", "fui", "vou", "irei", "ia ir"],
+		[4, 7, "Na frase 'O cachorro correu', qual palavra é o verbo?", "correu", "cachorro", "O", "Nenhuma"],
+		[4, 8, "Qual está escrita corretamente?", "Exceção", "Excessão", "Esseção", "Ecessão"],
+		[5, 8, "Em 'menino esperto', ESPERTO é um...", "Adjetivo", "Verbo", "Substantivo", "Advérbio"],
+		[5, 9, "Qual palavra é proparoxítona?", "Lâmpada", "Café", "Mesa", "Cantor"],
+		[6, 9, "'Ele correu como um raio' é um exemplo de...", "Comparação", "Rima", "Onomatopeia", "Plural"],
+		[7, 9, "Qual é o sujeito de 'Os alunos fizeram a prova'?", "Os alunos", "a prova", "fizeram", "Não há sujeito"],
+		[7, 9, "Qual frase usa a crase corretamente?", "Vou à escola.", "Vou à pé.", "Vou à jogar.", "Vou à ele."],
+	],
+	"Ciências": [
+		[1, 3, "Qual destes animais vive na água?", "Peixe", "Cachorro", "Galinha", "Gato"],
+		[1, 3, "O que as plantas precisam para crescer?", "Água e luz", "Chocolate", "Areia só", "Escuridão"],
+		[2, 4, "Quantas patas tem um inseto?", "6", "8", "4", "10"],
+		[2, 5, "Qual órgão bombeia o sangue?", "Coração", "Pulmão", "Estômago", "Cérebro"],
+		[3, 5, "A água vira gelo quando...", "Esfria muito", "Esquenta", "Fica no sol", "Mexe"],
+		[3, 6, "Qual é o planeta mais perto do Sol?", "Mercúrio", "Terra", "Marte", "Júpiter"],
+		[4, 7, "As plantas fazem fotossíntese usando...", "Luz do sol", "Luz da lua", "Barulho", "Vento"],
+		[4, 7, "Qual animal é um mamífero?", "Baleia", "Tubarão", "Sapo", "Pinguim"],
+		[5, 8, "Em uma cadeia alimentar, a planta é...", "Produtora", "Consumidora", "Decompositora", "Predadora"],
+		[5, 8, "Qual gás nós expiramos?", "Gás carbônico", "Oxigênio", "Hélio", "Nitrogênio puro"],
+		[6, 9, "A menor unidade dos seres vivos é a...", "Célula", "Folha", "Gota", "Pele"],
+		[7, 9, "Onde ocorre a digestão da maior parte dos alimentos?", "Intestino delgado", "Boca", "Pulmão", "Fígado"],
+		[7, 9, "Os fungos, como o cogumelo, são...", "Decompositores", "Produtores", "Animais", "Minerais"],
+	],
+	"Geografia": [
+		[1, 3, "Onde o sol nasce?", "Leste", "Oeste", "Norte", "Sul"],
+		[2, 4, "O Brasil fica em qual continente?", "América do Sul", "Europa", "Ásia", "África"],
+		[3, 5, "Qual é a capital do Brasil?", "Brasília", "Rio de Janeiro", "São Paulo", "Salvador"],
+		[3, 6, "Quantas regiões tem o Brasil?", "5", "4", "6", "7"],
+		[4, 7, "Qual é o maior oceano do mundo?", "Pacífico", "Atlântico", "Índico", "Ártico"],
+		[4, 7, "A capital da Bahia é...", "Salvador", "Recife", "Fortaleza", "Natal"],
+		[5, 8, "Qual bioma tem a maior floresta tropical do mundo?", "Amazônia", "Caatinga", "Pampa", "Cerrado"],
+		[5, 8, "A Caatinga fica principalmente na região...", "Nordeste", "Sul", "Norte", "Sudeste"],
+		[6, 9, "A linha imaginária que divide a Terra em norte e sul é...", "Equador", "Greenwich", "Trópico", "Meridiano"],
+		[6, 9, "Qual estado brasileiro é o maior em área?", "Amazonas", "Pará", "Mato Grosso", "Minas Gerais"],
+		[7, 9, "Qual rio passa por São Paulo e é famoso pela poluição?", "Tietê", "Amazonas", "São Francisco", "Paraná"],
+	],
+	"História": [
+		[2, 4, "Quem eram os primeiros habitantes do Brasil?", "Os povos indígenas", "Os portugueses", "Os romanos", "Os vikings"],
+		[3, 6, "Em que ano os portugueses chegaram ao Brasil?", "1500", "1822", "1889", "1950"],
+		[4, 7, "A Independência do Brasil foi em...", "1822", "1500", "1888", "1964"],
+		[4, 7, "Quem declarou a Independência do Brasil?", "Dom Pedro I", "Tiradentes", "Cabral", "Getúlio Vargas"],
+		[5, 8, "A Lei Áurea, de 1888, acabou com a...", "Escravidão", "Monarquia", "Guerra", "Escola"],
+		[5, 8, "Tiradentes participou de qual movimento?", "Inconfidência Mineira", "Farroupilha", "Cabanagem", "Diretas Já"],
+		[6, 9, "A República foi proclamada no Brasil em...", "1889", "1822", "1930", "1500"],
+		[6, 9, "As pirâmides famosas do Egito eram...", "Túmulos de faraós", "Escolas", "Mercados", "Castelos"],
+		[7, 9, "A capital do Brasil passou para Brasília em...", "1960", "1889", "1822", "2000"],
+	],
+	"Inglês": [
+		[1, 4, "Como se diz AZUL em inglês?", "Blue", "Red", "Green", "Yellow"],
+		[1, 4, "DOG em português é...", "Cachorro", "Gato", "Pato", "Peixe"],
+		[2, 5, "Como se diz 'Bom dia' em inglês?", "Good morning", "Good night", "Goodbye", "Thank you"],
+		[2, 5, "Qual é o número FIVE?", "5", "4", "9", "15"],
+		[3, 6, "SCHOOL em português é...", "Escola", "Casa", "Rua", "Parque"],
+		[4, 7, "Complete: I ___ a student.", "am", "is", "are", "be"],
+		[5, 8, "Qual é o passado de GO?", "Went", "Goed", "Gone", "Going"],
+		[5, 9, "'She is taller than me' significa...", "Ela é mais alta que eu", "Ela é baixa", "Eu sou mais alto", "Ela é alta como eu"],
+		[6, 9, "Complete: They ___ playing soccer now.", "are", "is", "am", "be"],
+	],
+	"Artes": [
+		[1, 3, "Misturando azul e amarelo, temos...", "Verde", "Roxo", "Laranja", "Rosa"],
+		[1, 4, "Vermelho + amarelo dá...", "Laranja", "Verde", "Marrom", "Azul"],
+		[2, 5, "Quais são as cores primárias?", "Azul, vermelho e amarelo", "Verde, roxo e laranja", "Preto e branco", "Rosa e cinza"],
+		[4, 7, "Quem pintou o quadro 'Abaporu'?", "Tarsila do Amaral", "Portinari", "Van Gogh", "Picasso"],
+		[5, 8, "O desenho do próprio artista se chama...", "Autorretrato", "Paisagem", "Natureza-morta", "Mosaico"],
+		[6, 9, "Escultura é uma arte...", "Tridimensional", "Só no papel", "Só com som", "Digital"],
+	],
+	"Música": [
+		[1, 4, "Qual destes é um instrumento de corda?", "Violão", "Tambor", "Flauta", "Pandeiro"],
+		[2, 5, "Quantas são as notas musicais (dó, ré, mi...)?", "7", "5", "10", "12"],
+		[3, 6, "O pandeiro é um instrumento de...", "Percussão", "Sopro", "Corda", "Teclas"],
+		[5, 8, "O samba é um ritmo de origem...", "Brasileira", "Japonesa", "Russa", "Australiana"],
+		[6, 9, "Qual nota vem depois de SOL?", "Lá", "Fá", "Si", "Dó"],
+	],
+	"Física": [
+		[1, 4, "O que faz as coisas caírem no chão?", "Gravidade", "Vento", "Luz", "Música"],
+		[3, 6, "Um ímã atrai objetos de...", "Ferro", "Madeira", "Plástico", "Papel"],
+		[4, 7, "O que viaja mais rápido?", "A luz", "O som", "Um carro", "Uma bicicleta"],
+		[5, 8, "Um carro anda 60 km em 1 hora. Sua velocidade é...", "60 km/h", "30 km/h", "120 km/h", "1 km/h"],
+		[5, 8, "Qual destas é uma fonte de energia renovável?", "Solar", "Petróleo", "Carvão", "Gás"],
+		[6, 9, "Se você corre 100 m em 20 s, sua velocidade é...", "5 m/s", "20 m/s", "2 m/s", "120 m/s"],
+		[7, 9, "A unidade de força no Sistema Internacional é o...", "Newton", "Metro", "Litro", "Grama"],
+		[7, 9, "Um objeto parado tende a ficar parado. Isso é a lei da...", "Inércia", "Gravidade", "Energia", "Ação"],
+	],
+	"Química": [
+		[2, 5, "A água pode ser sólida, líquida e...", "Gasosa", "Elástica", "Magnética", "Colorida"],
+		[4, 7, "A fórmula da água é...", "H2O", "CO2", "O2", "NaCl"],
+		[5, 8, "Água com óleo forma uma mistura...", "Heterogênea", "Homogênea", "Invisível", "Sólida"],
+		[5, 8, "O limão é...", "Ácido", "Básico", "Neutro", "Metal"],
+		[6, 9, "O símbolo químico do ferro é...", "Fe", "F", "Fr", "Ir"],
+		[6, 9, "O sal de cozinha é o...", "Cloreto de sódio", "Gás carbônico", "Oxigênio", "Ferro"],
+		[7, 9, "O que é uma reação química?", "Transformação de substâncias", "Mudança de lugar", "Barulho", "Pintar algo"],
+		[7, 9, "O símbolo do oxigênio é...", "O", "Ox", "Og", "Oi"],
+	],
+}
+
+## Pares para "ligar" por matéria.
+const MATCH_SETS := {
+	"Ciências": [["Abelha", "Colmeia"], ["Pássaro", "Ninho"], ["Coração", "Bombeia sangue"], ["Pulmão", "Respiração"], ["Girino", "Sapo"]],
+	"Geografia": [["Bahia", "Salvador"], ["Ceará", "Fortaleza"], ["Paraná", "Curitiba"], ["Amazonas", "Manaus"], ["Pernambuco", "Recife"]],
+	"Inglês": [["Cat", "Gato"], ["House", "Casa"], ["Book", "Livro"], ["Water", "Água"], ["Friend", "Amigo"]],
+	"Química": [["H2O", "Água"], ["O", "Oxigênio"], ["Fe", "Ferro"], ["Na", "Sódio"], ["CO2", "Gás carbônico"]],
+	"História": [["1500", "Chegada dos portugueses"], ["1822", "Independência"], ["1888", "Lei Áurea"], ["1889", "República"]],
+	"Artes": [["Azul + amarelo", "Verde"], ["Vermelho + amarelo", "Laranja"], ["Azul + vermelho", "Roxo"], ["Preto + branco", "Cinza"]],
+	"Física": [["Ímã", "Atrai ferro"], ["Sol", "Energia solar"], ["Termômetro", "Temperatura"], ["Régua", "Comprimento"]],
+	"Música": [["Violão", "Corda"], ["Flauta", "Sopro"], ["Tambor", "Percussão"], ["Piano", "Teclas"]],
+	"Português": [["Alegre", "Feliz"], ["Grande", "Enorme"], ["Rápido", "Veloz"], ["Bonito", "Belo"]],
+	"Matemática": [["3 x 4", "12"], ["10 + 5", "15"], ["20 - 7", "13"], ["9 x 2", "18"]],
+}
 const WORDS := [
 	"ESCOLA", "RECREIO", "CADERNO", "LÁPIS", "BORRACHA", "MOCHILA", "LANCHE", "AMIGO", "QUADRA",
-	"PROFESSORA", "CANTINA", "FIGURINHA", "BOLA", "LOUSA", "LIVRO", "ESTOJO", "RÉGUA", "SINAL",
-	"PÁTIO", "CARTEIRA", "APAGADOR", "UNIFORME", "MERENDA", "COLEGA", "BRINCADEIRA",
-]
-const QUIZ := [
-	["Qual é a capital do Brasil?", ["Brasília", "São Paulo", "Rio de Janeiro", "Salvador"]],
-	["Quantas patas tem uma aranha?", ["8", "6", "4", "10"]],
-	["Qual planeta é conhecido como planeta vermelho?", ["Marte", "Júpiter", "Vênus", "Saturno"]],
-	["Que animal é o maior do mundo?", ["Baleia-azul", "Elefante", "Girafa", "Tubarão"]],
-	["Quantos dias tem uma semana?", ["7", "5", "10", "6"]],
-	["Qual é a cor do céu num dia limpo?", ["Azul", "Verde", "Roxo", "Laranja"]],
-	["A água ferve a quantos graus Celsius?", ["100", "50", "0", "200"]],
-	["Qual o maior rio do Brasil?", ["Amazonas", "São Francisco", "Paraná", "Tietê"]],
-	["Quantos meses tem um ano?", ["12", "10", "11", "13"]],
-	["Qual destes é um mamífero?", ["Golfinho", "Tubarão", "Sapo", "Galinha"]],
-	["O que as plantas precisam para fazer fotossíntese?", ["Luz do sol", "Areia", "Música", "Sal"]],
-	["Quantas cores tem o arco-íris?", ["7", "5", "3", "9"]],
-	["Em que continente fica o Brasil?", ["América do Sul", "Europa", "África", "Ásia"]],
-	["Quem escreveu o Sítio do Picapau Amarelo?", ["Monteiro Lobato", "Machado de Assis", "Cecília Meireles", "Ziraldo"]],
-	["Qual é o oposto de 'quente'?", ["Frio", "Morno", "Grande", "Alto"]],
-	["Qual a forma que tem 3 lados?", ["Triângulo", "Quadrado", "Círculo", "Retângulo"]],
+	"PROFESSORA", "CANTINA", "FIGURINHA", "BOLA", "LOUSA", "LIVRO", "ESTOJO", "RÉGUA", "BIBLIOTECA",
+	"FOTOSSÍNTESE", "GEOGRAFIA", "LABORATÓRIO", "INDEPENDÊNCIA", "MICROSCÓPIO", "ASTRONAUTA",
 ]
 const SENTENCES := [
 	["O", "sinal", "já", "tocou"], ["Eu", "adoro", "o", "recreio"], ["A", "bola", "é", "redonda"],
-	["Meu", "amigo", "joga", "futebol"], ["Hoje", "tem", "pão", "de", "queijo"], ["A", "professora", "é", "legal"],
-]
-const MATCH_SETS := [
-	{"title": "Ligue o animal à sua casa", "pairs": [["Abelha", "Colmeia"], ["Pássaro", "Ninho"], ["Cachorro", "Casinha"], ["Peixe", "Aquário"]]},
-	{"title": "Ligue o número ao seu nome", "pairs": [["3", "Três"], ["7", "Sete"], ["10", "Dez"], ["15", "Quinze"]]},
-	{"title": "Ligue o objeto à matéria", "pairs": [["Globo", "Geografia"], ["Régua", "Matemática"], ["Microscópio", "Ciências"], ["Dicionário", "Português"]]},
-	{"title": "Ligue o filhote ao animal", "pairs": [["Pintinho", "Galinha"], ["Bezerro", "Vaca"], ["Girino", "Sapo"], ["Potro", "Cavalo"]]},
-	{"title": "Ligue a cor à fruta", "pairs": [["Amarela", "Banana"], ["Vermelho", "Morango"], ["Roxa", "Uva"], ["Verde", "Limão"]]},
+	["A", "Terra", "gira", "em", "volta", "do", "Sol"], ["As", "plantas", "precisam", "de", "luz"],
+	["O", "Brasil", "fica", "na", "América", "do", "Sul"],
 ]
 const FIND_ITEMS := [
 	{"item": "apagador", "name": "o apagador"}, {"item": "livro", "name": "o livro de histórias"},
 	{"item": "giz", "name": "a caixa de giz"}, {"item": "caderno", "name": "o caderno de chamada"},
 ]
+const NAMES := ["Bia", "Lucas", "Ana", "Gui", "Júlia", "Pedro"]
 
 var rng := RandomNumberGenerator.new()
-var day := 1
+## Nível = ano escolar (1–9).
+var level := 3
 
 
-func _init(seed_value := 0, day_number := 1) -> void:
+func _init(seed_value := 0, level_value := 3) -> void:
 	rng.seed = seed_value if seed_value != 0 else randi()
-	day = day_number
+	level = clampi(level_value, 1, 9)
 
 
-## Sequência variada de tarefas para uma aula (sem repetir tipo seguido).
-func make_lesson(count: int, allow_find := true) -> Array:
-	var types := ["math", "word", "quiz", "order", "match"]
+## Idade real -> ano escolar (6 anos = 1º ano ... 14+ = 9º ano).
+static func level_for_age(age: int) -> int:
+	return clampi(age - 5, 1, 9)
+
+
+## Aula com matéria principal e tipos variados (sem repetir tipo seguido).
+func make_lesson(count: int, allow_find := true, subject := "") -> Array:
+	if subject == "":
+		subject = SUBJECTS[rng.randi() % SUBJECTS.size()]
+	var plan := ["quiz", "quiz", "match", "order"]
+	if subject == "Matemática":
+		plan = ["math", "math", "match", "order"]
+	elif subject == "Português":
+		plan = ["word", "quiz", "order", "match"]
 	if allow_find:
-		types.append("find")
-	types.shuffle()
+		plan.append("find")
+	plan.shuffle()
 	var out := []
 	var last := ""
 	var i := 0
-	while out.size() < count:
-		var t: String = types[i % types.size()]
+	while out.size() < count and i < 50:
+		var t: String = plan[i % plan.size()]
 		i += 1
-		if t == last:
+		if t == last or (t == "find" and out.any(func(x): return x.type == "find")):
 			continue
-		# no máximo uma tarefa de "achar objeto" por aula
-		if t == "find" and out.any(func(x): return x.type == "find"):
-			continue
-		out.append(make(t))
+		out.append(make(t, subject))
 		last = t
 	return out
 
 
-func make(type: String) -> Dictionary:
+func make(type: String, subject := "") -> Dictionary:
 	match type:
 		"math": return _math()
 		"word": return _word()
-		"quiz": return _quiz()
-		"order": return _order()
-		"match": return _match()
+		"quiz": return _quiz(subject)
+		"order": return _order(subject)
+		"match": return _match(subject)
 		"find": return _find()
 	return _math()
 
@@ -92,8 +194,8 @@ func make(type: String) -> Dictionary:
 func _shuffle_options(correct: String, wrong: Array) -> Dictionary:
 	var opts := [correct]
 	for w in wrong:
-		if not w in opts and opts.size() < 4:
-			opts.append(w)
+		if not str(w) in opts and opts.size() < 4:
+			opts.append(str(w))
 	var guard := 0
 	while opts.size() < 4 and guard < 50:
 		guard += 1
@@ -105,39 +207,94 @@ func _shuffle_options(correct: String, wrong: Array) -> Dictionary:
 
 
 func _math() -> Dictionary:
-	var level := mini(day, 6)
-	var ops := ["+", "-"]
-	if level >= 2:
-		ops.append("x")
-	var op: String = ops[rng.randi() % ops.size()]
+	var lv := level
 	var a: int
 	var b: int
 	var res: int
-	match op:
-		"+":
-			a = rng.randi_range(1, 5 + level * 4)
-			b = rng.randi_range(1, 5 + level * 4)
+	var prompt := ""
+	var kind := rng.randi() % 4
+	var who: String = NAMES[rng.randi() % NAMES.size()]
+	if lv <= 2:
+		a = rng.randi_range(1, 9 + lv * 3)
+		b = rng.randi_range(1, 9)
+		if kind % 2 == 0:
 			res = a + b
-		"-":
-			a = rng.randi_range(5, 10 + level * 4)
-			b = rng.randi_range(1, a)
+			prompt = "%s tem %d figurinhas e ganhou %d. Quantas tem agora?" % [who, a, b] if kind == 0 else "Quanto é %d + %d?" % [a, b]
+		else:
+			a += b
 			res = a - b
-		_:
-			a = rng.randi_range(2, 3 + level)
-			b = rng.randi_range(2, 5 + level)
+			prompt = "Havia %d bolinhas de gude. %s perdeu %d. Quantas sobraram?" % [a, who, b] if kind == 1 else "Quanto é %d - %d?" % [a, b]
+	elif lv <= 4:
+		if kind == 0:
+			a = rng.randi_range(12, 60)
+			b = rng.randi_range(5, 39)
+			res = a + b
+			prompt = "Quanto é %d + %d?" % [a, b]
+		elif kind == 1:
+			a = rng.randi_range(2, 6)
+			b = rng.randi_range(2, 9)
 			res = a * b
-	var wrong := [str(res + 1), str(maxi(res - 1, 0)), str(res + rng.randi_range(2, 5)), str(maxi(res - rng.randi_range(2, 4), 0))]
+			prompt = "%s comprou %d coxinhas a R$ %d cada. Quanto gastou?" % [who, a, b]
+		elif kind == 2:
+			a = rng.randi_range(2, 9)
+			b = rng.randi_range(2, 9)
+			res = a * b
+			prompt = "Quanto é %d × %d?" % [a, b]
+		else:
+			res = rng.randi_range(3, 15)
+			a = res * 2
+			prompt = "Qual é a metade de %d?" % a
+	elif lv <= 6:
+		if kind == 0:
+			b = rng.randi_range(2, 9)
+			res = rng.randi_range(2, 12)
+			a = b * res
+			prompt = "%d alunos em %d times iguais. Quantos em cada time?" % [a, b]
+		elif kind == 1:
+			a = rng.randi_range(11, 25)
+			b = rng.randi_range(3, 9)
+			res = a * b
+			prompt = "Quanto é %d × %d?" % [a, b]
+		elif kind == 2:
+			a = rng.randi_range(2, 10) * 10
+			res = a / 10 * 3
+			prompt = "Quanto é 30%% de %d?" % a
+		else:
+			a = rng.randi_range(3, 9)
+			res = a * a
+			prompt = "Quanto é %d ao quadrado (%d²)?" % [a, a]
+	else:
+		if kind == 0:
+			res = rng.randi_range(2, 15)
+			b = rng.randi_range(2, 20)
+			prompt = "Se x + %d = %d, quanto vale x?" % [b, res + b]
+		elif kind == 1:
+			res = rng.randi_range(2, 9)
+			b = rng.randi_range(2, 6)
+			prompt = "Se %dx = %d, quanto vale x?" % [b, b * res]
+		elif kind == 2:
+			a = rng.randi_range(-9, -1)
+			b = rng.randi_range(2, 12)
+			res = a + b
+			prompt = "Quanto é (%d) + %d?" % [a, b]
+		else:
+			a = rng.randi_range(2, 12)
+			b = rng.randi_range(2, 5)
+			res = a * a - b
+			prompt = "Quanto é %d² - %d?" % [a, b]
+	var wrong := [str(res + 1), str(res - 1), str(res + rng.randi_range(2, 6)), str(res - rng.randi_range(2, 5)), str(res * 2)]
 	var t := _shuffle_options(str(res), wrong)
-	t.merge({"type": "math", "subject": "Matemática", "prompt": "Quanto é %d %s %d?" % [a, "×" if op == "x" else op, b]})
+	t.merge({"type": "math", "subject": "Matemática", "prompt": prompt})
 	return t
 
 
 func _word() -> Dictionary:
-	var w: String = WORDS[rng.randi() % WORDS.size()]
+	var pool := WORDS.filter(func(w): return (w.length() <= 7) == (level <= 3) or level > 5)
+	var w: String = pool[rng.randi() % pool.size()]
 	var idx := rng.randi_range(1, w.length() - 2)
 	var letter := w[idx]
 	var masked := w.substr(0, idx) + "_" + w.substr(idx + 1)
-	var letters := "ABCDEFGILMNOPRSTUV"
+	var letters := "ABCDEFGILMNOPRSTUVÇ"
 	var wrong := []
 	while wrong.size() < 3:
 		var l := letters[rng.randi() % letters.length()]
@@ -148,19 +305,33 @@ func _word() -> Dictionary:
 	return t
 
 
-func _quiz() -> Dictionary:
-	var q: Array = QUIZ[rng.randi() % QUIZ.size()]
-	var opts: Array = q[1]
-	var t := _shuffle_options(opts[0], opts.slice(1))
-	t.merge({"type": "quiz", "subject": "Conhecimentos gerais", "prompt": q[0]})
+func _bank_for(subject: String) -> Array:
+	var list: Array = BANK.get(subject, [])
+	var fit := list.filter(func(q): return level >= int(q[0]) and level <= int(q[1]))
+	if fit.is_empty():
+		# sem pergunta da faixa: usa a mais próxima
+		fit = list.duplicate()
+		fit.sort_custom(func(x, y): return absi(int(x[0]) - level) < absi(int(y[0]) - level))
+		fit = fit.slice(0, 3)
+	return fit
+
+
+func _quiz(subject: String) -> Dictionary:
+	if subject == "" or subject == "Matemática" or not BANK.has(subject):
+		subject = BANK.keys()[rng.randi() % BANK.size()]
+	var fit := _bank_for(subject)
+	var q: Array = fit[rng.randi() % fit.size()]
+	var t := _shuffle_options(q[3], q.slice(4))
+	t.merge({"type": "quiz", "subject": subject, "prompt": q[2]})
 	return t
 
 
-func _order() -> Dictionary:
-	if rng.randf() < 0.5:
+func _order(subject: String) -> Dictionary:
+	if subject == "Matemática" or rng.randf() < 0.4:
 		var nums := []
+		var top := 20 + level * 15
 		while nums.size() < 4:
-			var n := rng.randi_range(1, 20 + day * 10)
+			var n := rng.randi_range(-10 if level >= 7 else 1, top)
 			if not n in nums:
 				nums.append(n)
 		var items := nums.map(func(x): return str(x))
@@ -169,7 +340,8 @@ func _order() -> Dictionary:
 		sorted_nums.sort()
 		var order := sorted_nums.map(func(x): return items.find(str(x)))
 		return {"type": "order", "subject": "Matemática", "prompt": "Toque nos números do MENOR para o MAIOR", "items": items, "answer_order": order}
-	var sentence: Array = SENTENCES[rng.randi() % SENTENCES.size()]
+	var pool := SENTENCES.filter(func(s): return (s.size() <= 4) == (level <= 3) or level > 3)
+	var sentence: Array = pool[rng.randi() % pool.size()]
 	var items2 := sentence.duplicate()
 	items2.shuffle()
 	var order2 := []
@@ -183,18 +355,19 @@ func _order() -> Dictionary:
 	return {"type": "order", "subject": "Português", "prompt": "Toque nas palavras para formar a frase", "items": items2, "answer_order": order2}
 
 
-func _match() -> Dictionary:
-	var mset: Dictionary = MATCH_SETS[rng.randi() % MATCH_SETS.size()]
-	var pairs: Array = mset.pairs.duplicate()
+func _match(subject: String) -> Dictionary:
+	if not MATCH_SETS.has(subject):
+		subject = MATCH_SETS.keys()[rng.randi() % MATCH_SETS.size()]
+	var pairs: Array = MATCH_SETS[subject].duplicate()
 	pairs.shuffle()
-	pairs = pairs.slice(0, 3)
+	pairs = pairs.slice(0, 3 if level <= 4 else 4)
 	var left := pairs.map(func(p): return p[0])
 	var right := pairs.map(func(p): return p[1])
 	right.shuffle()
 	var mapping := {}
 	for i in pairs.size():
 		mapping[i] = right.find(pairs[i][1])
-	return {"type": "match", "subject": "Associação", "prompt": mset.title, "left": left, "right": right, "pairs": mapping}
+	return {"type": "match", "subject": subject, "prompt": "Ligue os pares (%s)" % subject, "left": left, "right": right, "pairs": mapping}
 
 
 func _find() -> Dictionary:
@@ -202,7 +375,6 @@ func _find() -> Dictionary:
 	return {"type": "find", "subject": "Ajude a professora", "prompt": "Você pode me trazer %s?\nEstá em algum lugar da sala." % f.name, "item": f.item, "item_name": f.name}
 
 
-## Avaliação genérica usada pela UI e pelos testes.
 static func check_choice(task: Dictionary, chosen: int) -> bool:
 	return chosen == int(task.answer)
 
@@ -210,7 +382,6 @@ static func check_choice(task: Dictionary, chosen: int) -> bool:
 static func check_order(task: Dictionary, sequence: Array) -> bool:
 	if sequence.size() != task.answer_order.size():
 		return false
-	# aceita itens repetidos iguais (ex.: duas palavras iguais)
 	for i in sequence.size():
 		if task.items[sequence[i]] != task.items[task.answer_order[i]]:
 			return false

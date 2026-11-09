@@ -173,12 +173,28 @@ func _clear(a: Vector3, b: Vector3) -> bool:
 	return true
 
 
+## Ponto do grafo mais próximo que é alcançável em linha reta (evita
+## "atravessar a parede" até um ponto do outro lado dela).
+func closest_visible(pos: Vector3) -> int:
+	var ids := _near(pos, 6.0)
+	ids.sort_custom(func(x, y): return astar.get_point_position(x).distance_squared_to(pos) < astar.get_point_position(y).distance_squared_to(pos))
+	for id in ids:
+		if astar.is_point_disabled(id):
+			continue
+		var q := astar.get_point_position(id)
+		if absf(q.y - pos.y) > 1.5:
+			continue
+		if _clear(pos, q):
+			return id
+	return astar.get_closest_point(pos)
+
+
 ## Caminho entre duas posições (inclui o destino exato no final).
 func path(from: Vector3, to: Vector3) -> PackedVector3Array:
 	if points.is_empty():
 		return PackedVector3Array([to])
-	var a := astar.get_closest_point(from)
-	var b := astar.get_closest_point(to)
+	var a := closest_visible(from)
+	var b := closest_visible(to)
 	var p := astar.get_point_path(a, b)
 	if p.is_empty():
 		return PackedVector3Array([to])

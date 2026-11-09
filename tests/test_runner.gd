@@ -500,12 +500,14 @@ func _test_dialogue_friendship() -> void:
 	var m: NPCManager = main.npcs
 	var lucas: NPC = null
 	for n in m.classmates:
-		if n.data.id == "lucas":
+		if n.data.id.begins_with("aluno_") and main.quests.available_for(n) == "":
 			lucas = n
+			break
 	if lucas == null:
 		check(false, "diálogo: Lucas encontrado")
 		return
-	var before := Friendship.points("lucas")
+	var fid: String = lucas.data.id if lucas else "lucas"
+	var before := Friendship.points(fid)
 	lucas.interact(player)
 	await _frames(2)
 	var dlg: DialogueUI = main.school_day.dialogue
@@ -514,7 +516,7 @@ func _test_dialogue_friendship() -> void:
 		dlg.advance()
 		await _frames(1)
 	check(not dlg.is_open() and player.input_enabled, "diálogo: fecha e devolve o controle")
-	check(Friendship.points("lucas") > before, "amizade: conversar aumenta pontos")
+	check(Friendship.points(fid) > before, "amizade: conversar aumenta pontos")
 
 
 func _test_npc_bump() -> void:
@@ -629,8 +631,10 @@ func _test_full_day() -> void:
 	check(day.phase == SchoolDay.Phase.DAY_END, "dia: aula 2 termina o dia")
 	check(int(SaveManager.section("progress").days_completed) == days_before + 1, "dia: progresso salvo (dias concluídos)")
 	check(GameManager.coins() > coins_before, "dia: recompensas em moedas", "%d -> %d" % [coins_before, GameManager.coins()])
-	await _wait(2.5)
-	check(main.hud._summary != null, "dia: resumo do dia exibido")
+	player.force_stand()
+	_place(Vector3(0, 0.05, 72), 0)
+	await _wait(0.5)
+	check(main.hud._summary != null, "dia: resumo aparece ao sair pelo portão")
 
 
 # --------------------------------------------------------------- FASE 3

@@ -92,6 +92,7 @@ func _physics_process(delta: float) -> void:
 	match mode:
 		Mode.SITTING:
 			velocity = Vector3.ZERO
+			visual.rotation.y = yaw
 			if move.length() > 0.5 and visual.animator.is_holding():
 				stand_up()
 			_update_animator(delta, 0.0)

@@ -14,6 +14,12 @@ var _zones: Array = []
 var _shapes: Array = []
 var _lot := Rect2(-90, -75, 180, 150)
 var _timer := 0.0
+## Marcadores por grupo: {grupo: [{pos: Vector3, color: Color, icon: String}]}
+var markers := {}
+
+
+func set_markers(group: String, list: Array) -> void:
+	markers[group] = list
 
 
 func _ready() -> void:
@@ -104,12 +110,32 @@ func _draw() -> void:
 			placed.append(rect)
 			draw_string_outline(_font, c + Vector2(-tw * 0.5, fs * 0.4), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(1, 1, 1, 0.9))
 			draw_string(_font, c + Vector2(-tw * 0.5, fs * 0.4), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("1f2a44"))
-	# jogador (seta na direção em que olha)
+	# marcadores (missões, brincadeiras, objetivo)
+	for g in markers.keys():
+		for m in markers[g]:
+			var mp := _w2m(Vector2(m.pos.x, m.pos.z), center, scale)
+			if not full:
+				var rel := mp - size * 0.5
+				var lim := minf(size.x, size.y) * 0.5 - 9.0
+				if rel.length() > lim:
+					mp = size * 0.5 + rel.normalized() * lim
+			var rad := 9.0 if full else 7.5
+			draw_circle(mp, rad + 2.0, Color(0.1, 0.12, 0.25, 0.9))
+			draw_circle(mp, rad, m.color)
+			var ic: String = m.get("icon", "")
+			if ic != "":
+				var fs := 13 if full else 11
+				var tw := _font.get_string_size(ic, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+				draw_string(_font, mp + Vector2(-tw * 0.5, fs * 0.36), ic, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("1f2a44"))
+	# jogador (seta grande + anel pulsante: "você está aqui")
 	var pc := _w2m(pp, center, scale)
 	var yaw: float = player.get("yaw") if player.get("yaw") != null else 0.0
 	var dir := Vector2(sin(yaw), cos(yaw))
 	var side := dir.orthogonal()
-	var arrow := PackedVector2Array([pc + dir * 11.0, pc - dir * 7.0 + side * 7.0, pc - dir * 3.0, pc - dir * 7.0 - side * 7.0])
+	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.006)
+	draw_circle(pc, 12.0 + pulse * 5.0, Color(1, 1, 1, 0.25 + 0.2 * (1.0 - pulse)))
+	draw_arc(pc, 13.0 + pulse * 5.0, 0, TAU, 24, Color(1, 1, 1, 0.8), 2.0, true)
+	var arrow := PackedVector2Array([pc + dir * 14.0, pc - dir * 9.0 + side * 9.0, pc - dir * 4.0, pc - dir * 9.0 - side * 9.0])
 	draw_colored_polygon(arrow, Color("e04a3a"))
 	draw_polyline(PackedVector2Array([arrow[0], arrow[1], arrow[2], arrow[3], arrow[0]]), Color.WHITE, 2.0, true)
 	draw_rect(bg, Color(1, 1, 1, 0.9), false, 4.0)

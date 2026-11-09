@@ -120,13 +120,14 @@ static func _classroom(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: 
 	# relógio acima da lousa (lado oposto)
 	var opp := {"w": "e", "n": "s", "e": "w", "s": "n"}[board_side] as String
 	# Carteiras 5 x 5
-	for i in 5:
-		for j in 5:
+	# 4 x 4 carteiras com corredores largos e área da porta livre
+	for i in 4:
+		for j in 4:
 			var pos: Vector3
 			if board_side == "w":
-				pos = Vector3(x0 + 3.5 + i * 1.3, FY, z0 + 1.5 + j * (r.size.y - 3.0) / 4.0)
+				pos = Vector3(x0 + 3.4 + i * 1.45, FY, z0 + 1.7 + j * (r.size.y - 4.4) / 3.0)
 			else:
-				pos = Vector3(x0 + 1.6 + j * (r.size.x - 3.2) / 4.0, FY, z0 + 3.5 + i * (r.size.y - 4.6) / 4.0)
+				pos = Vector3(x0 + 1.9 + j * (r.size.x - 3.8) / 3.0, FY, z0 + 3.6 + i * (r.size.y - 5.4) / 3.0)
 			Props.student_desk(b, pos, desk_yaw, frame)
 			if rng.randf() < 0.12:
 				var dn := Vector3(0, 0, 1).rotated(Vector3.UP, desk_yaw)

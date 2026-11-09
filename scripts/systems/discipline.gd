@@ -153,7 +153,7 @@ func _process(delta: float) -> void:
 	var z := GameManager.current_zone
 	if _corridor_cd <= 0.0 and (z == "Corredor" or z == "Hall de Entrada") and Vector2(player.velocity.x, player.velocity.z).length() > player.run_speed * 0.8:
 		_corridor_cd = 3.0
-		_on_behavior("correr_corredor")
+		pass  # correr no corredor é permitido (decisão de design: não ser chato)
 	# castigo: pensar no banco
 	if _bench_t >= 0.0:
 		if player.mode == PlayerController.Mode.SITTING:

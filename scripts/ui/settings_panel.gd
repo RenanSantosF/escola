@@ -52,6 +52,19 @@ func _ready() -> void:
 	v.add_child(_slider("Efeitos", "sfx_volume", 0.0, 1.0))
 	v.add_child(_slider("Ambiente", "ambient_volume", 0.0, 1.0))
 
+	v.add_child(_section("Atividades da aula"))
+	var age_btn := UITheme.make_button("Idade: %d anos (%s)" % [Learning.age(), Learning.grade_name()], func():
+		var layer := CanvasLayer.new()
+		layer.layer = 30
+		get_tree().root.add_child(layer)
+		var picker := AgePicker.new()
+		picker.process_mode = Node.PROCESS_MODE_ALWAYS
+		layer.add_child(picker)
+		picker.confirmed.connect(func(_a):
+			layer.queue_free()
+			GameManager.show_toast("Idade atualizada: atividades do %s" % Learning.grade_name())), 420)
+	v.add_child(age_btn)
+
 	v.add_child(_section("Controles"))
 	v.add_child(_slider("Sensibilidade da câmera", "camera_sensitivity", 0.3, 2.5))
 	v.add_child(_slider("Opacidade dos botões", "controls_opacity", 0.3, 1.0))

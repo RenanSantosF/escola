@@ -123,7 +123,9 @@ func trigger(id: String) -> void:
 				j.say("Olha essa figurinha brilhante!!", 4.0)
 				j.activity_data["rare_sticker"] = true
 		"ajuda":
-			_start_fetch_mission()
+			var q: Node = day.quests
+			if q and q.active_id == "":
+				hud.show_banner("Alguém precisa de ajuda!", "Procure quem está com um \"!\" amarelo")
 		"diretor":
 			npcs.director.activity = "patrol"
 			npcs.director.go_to(Vector3(0, 0.05, -8))

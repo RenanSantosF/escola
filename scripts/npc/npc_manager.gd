@@ -9,7 +9,7 @@ signal dialogue_requested(npc: NPC, lines: Array)
 signal npc_bumped(npc: NPC, intensity: float)
 
 const CLASS_ROOM := "Sala 5"
-const COUNTS := {0: [12, 6], 1: [16, 12], 2: [20, 20]}  # qualidade -> [colegas, outras turmas]
+const COUNTS := {0: [10, 6], 1: [13, 12], 2: [15, 20]}  # qualidade -> [colegas, outras turmas]
 const VIS_RANGE := {0: 45.0, 1: 65.0, 2: 90.0}
 const PATIO := Rect2(-58, -24, 116, 46)
 const COURT := Rect2(20, -59, 40, 20)

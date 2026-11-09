@@ -27,13 +27,13 @@ var spawn_yaw := PI
 var rng := RandomNumberGenerator.new()
 
 # Cores
-const CREAM := Color("f2e6c8")
+const CREAM := Color("f6d68f")
 const WHITE_WALL := Color("f4f1ea")
 const BLUE_BAR := Color("3d78c2")
 const GREEN_BAR := Color("3f9a5a")
 const ROOF_RED := Color("c2643c")
-const CONCRETE := Color("cfcac0")
-const RED_FLOOR := Color("b5523b")
+const CONCRETE := Color("c9b58f")
+const RED_FLOOR := Color("b8442c")
 
 
 ## Alcance padrão de chunks de áreas externas com muitos detalhes.
@@ -182,6 +182,19 @@ func build_building(def: Dictionary) -> void:
 			interior_chunks[id].append(inner_chunk_name)
 		var fmat: String = room.get("floor", "tile")
 		shell.slab(fmat, Vector3(r.get_center().x, FLOOR_TOP - 0.03, r.get_center().y), Vector3(r.size.x, 0.06, r.size.y), room.get("floor_col", Color("e9e4da")))
+		# teto (visto de dentro) com luminárias; também segura a câmera
+		if not "n" in room.get("open", []) or room.get("kind", "") == "hall":
+			var ceil_col: Color = room.get("ceil_col", Color("f3ead2"))
+			ib.box("paint", Vector3(r.get_center().x, H - 0.04, r.get_center().y), Vector3(r.size.x, 0.08, r.size.y), ceil_col, 0.0, false)
+			ib.collider(Vector3(r.get_center().x, H + 0.05, r.get_center().y), Vector3(r.size.x, 0.2, r.size.y))
+			var lx: float = r.position.x + 2.5
+			while lx < r.end.x - 1.0:
+				var lz: float = r.position.y + 2.5
+				while lz < r.end.y - 1.0:
+					ib.box("plain", Vector3(lx, H - 0.1, lz), Vector3(1.3, 0.05, 0.22), Color("fffbea"), 0.0, false)
+					ib.box("metal", Vector3(lx, H - 0.085, lz), Vector3(1.36, 0.03, 0.28), Color("c8ced3"), 0.0, false)
+					lz += 4.0
+				lx += 4.5
 		if room.has("inner"):
 			var sides := _room_sides(r)
 			var open: Array = room.get("open", [])

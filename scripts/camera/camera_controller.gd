@@ -134,7 +134,9 @@ func _process(delta: float) -> void:
 			yaw = lerp_angle(yaw, behind, 1.0 - exp(-rate * delta))
 
 	var indoor: bool = GameManager.world != null and GameManager.world.get("player_indoor") == true
-	var want := minf(distance, 4.0) if indoor else distance
+	var want := minf(distance, 2.7) if indoor else distance
+	if indoor:
+		pitch = clampf(pitch, -32.0, -6.0)
 	if target.get("mode") == 1:  # sentado: aproxima e sobe a câmera
 		want = minf(want, 2.6)
 		follow_offset_y = lerpf(follow_offset_y, 0.35, 1.0 - exp(-4.0 * delta))

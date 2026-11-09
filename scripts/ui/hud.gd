@@ -24,6 +24,7 @@ var _banner_sub: Label
 var _banner_tween: Tween
 var _objective: Label
 var _objective_point: Variant = null
+var _mission_point: Variant = null
 var _wallet: Label
 var _summary: Control
 var _mg_panel: PanelContainer
@@ -273,15 +274,27 @@ func set_objective_point(p: Variant) -> void:
 	queue_redraw()
 
 
+func set_mission_point(p: Variant) -> void:
+	_mission_point = p
+	queue_redraw()
+
+
 func _draw() -> void:
-	# seta na borda da tela apontando para o objetivo quando fora de vista
-	if _objective_point == null or not controls.visible:
+	if not controls.visible:
 		return
+	if _objective_point != null:
+		_draw_pointer(_objective_point, Color("ffcf3f"))
+	if _mission_point != null:
+		_draw_pointer(_mission_point, Color("5ec8ff"))
+
+
+## Seta na borda da tela apontando para um ponto fora de vista.
+func _draw_pointer(point: Vector3, col: Color) -> void:
 	var cam := get_viewport().get_camera_3d()
 	if cam == null:
 		return
 	var vs := get_viewport_rect().size
-	var wp: Vector3 = _objective_point
+	var wp: Vector3 = point
 	var behind := cam.is_position_behind(wp)
 	var sp := cam.unproject_position(wp)
 	var margin := 70.0
@@ -300,7 +313,7 @@ func _draw() -> void:
 	var side := dir.orthogonal()
 	var pts := PackedVector2Array([p + dir * 26.0, p - dir * 10.0 + side * 18.0, p - dir * 10.0 - side * 18.0])
 	draw_circle(p, 30.0, Color(0.12, 0.16, 0.27, 0.6))
-	draw_colored_polygon(pts, Color("ffcf3f"))
+	draw_colored_polygon(pts, col)
 
 
 func show_day_summary(s: Dictionary, on_next: Callable) -> void:
@@ -469,7 +482,7 @@ func show_toast(message: String) -> void:
 
 
 func _process(_delta: float) -> void:
-	if _objective_point != null:
+	if _objective_point != null or _mission_point != null:
 		queue_redraw()
 	_fps.visible = bool(Settings.get_value("show_fps"))
 	if _fps.visible:

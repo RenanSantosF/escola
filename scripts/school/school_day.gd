@@ -45,7 +45,9 @@ var _marker: Node3D
 var _marker_target: Variant = null
 var _board_label: Label3D
 var _gen: ClassroomTasks
+var _subjects: Array = []
 var events: Node = null  # SchoolEvents
+var quests: Node = null  # QuestSystem
 
 
 func setup(w: SchoolWorld, m: NPCManager, p: PlayerController, h: HUD) -> void:
@@ -96,14 +98,16 @@ func _make_marker() -> Node3D:
 
 func start_day() -> void:
 	day = int(SaveManager.section("progress").get("days_completed", 0)) + 1
-	_gen = ClassroomTasks.new(day * 7919 + randi() % 1000, day)
+	_gen = ClassroomTasks.new(day * 7919 + randi() % 1000, Learning.level())
+	_subjects = Learning.subjects_for_day(day)
 	day_correct = 0
 	day_total = 0
 	_class_no = 0
 	if player.mode == PlayerController.Mode.SITTING:
 		player.force_stand()
-	player.global_position = Vector3(-2, 0.05, 38.5)
-	player.yaw = PI * 1.5
+	# o dia começa no portão de entrada da escola
+	player.global_position = GATE + Vector3(0, 0, -1.5)
+	player.yaw = PI
 	player.velocity = Vector3.ZERO
 	if player.camera_rig:
 		player.camera_rig.yaw = player.yaw + PI
@@ -140,7 +144,12 @@ func _begin_class(n: int) -> void:
 	_class_no = n
 	_set_phase(Phase.CLASS_1 if n == 0 else Phase.CLASS_2)
 	npcs.begin_class()
-	lesson = _gen.make_lesson(LESSON_SIZE[n], true)
+	_gen.level = Learning.level()
+	var subj: String = _subjects[n] if n < _subjects.size() else ""
+	lesson = _gen.make_lesson(LESSON_SIZE[n], true, subj)
+	hud.show_banner("Aula de %s" % subj, "%s · nível ajustado para você" % Learning.grade_name())
+	if _board_label:
+		_board_label.text = "Aula de %s" % subj
 	lesson_index = 0
 	lesson_results = []
 	extra_tasks = 0
@@ -179,6 +188,7 @@ func _on_answered(ok: bool) -> void:
 		GameManager.add_rewards(10, 2)
 	else:
 		npcs.teacher.say(["Quase! Vamos tentar a próxima.", "Tudo bem, errar faz parte!", "Presta atenção na próxima!"].pick_random(), 2.4)
+	Learning.record(ok)
 	task_finished.emit(ok)
 	hud.controls.visible = true
 	lesson_index += 1
@@ -187,7 +197,7 @@ func _on_answered(ok: bool) -> void:
 		var need: int = MIN_CORRECT[_class_no]
 		if correct < need and extra_tasks < 3:
 			extra_tasks += 1
-			lesson.append(_gen.make(["math", "word", "quiz"].pick_random()))
+			lesson.append(_gen.make(["math", "word", "quiz"].pick_random(), _subjects[_class_no] if _class_no < _subjects.size() else ""))
 			npcs.teacher.say("Vamos fazer mais uma para liberar o recreio!" if _class_no == 0 else "Mais uma, vamos lá!", 2.6)
 			get_tree().create_timer(2.6).timeout.connect(_present_task)
 		else:
@@ -245,12 +255,30 @@ func _end_day() -> void:
 	SaveManager.save_game()
 	var summary := {"day": day, "correct": day_correct, "total": day_total, "coins": coins, "xp": xp,
 		"level_up": GameManager.level() > lvl_before}
-	_set_objective("", null)
-	get_tree().create_timer(2.0).timeout.connect(func():
-		hud.show_day_summary(summary, func():
-			AdsManager.maybe_show_interstitial(day)
-			start_day()))
+	# saída: o aluno vai embora pelo portão (o resumo aparece lá)
+	_exit_summary = summary
+	hud.show_banner("Hora da saída!", "Vá até o portão para ir para casa")
+	if player.mode == PlayerController.Mode.SITTING:
+		player.stand_up()
+	_set_objective("Hora da saída! Vá até o portão da escola", GATE)
 	day_finished.emit(summary)
+
+
+const GATE := Vector3(0, 0.05, 73.0)
+var _exit_summary: Dictionary = {}
+
+
+func _check_exit() -> void:
+	if _exit_summary.is_empty():
+		return
+	var p := player.global_position
+	if p.z > 70.5 and absf(p.x) < 6.0:
+		var s := _exit_summary
+		_exit_summary = {}
+		_set_objective("", null)
+		hud.show_day_summary(s, func():
+			AdsManager.maybe_show_interstitial(day)
+			start_day())
 
 
 func ring_bell() -> void:
@@ -342,6 +370,10 @@ func npc_prompt(npc: NPC, p: Node) -> String:
 		var e: String = events.npc_prompt(npc)
 		if e != "":
 			return e
+	if quests:
+		var qp: String = quests.npc_prompt(npc)
+		if qp != "":
+			return qp
 	if npc == npcs.teacher and not _find_task.is_empty() and p.get("held_item") and p.held_item == _find_item:
 		return "Entregar à professora"
 	return ""
@@ -349,6 +381,8 @@ func npc_prompt(npc: NPC, p: Node) -> String:
 
 func npc_interact(npc: NPC, p: Node) -> bool:
 	if events and events.npc_interact(npc):
+		return true
+	if quests and quests.npc_interact(npc):
 		return true
 	if npc == npcs.teacher and not _find_task.is_empty() and p.get("held_item") and p.held_item == _find_item:
 		npc.say("Obrigada! Pode sentar.", 2.2)
@@ -384,6 +418,8 @@ func _process(delta: float) -> void:
 	if not GameManager.is_playing():
 		return
 	_phase_time += delta
+	if phase == Phase.DAY_END:
+		_check_exit()
 	match phase:
 		Phase.RECESS:
 			recess_left -= delta
@@ -430,6 +466,7 @@ func _update_marker(delta: float) -> void:
 	if tgt == null:
 		_marker.visible = false
 		hud.set_objective_point(null)
+		hud.minimap.set_markers("objetivo", [])
 		return
 	var pos: Vector3 = tgt if tgt is Vector3 else (tgt as Node3D).global_position
 	var top := 1.25 if tgt is Seat else 2.3
@@ -437,6 +474,7 @@ func _update_marker(delta: float) -> void:
 	_marker.global_position = pos + Vector3(0, top + sin(Time.get_ticks_msec() * 0.004) * 0.12, 0)
 	_marker.rotate_y(delta * 2.0)
 	hud.set_objective_point(pos + Vector3(0, 1.0, 0))
+	hud.minimap.set_markers("objetivo", [{"pos": pos, "color": Color("ffcf3f"), "icon": "★"}])
 
 
 func _update_clock() -> void:

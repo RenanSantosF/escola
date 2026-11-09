@@ -49,19 +49,19 @@ func _setup_environment() -> void:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_color = Color("e9dfcd")
 	env.ambient_light_sky_contribution = 0.35
-	env.ambient_light_energy = 1.05
+	env.ambient_light_energy = 0.9
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.05
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.tonemap_exposure = 0.92
 	env.tonemap_white = 6.0
 	env.fog_enabled = true
 	env.fog_light_color = Color("cfe4f5")
-	env.fog_density = 0.0016
+	env.fog_density = 0.0009
 	env.fog_aerial_perspective = 0.4
 	env.fog_sky_affect = 0.0
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.12
-	env.adjustment_contrast = 1.04
+	env.adjustment_saturation = 1.32
+	env.adjustment_contrast = 1.1
 	we.environment = env
 	add_child(we)
 

@@ -13,6 +13,7 @@ var minigames: MinigameManager
 var discipline: DisciplineSystem
 var events: SchoolEvents
 var progression: Progression
+var quests: QuestSystem
 var profile_menu: ProfileMenu
 var _day_started := false
 var ui_layer: CanvasLayer
@@ -95,6 +96,11 @@ func _ready() -> void:
 	add_child(events)
 	events.setup(npcs, player, hud, school_day, world, minigames, discipline)
 	school_day.events = events
+	quests = QuestSystem.new()
+	quests.name = "Quests"
+	add_child(quests)
+	quests.setup(npcs, player, hud, school_day, world)
+	school_day.quests = quests
 	progression = Progression.new()
 	progression.name = "Progression"
 	add_child(progression)
@@ -197,7 +203,7 @@ func _build_menu() -> void:
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 16)
 	_menu_box.add_child(spacer)
-	_menu_box.add_child(UITheme.make_button("Jogar", _start_game, 360))
+	_menu_box.add_child(UITheme.make_button("Jogar", _on_play_pressed, 360))
 	_menu_box.add_child(UITheme.make_button("Configurações", _open_menu_settings, 360))
 	_menu_box.add_child(UITheme.make_button("Créditos", _open_credits, 360))
 	if OS.get_name() not in ["Android", "iOS", "Web"]:
@@ -254,6 +260,18 @@ func _show_menu() -> void:
 	_menu.modulate.a = 1.0
 	camera_rig.set_showcase(true)
 	AudioManager.play_music("music_menu", -10.0)
+
+
+func _on_play_pressed() -> void:
+	if Learning.has_age():
+		_start_game()
+	else:
+		_menu_box.visible = false
+		var p := AgePicker.new()
+		_menu.add_child(p)
+		p.confirmed.connect(func(_a):
+			p.queue_free()
+			_start_game())
 
 
 func _start_game() -> void:
