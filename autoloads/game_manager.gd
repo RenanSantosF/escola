@@ -5,6 +5,10 @@ extends Node
 signal state_changed(new_state: int)
 signal zone_changed(zone_name: String, indoor: bool)
 signal toast(message: String)
+signal rewards_changed(xp: int, coins: int, level: int)
+signal level_up(new_level: int)
+signal behavior_reported(kind: String)
+signal friendship_changed(id: String, points: int, reason: String)
 
 enum State { BOOT, MENU, PLAYING, PAUSED }
 
@@ -57,6 +61,56 @@ func set_zone(zone_name: String, indoor: bool) -> void:
 
 func show_toast(message: String) -> void:
 	toast.emit(message)
+
+
+## XP necessária para ir do nível n ao n+1.
+static func xp_for_level(n: int) -> int:
+	return 100 + (n - 1) * 60
+
+
+func level() -> int:
+	return int(SaveManager.section("player").get("level", 1))
+
+
+func coins() -> int:
+	return int(SaveManager.section("player").get("coins", 0))
+
+
+func add_rewards(xp: int, coin_amount: int) -> void:
+	var p: Dictionary = SaveManager.section("player")
+	p["coins"] = maxi(int(p.get("coins", 0)) + coin_amount, 0)
+	var lv := int(p.get("level", 1))
+	var cur := int(p.get("xp", 0)) + xp
+	while cur >= xp_for_level(lv):
+		cur -= xp_for_level(lv)
+		lv += 1
+		level_up.emit(lv)
+		show_toast("Subiu para o nível %d!" % lv)
+		AudioManager.play_ui("celebrate", -4.0)
+	p["xp"] = cur
+	p["level"] = lv
+	rewards_changed.emit(cur, int(p.coins), lv)
+
+
+func spend_coins(amount: int) -> bool:
+	var p: Dictionary = SaveManager.section("player")
+	if int(p.get("coins", 0)) < amount:
+		return false
+	p["coins"] = int(p.coins) - amount
+	rewards_changed.emit(int(p.get("xp", 0)), int(p.coins), level())
+	return true
+
+
+## Comportamentos (o sistema disciplinar escuta este sinal).
+func report_behavior(kind: String) -> void:
+	behavior_reported.emit(kind)
+
+
+func npc_display_name(id: String) -> String:
+	for s in NPCRoster.STUDENTS:
+		if s.id == id:
+			return s.name
+	return id
 
 
 func add_stat(key: String, amount := 1) -> void:

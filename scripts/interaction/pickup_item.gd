@@ -59,6 +59,61 @@ static func create_paper_ball() -> PickupItem:
 	return p
 
 
+## Objetos da tarefa "ache e traga" (apagador, livro, giz, caderno).
+static func create_item(kind: String) -> PickupItem:
+	var p := PickupItem.new()
+	p.item_kind = kind
+	p.mass = 0.3
+	p.linear_damp = 0.5
+	p.angular_damp = 2.0
+	var names := {"apagador": "Pegar o apagador", "livro": "Pegar o livro", "giz": "Pegar a caixa de giz", "caderno": "Pegar o caderno"}
+	p.prompt = names.get(kind, "Pegar")
+	var size := Vector3(0.18, 0.06, 0.08)
+	var md := MeshData.new()
+	match kind:
+		"apagador":
+			md.cur_color = Color("8a5a32")
+			md.add_box(Transform3D(Basis(), Vector3(0, 0.02, 0)), Vector3(0.16, 0.04, 0.07))
+			md.cur_color = Color("3d3d3d")
+			md.add_box(Transform3D(Basis(), Vector3(0, -0.015, 0)), Vector3(0.16, 0.03, 0.07))
+			size = Vector3(0.16, 0.07, 0.07)
+		"livro":
+			md.cur_color = Color("c0392b")
+			md.add_box(Transform3D(Basis(), Vector3.ZERO), Vector3(0.2, 0.04, 0.26))
+			md.cur_color = Color("f5f0e1")
+			md.add_box(Transform3D(Basis(), Vector3(0.008, 0, 0)), Vector3(0.19, 0.03, 0.25))
+			size = Vector3(0.2, 0.04, 0.26)
+		"giz":
+			md.cur_color = Color("f1c40f")
+			md.add_box(Transform3D(Basis(), Vector3.ZERO), Vector3(0.12, 0.06, 0.08))
+			md.cur_color = Color.WHITE
+			for i in 4:
+				md.add_cylinder(Transform3D(Basis(Vector3.FORWARD, PI * 0.5), Vector3(0, 0.04, -0.03 + i * 0.02)), 0.006, 0.006, 0.08, 5)
+			size = Vector3(0.12, 0.08, 0.08)
+		_:
+			md.cur_color = Color("2e86de")
+			md.add_box(Transform3D(Basis(), Vector3.ZERO), Vector3(0.21, 0.02, 0.28))
+			md.cur_color = Color("ecf0f1")
+			md.add_box(Transform3D(Basis(), Vector3(0, 0.012, 0)), Vector3(0.18, 0.004, 0.24))
+			size = Vector3(0.21, 0.03, 0.28)
+	var cs := CollisionShape3D.new()
+	var sh := BoxShape3D.new()
+	sh.size = size
+	cs.shape = sh
+	p.add_child(cs)
+	var mi := MeshInstance3D.new()
+	mi.mesh = md.build_mesh(SchoolMaterials.get_mat("plain"))
+	p.add_child(mi)
+	# brilho sutil para ajudar a achar
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.9, 0.5)
+	glow.light_energy = 0.6
+	glow.omni_range = 0.8
+	glow.shadow_enabled = false
+	p.add_child(glow)
+	return p
+
+
 func get_prompt(_player: Node) -> String:
 	return prompt
 

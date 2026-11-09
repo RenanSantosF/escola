@@ -6,6 +6,8 @@ extends CharacterBody3D
 
 signal context_changed(interact_label: String, play_label: String)
 signal emote_started(emote: String)
+signal sat(seat: Seat)
+signal stood
 
 enum Mode { FREE, SITTING, BUSY }
 
@@ -45,6 +47,7 @@ var _last_interact_label := ""
 var _last_play_label := ""
 var _air_time := 0.0
 var _stop_timer := 0.0
+var _npc_bump_cd := {}
 
 
 func _ready() -> void:
@@ -279,6 +282,9 @@ func sit_on(seat: Seat) -> void:
 	tw.tween_method(func(v: float): yaw = v, yaw, yaw + wrapf(target_yaw - yaw, -PI, PI), 0.35)
 	visual.play("sit_down")
 	GameManager.add_stat("sits")
+	get_tree().create_timer(0.4).timeout.connect(func():
+		if mode == Mode.SITTING and current_seat == seat:
+			sat.emit(seat))
 
 
 func stand_up() -> void:
@@ -298,6 +304,17 @@ func _finish_stand() -> void:
 	var tw := create_tween()
 	tw.tween_property(self, "global_position", out, 0.15)
 	tw.tween_callback(func(): collision_mask = 1 | 4 | 8)
+	stood.emit()
+
+
+## Levanta imediatamente (troca de dia, teleporte).
+func force_stand() -> void:
+	if current_seat:
+		current_seat.release()
+	current_seat = null
+	mode = Mode.FREE
+	visual.stop_action(false)
+	collision_mask = 1 | 4 | 8
 
 
 # ------------------------------------------------------------- bebedouro
@@ -389,9 +406,23 @@ func _on_action_finished(action: String) -> void:
 
 ## Detecta trombadas em paredes/objetos quando correndo (reação cômica).
 func _check_bump(pre_vel: Vector3) -> void:
-	if _bonk_cd > 0.0 or mode != Mode.FREE:
+	if mode != Mode.FREE:
 		return
 	var hspeed := Vector2(pre_vel.x, pre_vel.z).length()
+	# esbarrões em outros personagens (acidental andando / forte correndo)
+	for i in get_slide_collision_count():
+		var npc := get_slide_collision(i).get_collider() as NPC
+		if npc and hspeed > 0.6:
+			var key := npc.get_instance_id()
+			if _npc_bump_cd.get(key, 0.0) < Time.get_ticks_msec() * 0.001:
+				_npc_bump_cd[key] = Time.get_ticks_msec() * 0.001 + 2.0
+				if npc.manager:
+					npc.manager.on_player_bump(npc, hspeed)
+				if hspeed > run_speed * 0.8:
+					velocity.x *= -0.3
+					velocity.z *= -0.3
+	if _bonk_cd > 0.0:
+		return
 	if hspeed < run_speed * 0.85:
 		return
 	for i in get_slide_collision_count():
@@ -400,6 +431,8 @@ func _check_bump(pre_vel: Vector3) -> void:
 		if absf(n.y) > 0.5:
 			continue
 		var hv := Vector3(pre_vel.x, 0, pre_vel.z).normalized()
+		if col.get_collider() is NPC:
+			continue
 		if hv.dot(-Vector3(n.x, 0, n.z).normalized()) > 0.75:
 			_bonk(n)
 			return

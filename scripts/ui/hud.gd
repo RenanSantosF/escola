@@ -18,6 +18,14 @@ var _settings: SettingsPanel
 var _map_dim: ColorRect
 var _toast_tween: Tween
 var main_menu_cb: Callable
+var _banner: VBoxContainer
+var _banner_title: Label
+var _banner_sub: Label
+var _banner_tween: Tween
+var _objective: Label
+var _objective_point: Variant = null
+var _wallet: Label
+var _summary: Control
 
 
 func _ready() -> void:
@@ -78,6 +86,7 @@ func _ready() -> void:
 	add_child(_fps)
 
 	_build_emote_panel()
+	_build_status()
 	_build_pause()
 
 	controls.pause_pressed.connect(open_pause)
@@ -106,11 +115,162 @@ func _layout() -> void:
 	_toast.size = Vector2(840, 50)
 	_toast.position = Vector2((vs.x - 840.0) * 0.5, 100)
 	_emote_panel.position = Vector2(vs.x - _emote_panel.size.x - 20, 120)
+	if _objective:
+		_objective.size = Vector2(vs.x - 600, 34)
+		_objective.position = Vector2(300, 60)
+		_wallet.size = Vector2(420, 30)
+		_wallet.position = Vector2(vs.x - 220 - 420, 32)
 
 
 func _on_map_full(is_full: bool) -> void:
 	_map_dim.visible = is_full
 	_layout()
+
+
+func _build_status() -> void:
+	# Objetivo atual (topo central)
+	_objective = Label.new()
+	_objective.add_theme_font_override("font", UITheme.bold_font())
+	_objective.add_theme_font_size_override("font_size", 22)
+	_objective.add_theme_color_override("font_color", Color.WHITE)
+	_objective.add_theme_constant_override("outline_size", 8)
+	_objective.add_theme_color_override("font_outline_color", Color(0.1, 0.12, 0.25, 0.85))
+	_objective.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_objective.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_objective)
+	# Moedas e nível
+	_wallet = Label.new()
+	_wallet.add_theme_font_override("font", UITheme.bold_font())
+	_wallet.add_theme_font_size_override("font_size", 22)
+	_wallet.add_theme_color_override("font_color", Color("ffe08a"))
+	_wallet.add_theme_constant_override("outline_size", 8)
+	_wallet.add_theme_color_override("font_outline_color", Color(0.1, 0.12, 0.25, 0.85))
+	_wallet.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_wallet.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_wallet)
+	GameManager.rewards_changed.connect(func(_x, _c, _l): _update_wallet())
+	_update_wallet()
+	# Faixa grande (sinal, recreio, dia)
+	_banner = VBoxContainer.new()
+	_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_banner.modulate.a = 0.0
+	_banner_title = UITheme.title_label("", 84, Color("ffcf3f"))
+	_banner_title.add_theme_constant_override("outline_size", 20)
+	_banner_title.add_theme_color_override("font_outline_color", Color("1f2a44"))
+	_banner_sub = UITheme.title_label("", 30, Color.WHITE)
+	_banner_sub.add_theme_constant_override("outline_size", 10)
+	_banner_sub.add_theme_color_override("font_outline_color", Color("1f2a44"))
+	_banner.add_child(_banner_title)
+	_banner.add_child(_banner_sub)
+	add_child(_banner)
+
+
+func _update_wallet() -> void:
+	var p: Dictionary = SaveManager.section("player")
+	var lv := int(p.get("level", 1))
+	_wallet.text = "Nível %d  ·  %d XP/%d   🪙 %d" % [lv, int(p.get("xp", 0)), GameManager.xp_for_level(lv), int(p.get("coins", 0))]
+	_wallet.text = _wallet.text.replace("🪙", "Moedas:")
+
+
+func show_banner(title: String, subtitle := "") -> void:
+	_banner_title.text = title
+	_banner_sub.text = subtitle
+	var vs := get_viewport_rect().size
+	_banner.size = Vector2(vs.x, 160)
+	_banner.position = Vector2(0, vs.y * 0.24)
+	if _banner_tween:
+		_banner_tween.kill()
+	_banner.pivot_offset = _banner.size * 0.5
+	_banner.scale = Vector2(0.6, 0.6)
+	_banner_tween = create_tween()
+	_banner_tween.set_parallel(true).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_banner_tween.tween_property(_banner, "modulate:a", 1.0, 0.25)
+	_banner_tween.tween_property(_banner, "scale", Vector2.ONE, 0.4)
+	_banner_tween.chain().tween_interval(2.2)
+	_banner_tween.chain().tween_property(_banner, "modulate:a", 0.0, 0.5)
+
+
+func set_objective(text: String) -> void:
+	_objective.text = text
+	_objective.visible = text != ""
+
+
+func set_objective_point(p: Variant) -> void:
+	_objective_point = p
+	queue_redraw()
+
+
+func _draw() -> void:
+	# seta na borda da tela apontando para o objetivo quando fora de vista
+	if _objective_point == null or not controls.visible:
+		return
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return
+	var vs := get_viewport_rect().size
+	var wp: Vector3 = _objective_point
+	var behind := cam.is_position_behind(wp)
+	var sp := cam.unproject_position(wp)
+	var margin := 70.0
+	var inside := not behind and sp.x > margin and sp.x < vs.x - margin and sp.y > margin and sp.y < vs.y - margin
+	if inside:
+		return
+	var c := vs * 0.5
+	var dir := (sp - c)
+	if behind:
+		dir = -dir
+	if dir.length() < 1.0:
+		dir = Vector2(0, 1)
+	dir = dir.normalized()
+	var t := minf((vs.x * 0.5 - margin) / maxf(absf(dir.x), 0.001), (vs.y * 0.5 - margin) / maxf(absf(dir.y), 0.001))
+	var p := c + dir * t
+	var side := dir.orthogonal()
+	var pts := PackedVector2Array([p + dir * 26.0, p - dir * 10.0 + side * 18.0, p - dir * 10.0 - side * 18.0])
+	draw_circle(p, 30.0, Color(0.12, 0.16, 0.27, 0.6))
+	draw_colored_polygon(pts, Color("ffcf3f"))
+
+
+func show_day_summary(s: Dictionary, on_next: Callable) -> void:
+	if _summary:
+		_summary.queue_free()
+	_summary = Control.new()
+	_summary.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_summary)
+	var dim := ColorRect.new()
+	dim.color = Color(0.05, 0.08, 0.15, 0.55)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_summary.add_child(dim)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_summary.add_child(center)
+	var panel := PanelContainer.new()
+	center.add_child(panel)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	panel.add_child(v)
+	v.add_child(UITheme.title_label("Fim do Dia %d!" % s.day, 44))
+	var stars := "★".repeat(clampi(int(round(float(s.correct) / maxf(s.total, 1) * 3.0)), 1, 3)) + "☆".repeat(3 - clampi(int(round(float(s.correct) / maxf(s.total, 1) * 3.0)), 1, 3))
+	v.add_child(UITheme.title_label(stars, 56, Color("f2b632")))
+	var info := Label.new()
+	info.text = "Tarefas certas: %d de %d\nMoedas ganhas: +%d\nExperiência: +%d XP" % [s.correct, s.total, s.coins, s.xp]
+	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	info.add_theme_font_size_override("font_size", 28)
+	v.add_child(info)
+	if s.get("level_up", false):
+		v.add_child(UITheme.title_label("Você subiu para o nível %d!" % GameManager.level(), 30, UITheme.GREEN))
+	var extra: String = s.get("extra", "")
+	if extra != "":
+		var el := Label.new()
+		el.text = extra
+		el.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		el.add_theme_font_size_override("font_size", 22)
+		v.add_child(el)
+	v.add_child(UITheme.make_button("Próximo dia", func():
+		_summary.queue_free()
+		_summary = null
+		on_next.call(), 320))
+	controls.visible = false
+	_summary.tree_exited.connect(func(): controls.visible = GameManager.is_playing())
 
 
 func _build_emote_panel() -> void:
@@ -228,6 +388,8 @@ func show_toast(message: String) -> void:
 
 
 func _process(_delta: float) -> void:
+	if _objective_point != null:
+		queue_redraw()
 	_fps.visible = bool(Settings.get_value("show_fps"))
 	if _fps.visible:
 		_fps.text = "%d FPS" % Engine.get_frames_per_second()

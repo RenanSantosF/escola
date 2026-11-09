@@ -5,6 +5,11 @@ extends Interactable
 
 var occupant: Node = null
 var seat_top := 0.47
+var room := ""
+## Distância (ao longo da frente do assento) do ponto de aproximação dos NPCs.
+var approach := 0.55
+var swing := false
+var _swing_t := 0.0
 
 
 func _ready() -> void:
@@ -30,7 +35,25 @@ func interact(player: Node) -> void:
 
 func occupy(who: Node) -> void:
 	occupant = who
+	_swing_t = 0.0
 
 
 func release() -> void:
+	if occupant and swing and occupant.get("visual"):
+		occupant.visual.position = Vector3.ZERO
+		occupant.visual.rotation.x = 0.0
 	occupant = null
+
+
+func _process(delta: float) -> void:
+	# balanço do parquinho: quem estiver sentado vai e volta
+	if not swing or occupant == null:
+		return
+	var v: Node3D = occupant.get("visual")
+	if v == null:
+		return
+	_swing_t += delta
+	var a := sin(_swing_t * 2.2) * 0.45 * minf(_swing_t * 0.5, 1.0)
+	v.rotation.x = -a
+	var fwd := Vector3(sin(global_rotation.y), 0, cos(global_rotation.y))
+	v.position = Vector3(0, (1.0 - cos(a)) * 2.0, 0) + fwd * sin(a) * 2.0

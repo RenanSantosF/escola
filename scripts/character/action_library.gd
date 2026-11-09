@@ -251,6 +251,60 @@ static func _build() -> void:
 			[1.0, {}],
 		],
 	}
+	_defs["crouch"] = {
+		"duration": 0.6, "hold": true,
+		"keys": [[0.0, {}], [1.0, {"hips": Vector3(0, -0.42, -0.05),
+			"Spine": Vector3(30, 0, 0), "Chest": Vector3(10, 0, 0), "Head": Vector3(-10, 0, 0),
+			"LeftUpperLeg": Vector3(-95, 0, 14), "RightUpperLeg": Vector3(-80, 0, -14),
+			"LeftLowerLeg": Vector3(140, 0, 0), "RightLowerLeg": Vector3(130, 0, 0),
+			"LeftFoot": Vector3(-45, 0, 0), "RightFoot": Vector3(-50, 0, 0),
+			"LeftUpperArm": Vector3(-40, 0, 10), "RightUpperArm": Vector3(-55, 0, -10),
+			"LeftLowerArm": Vector3(-50, 0, 0), "RightLowerArm": Vector3(-20, 0, 0)}]],
+	}
+	_defs["flick"] = {
+		"duration": 0.8, "mask": "upper", "additive": true, "events": {"flick": 0.5},
+		"keys": [[0.0, {}], [0.4, {"RightUpperArm": Vector3(-10, 0, 0), "RightLowerArm": Vector3(-25, 0, 0)}],
+			[0.5, {"RightUpperArm": Vector3(-20, 0, 0), "RightLowerArm": Vector3(10, 0, 0)}], [1.0, {}]],
+	}
+	_defs["talk"] = {
+		"duration": 2.4, "mask": "upper", "additive": true, "loop": true,
+		"keys": [[0.0, {}],
+			[0.2, {"RightUpperArm": Vector3(-25, 0, -8), "RightLowerArm": Vector3(-45, 0, 0), "Head": Vector3(-3, 6, 0), "mouth": 1.5}],
+			[0.35, {"RightUpperArm": Vector3(-20, 0, -12), "RightLowerArm": Vector3(-55, 0, 0), "Head": Vector3(2, 3, 0), "mouth": 0.8}],
+			[0.5, {"LeftUpperArm": Vector3(-25, 0, 10), "LeftLowerArm": Vector3(-50, 0, 0), "Head": Vector3(-2, -6, 0), "mouth": 1.6}],
+			[0.7, {"LeftUpperArm": Vector3(-15, 0, 12), "LeftLowerArm": Vector3(-35, 0, 0), "Head": Vector3(3, -2, 0), "mouth": 0.9}],
+			[0.85, {"Head": Vector3(-4, 2, 0), "mouth": 1.4}],
+			[1.0, {}]],
+	}
+	_defs["write"] = {
+		"duration": 1.6, "mask": "upper", "loop": true,
+		"keys": [[0.0, {"RightUpperArm": Vector3(-38, 0, -10), "RightLowerArm": Vector3(-75, 0, 0),
+				"LeftUpperArm": Vector3(-35, 0, 12), "LeftLowerArm": Vector3(-80, 0, 0), "Head": Vector3(22, 0, 0), "Spine": Vector3(10, 0, 0)}],
+			[0.5, {"RightUpperArm": Vector3(-40, 6, -6), "RightLowerArm": Vector3(-72, 0, 0),
+				"LeftUpperArm": Vector3(-35, 0, 12), "LeftLowerArm": Vector3(-80, 0, 0), "Head": Vector3(24, 4, 0), "Spine": Vector3(10, 0, 0)}],
+			[1.0, {"RightUpperArm": Vector3(-38, 0, -10), "RightLowerArm": Vector3(-75, 0, 0),
+				"LeftUpperArm": Vector3(-35, 0, 12), "LeftLowerArm": Vector3(-80, 0, 0), "Head": Vector3(22, 0, 0), "Spine": Vector3(10, 0, 0)}]],
+	}
+	_defs["raise_hand"] = {
+		"duration": 2.2, "mask": "upper",
+		"keys": [[0.0, {}], [0.2, {"RightUpperArm": Vector3(-10, 0, -165), "RightLowerArm": Vector3(-10, 0, 0), "Head": Vector3(-6, 0, 0), "mouth": 1.3}],
+			[0.8, {"RightUpperArm": Vector3(-8, 0, -168), "RightLowerArm": Vector3(-5, 0, 0), "Head": Vector3(-6, 0, 0), "mouth": 1.2}], [1.0, {}]],
+	}
+	_defs["point_board"] = {
+		"duration": 1.8, "mask": "upper",
+		"keys": [[0.0, {}], [0.25, {"RightUpperArm": Vector3(-20, 60, -80), "RightLowerArm": Vector3(-10, 0, 0), "Head": Vector3(0, -35, 0), "Chest": Vector3(0, -12, 0), "mouth": 1.4}],
+			[0.75, {"RightUpperArm": Vector3(-22, 62, -82), "RightLowerArm": Vector3(-12, 0, 0), "Head": Vector3(0, -30, 0), "Chest": Vector3(0, -10, 0), "mouth": 1.2}], [1.0, {}]],
+	}
+	_defs["clap"] = {
+		"duration": 1.2, "mask": "upper",
+		"keys": [[0.0, {}],
+			[0.2, {"LeftUpperArm": Vector3(-55, -30, 10), "RightUpperArm": Vector3(-55, 30, -10), "LeftLowerArm": Vector3(-50, 0, 0), "RightLowerArm": Vector3(-50, 0, 0), "mouth": 1.8}],
+			[0.35, {"LeftUpperArm": Vector3(-55, -45, 10), "RightUpperArm": Vector3(-55, 45, -10), "LeftLowerArm": Vector3(-40, 0, 0), "RightLowerArm": Vector3(-40, 0, 0), "mouth": 1.8}],
+			[0.5, {"LeftUpperArm": Vector3(-55, -30, 10), "RightUpperArm": Vector3(-55, 30, -10), "LeftLowerArm": Vector3(-50, 0, 0), "RightLowerArm": Vector3(-50, 0, 0), "mouth": 1.8}],
+			[0.65, {"LeftUpperArm": Vector3(-55, -45, 10), "RightUpperArm": Vector3(-55, 45, -10), "LeftLowerArm": Vector3(-40, 0, 0), "RightLowerArm": Vector3(-40, 0, 0), "mouth": 1.8}],
+			[0.8, {"LeftUpperArm": Vector3(-55, -30, 10), "RightUpperArm": Vector3(-55, 30, -10), "LeftLowerArm": Vector3(-50, 0, 0), "RightLowerArm": Vector3(-50, 0, 0), "mouth": 1.6}],
+			[1.0, {}]],
+	}
 	_defs["scratch_head"] = {
 		"duration": 1.8, "mask": "upper",
 		"keys": [

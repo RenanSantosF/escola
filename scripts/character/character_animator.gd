@@ -62,6 +62,15 @@ var _action_fading := false
 var _fired := {}
 var action_speed := 1.0
 
+# Canal superior (braços/tronco/rosto) sobreposto a tudo — permite, por
+# exemplo, levantar a mão ou conversar enquanto está sentado.
+var upper_action := ""
+var _u_def := {}
+var _u_t := 0.0
+var _u_w := 0.0
+var _u_fading := false
+var _u_fired := {}
+
 ## Frequência de atualização reduzida para personagens distantes (LOD).
 var update_interval := 0.0
 var _accum := 0.0
@@ -86,6 +95,13 @@ func play(action_name: String, speed_scale := 1.0) -> bool:
 	if def.is_empty():
 		push_warning("Animação inexistente: %s" % action_name)
 		return false
+	if def.get("mask", "full") == "upper":
+		upper_action = action_name
+		_u_def = def
+		_u_t = 0.0
+		_u_fading = false
+		_u_fired.clear()
+		return true
 	action = action_name
 	_action_def = def
 	_action_t = 0.0
@@ -104,10 +120,31 @@ func stop_action(fade := true) -> void:
 		_end_action()
 
 
+func stop_upper(fade := true) -> void:
+	if upper_action == "":
+		return
+	if fade:
+		_u_fading = true
+	else:
+		_end_upper()
+
+
 func is_playing(action_name := "") -> bool:
 	if action_name == "":
 		return action != "" and not _action_fading
+	if upper_action == action_name and not _u_fading:
+		return true
 	return action == action_name and not _action_fading
+
+
+func _end_upper() -> void:
+	var finished := upper_action
+	upper_action = ""
+	_u_def = {}
+	_u_w = 0.0
+	_u_fading = false
+	if finished != "":
+		action_finished.emit(finished)
 
 
 func is_holding() -> bool:
@@ -142,6 +179,7 @@ func update(delta: float) -> void:
 	var pose := _base_pose(delta)
 	_apply_air(pose)
 	_apply_action(pose, delta)
+	_apply_upper(pose, delta)
 	_apply_to_skeleton(pose, delta)
 
 
@@ -366,6 +404,57 @@ func _apply_action(p: Dictionary, delta: float) -> void:
 		for bn: String in ["LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg", "LeftFoot", "RightFoot", "Hips"]:
 			if not affected.has(bn):
 				_blend_bone(p, bn, Vector3.ZERO, w * 0.85)
+
+
+func _apply_upper(p: Dictionary, delta: float) -> void:
+	if upper_action == "":
+		return
+	var def := _u_def
+	var dur: float = def.get("duration", 1.0)
+	_u_t += delta / dur
+	var loop: bool = def.get("loop", false)
+	var events: Dictionary = def.get("events", {})
+	for ev in events.keys():
+		if not _u_fired.has(ev) and _u_t >= float(events[ev]):
+			_u_fired[ev] = true
+			action_event.emit(upper_action, ev)
+	if _u_fading:
+		_u_w = maxf(_u_w - delta / 0.2, 0.0)
+		if _u_w <= 0.0:
+			_end_upper()
+			return
+	else:
+		_u_w = minf(_u_w + delta / 0.15, 1.0)
+	if _u_t >= 1.0:
+		if loop:
+			_u_t = fmod(_u_t, 1.0)
+			_u_fired.clear()
+		elif def.get("hold", false):
+			_u_t = 1.0
+		else:
+			_end_upper()
+			return
+	var pose := _sample(def["keys"], clampf(_u_t, 0.0, 1.0))
+	var w := _ease(_u_w)
+	var affected := {}
+	for k in def["keys"]:
+		for key in k[1].keys():
+			affected[key] = true
+	for key in affected.keys():
+		if key == "hips":
+			continue
+		if key in ["eyes", "mouth", "brow"]:
+			var neutral := 0.0 if key == "brow" else 1.0
+			var target: float = pose.get(key, neutral)
+			p[key] = lerpf(p[key], minf(target, p[key]) if key == "eyes" else target, w)
+			continue
+		if not key in ActionLibrary.UPPER_BODY:
+			continue
+		# soma sobre a pose atual (respeita estar sentado/andando)
+		var base: Vector3 = p.get(key, Vector3.ZERO)
+		var target_v: Vector3 = pose.get(key, Vector3.ZERO)
+		var additive: bool = def.get("additive", false)
+		p[key] = base.lerp(base + target_v if additive else target_v, w)
 
 
 func _sample(keys: Array, t: float) -> Dictionary:

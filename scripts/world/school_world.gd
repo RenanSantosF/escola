@@ -18,6 +18,7 @@ var _zone_timer := 0.0
 var _player: Node3D
 var _labels_root: Node3D
 var _dynamic: Node3D
+var seats: Array[Seat] = []
 var _labels: Array = []  # [Label3D, alcance base]
 var _ranged: Array = []  # [GeometryInstance3D, alcance base]
 
@@ -162,7 +163,13 @@ func _spawn_interactables() -> void:
 		seat.position = s.pos
 		seat.rotation.y = s.yaw
 		seat.seat_top = s.seat_top
+		seat.room = s.get("room", "")
+		seat.swing = s.label == "Balançar"
+		seat.set_process(seat.swing)
+		if seat.room.begins_with("Sala") or seat.room.begins_with("Laborat"):
+			seat.approach = -0.5
 		seats_root.add_child(seat)
+		seats.append(seat)
 	for f in Props.fountains:
 		var wf := WaterFountain.new()
 		wf.position = f.pos
@@ -196,6 +203,29 @@ func set_player(p: Node3D) -> void:
 
 func get_map_data() -> Dictionary:
 	return {"zones": builder.zones, "shapes": builder.map_shapes, "lot": SchoolBuilder.LOT}
+
+
+## true se a posição está dentro de um prédio cujo interior está oculto
+## (jogador do lado de fora) — usado para esconder NPCs lá dentro.
+func interior_hidden_at(pos: Vector3) -> bool:
+	if builder == null:
+		return false
+	var p := Vector2(pos.x, pos.z)
+	for z in builder.zones:
+		if z.indoor and z.rect.has_point(p):
+			var rid: String = z.roof
+			if rid == "" or rid == "C":
+				return false
+			return not _hidden_roofs.get(rid, false)
+	return false
+
+
+func zone_at(pos: Vector3) -> Dictionary:
+	var p := Vector2(pos.x, pos.z)
+	for z in builder.zones:
+		if z.rect.has_point(p):
+			return z
+	return {}
 
 
 func surface_at(pos: Vector3) -> String:
@@ -238,6 +268,7 @@ func _enter_zone(zone: Dictionary) -> void:
 
 
 func _set_roof_hidden(id: String, hidden: bool) -> void:
+	_hidden_roofs[id] = hidden
 	for cname in builder.roof_chunks.get(id, []):
 		var node: Node3D = _chunk_nodes.get(cname)
 		if node:

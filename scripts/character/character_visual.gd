@@ -8,6 +8,8 @@ signal action_finished(action: String)
 signal footstep(side: int)
 
 var appearance: CharacterAppearance
+## Se true, quem controla chama animator.update() (LOD de NPCs).
+var manual_update := false
 var skeleton: Skeleton3D
 var animator := CharacterAnimator.new()
 var _hand_attach: BoneAttachment3D
@@ -42,7 +44,12 @@ func _build() -> void:
 
 
 func _process(delta: float) -> void:
-	animator.update(delta)
+	if not manual_update:
+		animator.update(delta)
+
+
+func stop_upper(fade := true) -> void:
+	animator.stop_upper(fade)
 
 
 func play(action_name: String, speed_scale := 1.0) -> bool:

@@ -24,6 +24,7 @@ var _manual_timer := 0.0
 var _shake := 0.0
 var _focus := Vector3.ZERO
 var _cur_distance := 4.6
+var follow_offset_y := 0.0
 
 
 func _ready() -> void:
@@ -99,7 +100,7 @@ func _process(delta: float) -> void:
 		yaw -= cam_axis * 2.4 * delta * float(Settings.get_value("camera_sensitivity"))
 		_manual_timer = 2.5
 
-	var tp := target.global_position + Vector3(0, follow_height, 0)
+	var tp := target.global_position + Vector3(0, follow_height + follow_offset_y, 0)
 	# horizontal rápido, vertical mais suave (pulos não balançam a câmera)
 	var kxz := 1.0 - exp(-14.0 * delta)
 	var ky := 1.0 - exp(-6.0 * delta)
@@ -119,6 +120,11 @@ func _process(delta: float) -> void:
 
 	var indoor: bool = GameManager.world != null and GameManager.world.get("player_indoor") == true
 	var want := minf(distance, 4.0) if indoor else distance
+	if target.get("mode") == 1:  # sentado: aproxima e sobe a câmera
+		want = minf(want, 2.6)
+		follow_offset_y = lerpf(follow_offset_y, 0.35, 1.0 - exp(-4.0 * delta))
+	else:
+		follow_offset_y = lerpf(follow_offset_y, 0.0, 1.0 - exp(-4.0 * delta))
 	_cur_distance = lerpf(_cur_distance, want, 1.0 - exp(-3.0 * delta))
 	arm.spring_length = _cur_distance
 	global_position = _focus

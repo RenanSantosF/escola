@@ -18,6 +18,10 @@ var roof_chunks := {}
 var interior_chunks := {}
 var map_shapes: Array = []
 var surfaces: Array = []  # {rect, type} — tipo de piso para sons de passos
+var classrooms := {}  # nome -> {rect, board, teacher, door_in, door_out, board_yaw}
+var nav_points: Array = []  # pontos extras de navegação (portas, corredores)
+var nav_links: Array = []  # pares [a, b] que devem ser ligados (passagem por portas)
+var spots: Array = []  # pontos de atividade do recreio {type, pos, yaw}
 var spawn := Vector3(0, 0.05, 52)
 var spawn_yaw := PI
 var rng := RandomNumberGenerator.new()
@@ -91,6 +95,7 @@ func build_all(step: Callable) -> void:
 	_garden_and_woods()
 	await step.call(0.74, "Espalhando as árvores...")
 	_general_zones()
+	_recess_spots()
 
 
 # =====================================================================
@@ -125,6 +130,16 @@ func build_building(def: Dictionary) -> void:
 			var line2 := _line(lines, sd2[0], sd2[1])
 			var h: float = d[3] if d.size() > 3 else 2.25
 			line2.openings[snappedf(d[1], 0.01)] = {"c": d[1], "w": d[2], "bottom": 0.0, "top": h, "type": "door", "into": sd2[4]}
+			# pontos de navegação dos dois lados da porta
+			var dc: Vector3 = Vector3(d[1], 0.05, sd2[1]) if sd2[0] == "h" else Vector3(sd2[1], 0.05, d[1])
+			var nrm: Vector3 = (Vector3(0, 0, 1) if sd2[0] == "h" else Vector3(1, 0, 0)) * float(sd2[4])
+			var p_in: Vector3 = dc + nrm * 0.9
+			var p_out: Vector3 = dc - nrm * 0.9
+			nav_points.append(p_in)
+			nav_points.append(p_out)
+			nav_links.append([p_in, p_out])
+			if room.get("kind", "") == "classroom" and not classrooms.has(room.name):
+				classrooms[room.name] = {"rect": room.rect, "door_in": p_in, "door_out": p_out}
 		var wins: Array = room.get("windows", []).duplicate()
 		for s in room.get("auto_windows", []):
 			var sd3: Array = sides[s]
@@ -195,7 +210,18 @@ func build_building(def: Dictionary) -> void:
 		var room_name: String = room.get("label", room.name)
 		add_zone(room_name, r, true, id, 10, room.get("map_col", Color(0.85, 0.82, 0.75)))
 		add_surface(r, "hard")
+		# pontos internos de navegação (grade de 2,5 m dentro da sala)
+		var gx: float = r.position.x + 1.25
+		while gx < r.end.x - 0.5:
+			var gz: float = r.position.y + 1.25
+			while gz < r.end.y - 0.5:
+				nav_points.append(Vector3(gx, 0.05, gz))
+				gz += 2.5
+			gx += 2.5
+		var seat_start := Props.seats.size()
 		InteriorDecorator.decorate(self, ib, room, def)
+		for i in range(seat_start, Props.seats.size()):
+			Props.seats[i]["room"] = room_name
 
 	# Telhado
 	if def.has("roof"):
@@ -618,7 +644,7 @@ func _building_b() -> void:
 
 func _cantina() -> void:
 	var rooms := [
-		{"name": "Cantina", "rect": R(-36, 4, -22, 20), "kind": "cantina", "floor_col": Color("e8d9c0"),
+		{"name": "Cantina", "rect": R(-36, 4, -22, 20), "kind": "cantina", "always_visible": true, "floor_col": Color("e8d9c0"),
 			"doors": [["s", -33.0, 1.2]], "hatches": [["e", 12.0, 6.0]], "inner": [Color("e74c3c"), Color("fff3dc"), 1.4], "inner_mat": "tile",
 			"counter": true},
 	]
@@ -1081,6 +1107,25 @@ func _general_zones() -> void:
 	add_zone("Lateral Oeste", R(-90, 20, -60, 52), false, "", 0, Color(0.5, 0.72, 0.45))
 	add_zone("Escola", LOT, false, "", -5, Color(0.5, 0.72, 0.45))
 	zones.sort_custom(func(a, b): return a.priority > b.priority)
+
+
+## Pontos de atividade usados pelos alunos (NPCs) no recreio.
+func _recess_spots() -> void:
+	var chat := [Vector3(-8, 0, -4), Vector3(8, 0, -16), Vector3(-22, 0, -12), Vector3(18, 0, 0), Vector3(-36, 0, -2),
+		Vector3(-4, 0, 22), Vector3(10, 0, 22), Vector3(-12, 0, 11.5), Vector3(4, 0, 11.5), Vector3(46, 0, -12),
+		Vector3(40, 0, -27.5), Vector3(-52, 0, -20), Vector3(28, 0, 12), Vector3(-30, 0, 22), Vector3(30, 0, -12)]
+	for p in chat:
+		spots.append({"type": "chat", "pos": p + Vector3(0, 0.05, 0)})
+	for i in 6:
+		spots.append({"type": "queue", "pos": Vector3(-20.6 + i * 0.85, 0.05, 12.0), "yaw": -PI * 0.5, "order": i})
+	for i in 4:
+		var a := i * TAU / 4.0 + 0.4
+		spots.append({"type": "marbles", "pos": Vector3(-46 + cos(a) * 1.6, 0.05, -9 + sin(a) * 1.6), "yaw": atan2(-cos(a), -sin(a))})
+	for i in 3:
+		spots.append({"type": "hopscotch", "pos": Vector3(-14.0 + i * 0.6, 0.05, -0.6 + i * 0.3), "yaw": PI})
+	for p in [Vector3(-60, 0, -60), Vector3(-80, 0, -50), Vector3(75, 0, -50), Vector3(0, 0, -45), Vector3(-30, 0, -30),
+			Vector3(50, 0, 30), Vector3(-75, 0, 20), Vector3(20, 0, 60), Vector3(-20, 0, 58), Vector3(-5, 0, -64)]:
+		spots.append({"type": "wander", "pos": p + Vector3(0, 0.05, 0)})
 
 
 ## Tipo de piso numa posição (para o som dos passos).

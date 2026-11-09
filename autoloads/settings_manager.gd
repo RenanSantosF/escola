@@ -6,7 +6,7 @@ signal changed(key: String)
 
 enum Quality { LOW, MEDIUM, HIGH }
 
-const PATH := "user://settings.cfg"
+static var PATH := "user://test_settings.cfg" if " ".join(OS.get_cmdline_args()).contains("res://tests/") else "user://settings.cfg"
 
 const DEFAULTS := {
 	"quality": Quality.MEDIUM,

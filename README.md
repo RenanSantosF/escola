@@ -4,7 +4,7 @@ Simulador casual de vida escolar em 3D, feito em **Godot 4.3** para **Android (p
 Ambientado numa escola pública brasileira grande — com murada, pátio ao sol, quadra,
 cantina, salas de aula, biblioteca, parquinho e muito mais.
 
-> Status: **Fase 1 (Fundação) concluída.** Veja [docs/ROADMAP.md](docs/ROADMAP.md).
+> Status: **Fases 1 (Fundação) e 2 (Vida escolar) concluídas.** Veja [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Como abrir e jogar
 
@@ -30,9 +30,12 @@ cantina, salas de aula, biblioteca, parquinho e muito mais.
 ## Testes automatizados
 
 ```bash
-# Testes de integração (55 verificações: save, movimento, colisões, sentar,
-# chutar, pegar/arremessar, bebedouro, zonas/telhados, pulo, toque, câmera, pausa)
+# Testes de integração (save, movimento, colisões, sentar, chutar, arremessar,
+# zonas, toque, câmera, navegação, NPCs, tarefas, ciclo completo do dia...)
 godot --headless --path . res://tests/test_runner.tscn
+
+# Custo de CPU por quadro com NPCs
+godot --headless --path . res://tests/perf_probe.tscn -- --quality=2
 
 # Capturas de tela de vários pontos da escola + contagem de draw calls
 godot --rendering-driver opengl3 --path . res://tests/capture_world.tscn -- --out=/tmp/shots --quality=0
@@ -49,7 +52,10 @@ scripts/
   camera/        câmera em terceira pessoa
   world/         gerador da escola, decoração, props, árvores, materiais, batching
   interaction/   assentos, bebedouros, bolas, objetos arremessáveis
-  ui/            tema, controles de toque, HUD, minimapa, menus
+  npc/           NPCs, elenco, gerenciador (rotinas/atividades), grafo de navegação
+  school/        ciclo do dia escolar e gerador de tarefas da aula
+  systems/       amizades (e futuros sistemas de jogo)
+  ui/            tema, controles de toque, HUD, minimapa, menus, aula, diálogo
   main/          fluxo carregamento → menu → jogo
 assets/          texturas e sons gerados (ver tools/)
 tools/           scripts Python que geram as texturas e os sons

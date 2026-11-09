@@ -108,6 +108,14 @@ static func _classroom(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: 
 	sb.add_label(BOARD_TEXTS[grade % BOARD_TEXTS.size()], board_xf.origin + n * 0.03 + Vector3(0, 0.05, 0), bp[1], 56, Color(0.97, 0.97, 0.95), Color(0, 0, 0, 0), 0.0055, 22.0)
 	sb.add_label("A B C D E F G H I J K L M N O P Q R S T U V W X Y Z", board_xf.origin + n * 0.02 + Vector3(0, 1.0, 0), bp[1], 36, Color("c0392b"), Color(1, 1, 1, 0.9), 0.006, 20.0)
 	Props.teacher_desk(b, bp[0] + n * 1.9, bp[1])
+	if sb.classrooms.has(room.name):
+		var info: Dictionary = sb.classrooms[room.name]
+		info["board"] = board_xf.origin
+		info["board_yaw"] = bp[1]
+		info["teacher"] = bp[0] + n * 1.1 + Vector3(0, 0.05, 0) + Vector3(0, 0, 1).rotated(Vector3.UP, bp[1] + PI * 0.5) * 1.3
+		info["teacher_desk"] = bp[0] + n * 1.9
+		info["board_label"] = sb.labels.size() - 2  # texto da lousa (antes do alfabeto)
+		info["item_spots"] = [bp[0] + n * 0.5 + Vector3(0, 0.95, 0) + Vector3(0, 0, 1).rotated(Vector3.UP, bp[1] + PI * 0.5) * 2.4]
 	# relógio acima da lousa (lado oposto)
 	var opp := {"w": "e", "n": "s", "e": "w", "s": "n"}[board_side] as String
 	# Carteiras 5 x 5
@@ -124,6 +132,8 @@ static func _classroom(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: 
 				b.box("plain", pos + dn * 0.46 + Vector3(0, 0.745, 0), Vector3(0.2, 0.015, 0.28), [Color("e74c3c"), Color("3498db"), Color("f1c40f")][rng.randi() % 3], desk_yaw, false)
 			if rng.randf() < 0.07:
 				_paper_ball(sb, pos + Vector3(0, 0.8, 0) + Vector3(0, 0, 1).rotated(Vector3.UP, desk_yaw) * 0.45)
+			if sb.classrooms.has(room.name) and (i + j) % 6 == 2:
+				sb.classrooms[room.name]["item_spots"].append(pos + Vector3(0, 0.8, 0) + Vector3(0, 0, 1).rotated(Vector3.UP, desk_yaw) * 0.45)
 	# Mural, cartazes e armário na parede do fundo
 	var along_c := (z0 + z1) * 0.5 if opp in ["e", "w"] else (x0 + x1) * 0.5
 	var cork := wall_rect(b, r, opp, along_c, 1.65, 3.2, 1.2, Color("c49a6c"))

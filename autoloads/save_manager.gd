@@ -7,9 +7,11 @@ extends Node
 signal saved
 signal loaded
 
-const SAVE_PATH := "user://save.json"
-const TEMP_PATH := "user://save.json.tmp"
-const BACKUP_PATH := "user://save.backup.json"
+## Testes automatizados usam arquivos separados para não tocar no save real.
+static var _prefix := "user://test_" if " ".join(OS.get_cmdline_args()).contains("res://tests/") else "user://"
+static var SAVE_PATH := _prefix + "save.json"
+static var TEMP_PATH := _prefix + "save.json.tmp"
+static var BACKUP_PATH := _prefix + "save.backup.json"
 const SCHEMA_VERSION := 1
 
 var data: Dictionary = {}

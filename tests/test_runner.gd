@@ -12,10 +12,12 @@ var _log: Array[String] = []
 
 
 func _ready() -> void:
+	SaveManager.reset()
 	_test_save_system()
 	_test_settings()
 	_test_appearance_roundtrip()
 	_test_animator_sanity()
+	_test_task_generator()
 	main = load("res://scenes/main/main.tscn").instantiate()
 	add_child(main)
 	while GameManager.player == null:
@@ -39,6 +41,14 @@ func _ready() -> void:
 	await _test_touch_controls()
 	await _test_camera_collision()
 	await _test_pause()
+	# ---- FASE 2
+	await _test_nav_graph()
+	await _test_npcs_present()
+	await _test_dialogue_friendship()
+	await _test_npc_bump()
+	await _test_upper_layer_while_sitting()
+	await _test_find_task()
+	await _test_full_day()
 	_finish()
 
 
@@ -407,6 +417,211 @@ func _test_pause() -> void:
 	main.hud.close_pause()
 	await get_tree().process_frame
 	check(not get_tree().paused, "pausa: retoma")
+
+
+# --------------------------------------------------------------- FASE 2
+
+func _test_task_generator() -> void:
+	var gen := ClassroomTasks.new(1234, 3)
+	var ok := true
+	for type in ["math", "word", "quiz", "order", "match", "find"]:
+		for i in 40:
+			var t := gen.make(type)
+			match type:
+				"math", "word", "quiz":
+					if t.options.size() != 4 or int(t.answer) < 0 or not ClassroomTasks.check_choice(t, t.answer):
+						ok = false
+					# opções sem repetição
+					var uniq := {}
+					for o in t.options:
+						uniq[o] = true
+					if uniq.size() != 4:
+						ok = false
+				"order":
+					if not ClassroomTasks.check_order(t, t.answer_order):
+						ok = false
+					var wrong: Array = t.answer_order.duplicate()
+					wrong.reverse()
+					if ClassroomTasks.check_order(t, wrong) and t.items[wrong[0]] != t.items[t.answer_order[0]]:
+						ok = false
+				"match":
+					for li in t.left.size():
+						if not ClassroomTasks.check_match(t, li, t.pairs[li]):
+							ok = false
+				"find":
+					if t.item == "" or t.item_name == "":
+						ok = false
+	check(ok, "tarefas: 240 tarefas geradas com respostas consistentes")
+	var lesson := gen.make_lesson(4)
+	var types := lesson.map(func(x): return x.type)
+	var no_repeat := true
+	for i in range(1, types.size()):
+		if types[i] == types[i - 1]:
+			no_repeat = false
+	check(lesson.size() == 4 and no_repeat, "tarefas: aula variada sem repetir tipo seguido", str(types))
+
+
+func _test_nav_graph() -> void:
+	var nav: NavGraph = main.nav
+	check(nav.main_component_size > 2000, "navegação: grafo grande e conectado", str(nav.main_component_size))
+	var info: Dictionary = main.npcs.class_info()
+	var path := nav.path(info.door_in + Vector3(1, 0, -2), Vector3(0, 0.05, -10))
+	var clear := true
+	for i in range(1, path.size() - 1):
+		if not nav.is_clear(path[i - 1], path[i]):
+			clear = false
+	check(path.size() > 3 and clear, "navegação: caminho da sala ao pátio sem atravessar paredes", "%d pontos" % path.size())
+	var p2 := nav.path(Vector3(-55, 0.05, 29), Vector3(75, 0.05, -10))
+	check(p2.size() > 5, "navegação: caminho do Bloco A ao Bloco B")
+
+
+func _test_npcs_present() -> void:
+	var m: NPCManager = main.npcs
+	check(m.classmates.size() >= 10 and m.teacher != null and m.director != null and m.cook != null, "NPCs: turma e adultos criados", "%d colegas" % m.classmates.size())
+	var names := {}
+	for n in m.classmates:
+		names[n.display_name] = true
+	check(names.has("Lucas") and names.has("Ana"), "NPCs: alunos com nomes e personalidades")
+	var mi := m.classmates[0].visual.skeleton.get_node("Body") as MeshInstance3D
+	check(mi != null, "NPCs: usam o mesmo personagem do jogador")
+	check(m.player_desk != null and m.player_desk.room == NPCManager.CLASS_ROOM, "NPCs: carteira do jogador definida na %s" % NPCManager.CLASS_ROOM)
+
+
+func _test_dialogue_friendship() -> void:
+	var m: NPCManager = main.npcs
+	var lucas: NPC = null
+	for n in m.classmates:
+		if n.data.id == "lucas":
+			lucas = n
+	if lucas == null:
+		check(false, "diálogo: Lucas encontrado")
+		return
+	var before := Friendship.points("lucas")
+	lucas.interact(player)
+	await _frames(2)
+	var dlg: DialogueUI = main.school_day.dialogue
+	check(dlg.is_open() and not player.input_enabled, "diálogo: abre ao conversar e trava o jogador")
+	for i in 6:
+		dlg.advance()
+		await _frames(1)
+	check(not dlg.is_open() and player.input_enabled, "diálogo: fecha e devolve o controle")
+	check(Friendship.points("lucas") > before, "amizade: conversar aumenta pontos")
+
+
+func _test_npc_bump() -> void:
+	var m: NPCManager = main.npcs
+	var n: NPC = m.classmates[2]
+	n.stop()
+	if n.sitting:
+		n.seat.release()
+		n.sitting = false
+		n.seat = null
+	n.teleport(Vector3(10, 0.05, -18), 0)
+	n.activity = "test"
+	var got := [false]
+	var cb := func(_npc, _s): got[0] = true
+	m.npc_bumped.connect(cb)
+	_place(Vector3(10, 0.05, -21), 0)
+	cam.yaw = player.yaw + PI
+	Input.action_press("move_forward")
+	Input.action_press("run")
+	await _wait(1.5)
+	_release_all()
+	m.npc_bumped.disconnect(cb)
+	check(got[0], "esbarrão: NPC reage e sistema é notificado")
+	check(player.global_position.distance_to(n.global_position) > 0.4, "esbarrão: jogador não atravessa NPC")
+
+
+func _test_upper_layer_while_sitting() -> void:
+	var skel := CharacterModelBuilder.build(CharacterAppearance.new())
+	add_child(skel)
+	var anim := CharacterAnimator.new()
+	anim.setup(skel)
+	anim.play("sit_down")
+	for i in 60:
+		anim.update(1.0 / 60.0)
+	anim.play("write")
+	for i in 30:
+		anim.update(1.0 / 60.0)
+	check(anim.is_holding() and anim.upper_action == "write", "animação: escrever sentado sem perder a pose")
+	skel.queue_free()
+
+
+func _test_find_task() -> void:
+	var day: SchoolDay = main.school_day
+	var desk: Seat = main.npcs.player_desk
+	player.force_stand()
+	_place(desk.interact_point(), 0)
+	day.phase = SchoolDay.Phase.CLASS_1
+	day.lesson = [{"type": "find", "subject": "x", "prompt": "Traga", "item": "livro", "item_name": "o livro"}]
+	day.lesson_index = 0
+	day.lesson_results = []
+	day._on_find_accepted()
+	await _frames(5)
+	var item: PickupItem = day._find_item
+	check(item != null and is_instance_valid(item), "tarefa achar: objeto aparece na sala")
+	item.attach_to(player.visual.hand_slot(), player)
+	player.held_item = item
+	var t: NPC = main.npcs.teacher
+	check(t.get_prompt(player) == "Entregar à professora", "tarefa achar: professora pede a entrega")
+	t.interact(player)
+	await _frames(3)
+	check(day.lesson_results == [true] and player.held_item == null, "tarefa achar: entrega conta como acerto")
+	day._waiting_for_return_after_find = false
+
+
+func _test_full_day() -> void:
+	var day: SchoolDay = main.school_day
+	var coins_before := GameManager.coins()
+	var days_before := int(SaveManager.section("progress").get("days_completed", 0))
+	day.start_day()
+	await _frames(5)
+	check(day.phase == SchoolDay.Phase.ARRIVAL, "dia: começa na chegada")
+	var desk: Seat = main.npcs.player_desk
+	_place(desk.interact_point(), 0)
+	player.sit_on(desk)
+	await _wait(2.5)
+	check(day.phase == SchoolDay.Phase.CLASS_1, "dia: sentar na carteira inicia a aula")
+	# troca a aula por tarefas de escolha e responde (3 certas, 1 errada)
+	day.lesson = [day._gen.make("math"), day._gen.make("quiz"), day._gen.make("word"), day._gen.make("math")]
+	day.lesson_index = 0
+	day.lesson_results = []
+	await _wait(2.5)
+	var answers := [true, false, true, true]
+	for a in answers:
+		day.classroom_ui.hide_panel()
+		day._on_answered(a)
+		await _wait(1.5)
+	await _wait(2.0)
+	check(day.phase == SchoolDay.Phase.RECESS, "dia: tarefas mínimas liberam o recreio", "fase=%d" % day.phase)
+	await _wait(3.0)
+	check(player.mode == PlayerController.Mode.FREE, "recreio: jogador levanta e fica livre")
+	var active: int = main.npcs.npcs.filter(func(n): return n.active).size()
+	check(active > main.npcs.classmates.size(), "recreio: alunos de outras turmas saem para o pátio", "%d ativos" % active)
+	var moving: int = main.npcs.classmates.filter(func(n): return n.moving or n.activity in ["queue", "football", "tag"]).size()
+	check(moving > 3, "recreio: colegas saem da sala para brincar", "%d" % moving)
+	day.recess_left = 0.5
+	await _wait(1.0)
+	check(day.phase == SchoolDay.Phase.RETURN, "dia: sinal encerra o recreio")
+	player.force_stand()
+	_place(desk.interact_point(), 0)
+	player.sit_on(desk)
+	await _wait(2.5)
+	check(day.phase == SchoolDay.Phase.CLASS_2, "dia: segunda aula começa ao sentar")
+	day.lesson = [day._gen.make("math"), day._gen.make("quiz")]
+	day.lesson_index = 0
+	day.lesson_results = []
+	await _wait(2.5)
+	for a in [true, true]:
+		day.classroom_ui.hide_panel()
+		day._on_answered(a)
+		await _wait(1.5)
+	await _wait(2.0)
+	check(day.phase == SchoolDay.Phase.DAY_END, "dia: aula 2 termina o dia")
+	check(int(SaveManager.section("progress").days_completed) == days_before + 1, "dia: progresso salvo (dias concluídos)")
+	check(GameManager.coins() > coins_before, "dia: recompensas em moedas", "%d -> %d" % [coins_before, GameManager.coins()])
+	await _wait(2.5)
+	check(main.hud._summary != null, "dia: resumo do dia exibido")
 
 
 func _finish() -> void:

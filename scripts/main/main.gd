@@ -6,6 +6,10 @@ var world: SchoolWorld
 var player: PlayerController
 var camera_rig: CameraController
 var hud: HUD
+var npcs: NPCManager
+var nav: NavGraph
+var school_day: SchoolDay
+var _day_started := false
 var ui_layer: CanvasLayer
 var _loading: Control
 var _loading_bar: ProgressBar
@@ -47,11 +51,30 @@ func _ready() -> void:
 	camera_rig.camera.make_current()
 	world._apply_quality()
 
+	# Navegação e NPCs (precisa das colisões já registradas na física)
+	_on_progress(0.98, "Chamando os alunos...")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var t0 := Time.get_ticks_msec()
+	nav = NavGraph.new()
+	nav.build(world, world.builder, SchoolBuilder.LOT)
+	print("NavGraph: %d pontos (%d conectados) em %d ms" % [nav.points.size(), nav.connected_count(), Time.get_ticks_msec() - t0])
+	npcs = NPCManager.new()
+	npcs.name = "NPCs"
+	world.add_child(npcs)
+	npcs.player = player
+	npcs.setup(world, nav)
+
 	hud = HUD.new()
 	hud.name = "HUD"
 	ui_layer.add_child(hud)
 	hud.bind(player, camera_rig, world)
 	hud.main_menu_cb = _back_to_menu
+
+	school_day = SchoolDay.new()
+	school_day.name = "SchoolDay"
+	add_child(school_day)
+	school_day.setup(world, npcs, player, hud)
 	ui_layer.move_child(_loading, -1)
 
 	_build_menu()
@@ -211,7 +234,9 @@ func _start_game() -> void:
 	tw.tween_callback(func(): _menu.visible = false)
 	camera_rig.set_showcase(false)
 	GameManager.set_state(GameManager.State.PLAYING)
-	GameManager.show_toast("Bem-vindo à E. E. Recreio!")
+	if not _day_started:
+		_day_started = true
+		school_day.start_day()
 
 
 func _back_to_menu() -> void:

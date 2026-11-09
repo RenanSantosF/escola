@@ -20,14 +20,25 @@
 - [x] Sons gerados (passos por tipo de piso, chute, quique, sinal, ambiente)
 - [x] 55 testes automatizados + capturas de tela
 
-## Fase 2 — Vida escolar (próxima)
+## ✅ Fase 2 — Vida escolar (concluída)
 
-- NPCs alunos usando o mesmo `CharacterVisual` (aparências aleatórias, rotinas
-  com waypoints, LOD de animação via `update_interval`, limite de ativos)
-- Professores e diretor
-- Sala de aula: o jogador começa sentado; tarefas rápidas (conta, palavra, múltipla
-  escolha, ordenar, achar objeto, associação), progresso da aula, pontuação
-- Sinal (som já existe: `school_bell`) e transição para o recreio com alunos saindo
+- [x] Grafo de navegação automático (3.000+ pontos validados por física, A*, ilhas removidas, suavização de caminho)
+- [x] NPCs com o mesmo personagem do jogador: 8 alunos nomeados com personalidade
+      (Lucas, Bia, Pedro, Ana, Júlia, Gui, Rafa, Mari) + genéricos; Professora Márcia,
+      Diretor Valdir, Dona Cida (inspetora) e Tia Rosa (cantineira)
+- [x] Pool de NPCs por qualidade (Baixa 22 / Média 32 / Alta 44), LOD de animação por
+      distância/visão, ocultação dentro de prédios, separação entre personagens
+- [x] Canal de animação superior (escrever, levantar a mão, conversar, apontar a lousa,
+      bater palmas) sobreposto a sentar/andar; agachar para bolinha de gude
+- [x] Ciclo do dia: chegada → aula 1 → recreio (3,5 min) → volta → aula 2 → fim, com relógio
+- [x] 6 tipos de tarefa (conta, completar palavra, quiz, ordenar, ligar, achar e entregar
+      objeto), dificuldade por dia, mínimo de acertos para liberar o recreio (com tarefas extras)
+- [x] Sinal, faixa "RECREIO!", alunos saem correndo para atividades: futebol (chutam a bola
+      para o gol), fila da cantina, pega-pega, bolinha de gude, amarelinha, balanço,
+      rodas de conversa, bancos, passeios; diretor e inspetora patrulham
+- [x] Conversas (diálogo com efeito de digitação), falas em balão, reação a esbarrões,
+      amizades iniciais, XP/moedas/nível e resumo do fim do dia
+- [x] 85 testes automatizados (save de teste separado do save real)
 
 ## Fase 3 — Diversão
 Futebol (times, gols, placar), queimada, bolinha de gude (mira/força/colisões),
