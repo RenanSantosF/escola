@@ -20,12 +20,49 @@ const CODE_WORDS = ['BOLA', 'SOL', 'LUA', 'RIO', 'MAR', 'GATO', 'PATO', 'CASA', 
   'PIAO', 'DADO', 'LAPIS', 'LIVRO', 'ESTRELA', 'RAIO', 'VENTO', 'CHUVA', 'NEVE', 'FOGO', 'PEDRA', 'AREIA', 'ILHA'];
 
 const sha = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
+const { check: checkText } = require('./chat_filter');
+
+const RESERVED = ['admin', 'adm', 'moderador', 'moderacao', 'suporte', 'professor', 'professora', 'diretor', 'diretora',
+  'recreio', 'sistema', 'oficial', 'staff', 'equipe', 'anthropic', 'claude'];
+
+/** Chave única do nome: minúsculas, sem acento. "Léo_Gamer" -> "leo_gamer". */
+function nameKey(name) {
+  return String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+/** Valida o nome escolhido. Retorna '' se ok ou o motivo. */
+function nameProblem(name) {
+  const n = String(name || '').trim();
+  if (n.length < 3) return 'Use pelo menos 3 letras.';
+  if (n.length > 16) return 'Use no máximo 16 letras.';
+  if (!/^[A-Za-zÀ-ÿ0-9_]+$/.test(n)) return 'Use só letras, números e _ (sem espaço).';
+  if (/^[0-9_]+$/.test(n)) return 'O nome precisa ter letras.';
+  if (/\d{5,}/.test(n)) return 'Muitos números seguidos não pode (parece telefone).';
+  const key = nameKey(n);
+  if (RESERVED.some((r) => key.includes(r))) return 'Esse nome é reservado.';
+  if (!checkText(n.replace(/_/g, ' ')).ok || !checkText(n).ok) return 'Esse nome não é permitido.';
+  return '';
+}
+
+function hashPassword(pw, salt = crypto.randomBytes(12).toString('hex')) {
+  const h = crypto.scryptSync(String(pw), salt, 32).toString('hex');
+  return salt + ':' + h;
+}
+
+function checkPassword(pw, stored) {
+  if (!stored || !stored.includes(':')) return false;
+  const [salt, h] = stored.split(':');
+  const got = crypto.scryptSync(String(pw), salt, 32);
+  const want = Buffer.from(h, 'hex');
+  return want.length === got.length && crypto.timingSafeEqual(got, want);
+}
 const PROGRESS_MAX = 256 * 1024;
 
 class Accounts {
   constructor() {
     this.byToken = new Map();
     this.byRecovery = new Map(); // hash -> conta
+    this.byName = new Map(); // chave do nome -> conta
   }
 
   static randomName() {
@@ -65,7 +102,7 @@ class Accounts {
       age: Math.max(5, Math.min(18, info.age | 0 || 9)),
       level: Math.max(1, info.level | 0 || 1),
       look: info.look || {},
-      freeChat: false, // liberado só por responsável
+      freeChat: null, // null = padrão (digitação filtrada); false = só frases prontas
       registered: false,
       progress: null,
       progressAt: 0,
@@ -81,6 +118,29 @@ class Accounts {
     acc.recoveryHash = sha(Accounts.normalizeCode(code));
     this.adopt(acc);
     return { acc, code };
+  }
+
+  /** Conta com nome único digitado e senha (a forma nova de criar conta). */
+  registerWithPassword(info = {}) {
+    const acc = this._new(info);
+    acc.name = String(info.name).trim();
+    acc.nameKey = nameKey(acc.name);
+    acc.passHash = hashPassword(info.password);
+    acc.registered = true;
+    this.adopt(acc);
+    return acc;
+  }
+
+  findByName(name) {
+    return this.byName.get(nameKey(name)) || null;
+  }
+
+  /** Novo token de acesso (login em outro aparelho invalida o antigo). */
+  rotateToken(acc) {
+    this.byToken.delete(acc.token);
+    acc.token = crypto.randomBytes(18).toString('hex');
+    this.byToken.set(acc.token, acc);
+    return acc.token;
   }
 
   /** Busca pela recuperação (memória). */
@@ -104,6 +164,7 @@ class Accounts {
   adopt(acc) {
     this.byToken.set(acc.token, acc);
     if (acc.recoveryHash) this.byRecovery.set(acc.recoveryHash, acc);
+    if (acc.nameKey) this.byName.set(acc.nameKey, acc);
     return acc;
   }
 
@@ -115,6 +176,7 @@ class Accounts {
   remove(acc) {
     this.byToken.delete(acc.token);
     if (acc.recoveryHash) this.byRecovery.delete(acc.recoveryHash);
+    if (acc.nameKey) this.byName.delete(acc.nameKey);
   }
 
   /** Guarda o progresso; o mais novo vence. Retorna false se inválido/antigo. */
@@ -131,9 +193,15 @@ class Accounts {
     return true;
   }
 
+  /**
+   * Chat digitado: liberado para todos, SEMPRE com filtro (palavrões e dados
+   * pessoais), limite de mensagens, denúncia e bloqueio. Um responsável pode
+   * restringir a conta às frases prontas (freeChat === false explícito via
+   * moderação/painel dos pais).
+   */
   canFreeChat(acc) {
-    return acc.age >= 13 || acc.freeChat === true;
+    return acc.freeChat !== false || acc.age >= 13;
   }
 }
 
-module.exports = { Accounts, sha, PROGRESS_MAX };
+module.exports = { Accounts, sha, PROGRESS_MAX, nameKey, nameProblem, hashPassword, checkPassword };

@@ -78,6 +78,8 @@ test('contas: token volta à mesma conta, chat livre só 13+', () => {
   const acc = a.getOrCreate('', { age: 8, level: 3 });
   assert.equal(a.getOrCreate(acc.token, { level: 5 }).id, acc.id);
   assert.equal(acc.level, 5);
+  assert.equal(a.canFreeChat(acc), true);
+  acc.freeChat = false; // responsável restringiu às frases prontas
   assert.equal(a.canFreeChat(acc), false);
   assert.equal(a.canFreeChat(a.getOrCreate('', { age: 14 })), true);
 });
@@ -149,10 +151,13 @@ test('servidor: hello, estados, frases rápidas e chat bloqueado para menores', 
   a.ws.send(JSON.stringify({ t: 'state', pos: [1, 0, 2], yaw: 1, anim: 'run' }));
   a.ws.send(JSON.stringify({ t: 'quick', i: 0 }));
   a.ws.send(JSON.stringify({ t: 'chat', text: 'oi' }));
+  a.ws.send(JSON.stringify({ t: 'chat', text: 'seu idiota' }));
   await wait(250);
   assert.ok(b.inbox.some((m) => m.t === 'states' && m.list.some((s) => s.id === wa.id)));
   assert.ok(b.inbox.some((m) => m.t === 'chat' && m.text === 'Oi! Tudo bem?'));
-  assert.ok(!b.inbox.some((m) => m.t === 'chat' && m.text === 'oi'));
+  // chat digitado liberado, mas sempre filtrado
+  assert.ok(b.inbox.some((m) => m.t === 'chat' && m.text === 'oi'));
+  assert.ok(!b.inbox.some((m) => m.t === 'chat' && /idiota/.test(m.text)));
   assert.ok(a.inbox.some((m) => m.t === 'notice'));
   // bloqueio: b bloqueia a e não recebe mais mensagens
   b.ws.send(JSON.stringify({ t: 'block', target: wa.id }));
@@ -268,5 +273,35 @@ test('contas: limite de tentativas de recuperação', async () => {
     last = (await fetch(base + '/api/account/recover', { method: 'POST', body: JSON.stringify({ code: 'X-' + i }) })).status;
   }
   assert.equal(last, 429);
+  srv.close();
+});
+
+
+test('contas: nome único digitado com checagem ao vivo, senha e login', async () => {
+  const srv = createServer({ adminToken: 'x', dataDir: '' });
+  await new Promise((r) => srv.server.listen(0, r));
+  const base = 'http://127.0.0.1:' + srv.server.address().port;
+  const chk = async (n) => (await fetch(base + '/api/account/check?name=' + encodeURIComponent(n))).json();
+  const post = async (u, b) => { const r = await fetch(base + u, { method: 'POST', body: JSON.stringify(b) }); return { status: r.status, body: await r.json() }; };
+  assert.equal((await chk('Leo_Gamer')).available, true);
+  assert.equal((await chk('ab')).available, false);
+  assert.equal((await chk('nome com espaço')).available, false);
+  assert.equal((await chk('idiota123')).available, false);
+  assert.equal((await chk('maria11987654321')).available, false); // parece telefone
+  assert.equal((await chk('admin_legal')).available, false);
+  let r = await post('/api/account/signup', { name: 'Leo_Gamer', password: '123', age: 9 });
+  assert.equal(r.status, 400);
+  r = await post('/api/account/signup', { name: 'Leo_Gamer', password: 'bola1234', age: 9 });
+  assert.ok(r.body.ok && r.body.token);
+  // mesmo nome com outra caixa/acento já está em uso
+  assert.equal((await chk('leo_gamer')).available, false);
+  assert.equal((await chk('Léo_Gamer')).available, false);
+  assert.equal((await post('/api/account/signup', { name: 'LEO_GAMER', password: 'outra123', age: 9 })).status, 409);
+  // login: senha errada não entra, certa entra e troca o token
+  assert.equal((await post('/api/account/login', { name: 'leo_gamer', password: 'errada' })).status, 401);
+  const ok = await post('/api/account/login', { name: 'leo_gamer', password: 'bola1234' });
+  assert.ok(ok.body.ok);
+  assert.notEqual(ok.body.token, r.body.token);
+  assert.equal(ok.body.account.name, 'Leo_Gamer');
   srv.close();
 });

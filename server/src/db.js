@@ -31,6 +31,10 @@ alter table accounts add column if not exists recovery_hash text;
 alter table accounts add column if not exists progress jsonb;
 alter table accounts add column if not exists progress_at bigint not null default 0;
 create unique index if not exists accounts_recovery_idx on accounts (recovery_hash);
+alter table accounts add column if not exists username_key text;
+alter table accounts add column if not exists pass_hash text;
+alter table accounts add column if not exists chat_restricted boolean not null default false;
+create unique index if not exists accounts_username_idx on accounts (username_key);
 create table if not exists events (
   id bigserial primary key,
   at timestamptz not null,
@@ -90,7 +94,8 @@ class Database {
   // ---------------------------------------------------------- contas
   _row(a, token) {
     return {
-      token, id: a.id, name: a.name, age: a.age, level: a.level, look: a.look || {}, freeChat: a.free_chat,
+      token, id: a.id, name: a.name, age: a.age, level: a.level, look: a.look || {}, freeChat: a.chat_restricted ? false : null,
+      nameKey: a.username_key || undefined, passHash: a.pass_hash || undefined,
       registered: a.registered, recoveryHash: a.recovery_hash || undefined, progress: a.progress || null,
       progressAt: Number(a.progress_at) || 0, createdAt: a.created_at,
     };
@@ -113,13 +118,32 @@ class Database {
   async saveAccount(acc) {
     if (!this.ready) return;
     await this.pool.query(
-      `insert into accounts (id, token_hash, name, age, level, look, free_chat, registered, recovery_hash, last_seen)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9, now())
+      `insert into accounts (id, token_hash, name, age, level, look, chat_restricted, registered, recovery_hash,
+         username_key, pass_hash, last_seen)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, now())
        on conflict (id) do update set token_hash = excluded.token_hash, age = excluded.age, level = excluded.level,
-         look = excluded.look, free_chat = excluded.free_chat, registered = excluded.registered,
-         recovery_hash = coalesce(excluded.recovery_hash, accounts.recovery_hash), last_seen = now()`,
-      [acc.id, hashToken(acc.token), acc.name, acc.age, acc.level, JSON.stringify(acc.look || {}), !!acc.freeChat,
-        !!acc.registered, acc.recoveryHash || null]);
+         look = excluded.look, chat_restricted = excluded.chat_restricted, registered = excluded.registered,
+         recovery_hash = coalesce(excluded.recovery_hash, accounts.recovery_hash),
+         username_key = coalesce(excluded.username_key, accounts.username_key),
+         pass_hash = coalesce(excluded.pass_hash, accounts.pass_hash), last_seen = now()`,
+      [acc.id, hashToken(acc.token), acc.name, acc.age, acc.level, JSON.stringify(acc.look || {}), acc.freeChat === false,
+        !!acc.registered, acc.recoveryHash || null, acc.nameKey || null, acc.passHash || null]);
+  }
+
+  /** Nome já usado? (checagem ao vivo e cadastro) */
+  async nameTaken(key) {
+    if (!this.ready) return false;
+    const r = await this.pool.query('select 1 from accounts where username_key = $1', [key]);
+    return r.rows.length > 0;
+  }
+
+  /** Login: carrega a conta pelo nome e troca o token (o aparelho antigo sai). */
+  async findByName(key, newToken) {
+    if (!this.ready) return null;
+    const r = await this.pool.query('select * from accounts where username_key = $1', [key]);
+    if (!r.rows.length) return null;
+    const acc = this._row(r.rows[0], newToken);
+    return acc;
   }
 
   async saveProgress(acc) {
@@ -138,7 +162,7 @@ class Database {
 
   async setFreeChat(id, allow) {
     if (!this.ready) return false;
-    const r = await this.pool.query('update accounts set free_chat = $2 where id = $1', [id, !!allow]);
+    const r = await this.pool.query('update accounts set chat_restricted = $2 where id = $1', [id, !allow]);
     return r.rowCount > 0;
   }
 

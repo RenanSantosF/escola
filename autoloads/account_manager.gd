@@ -74,6 +74,44 @@ func _request(method: int, path: String, body: Variant = null, auth := false) ->
 	return out
 
 
+## Nome disponível? Retorna {available: bool, reason: String} (ou erro de conexão).
+func check_name(nick: String) -> Dictionary:
+	var r := await _request(HTTPClient.METHOD_GET, "/api/account/check?name=" + nick.uri_encode())
+	if not r.get("ok", false):
+		return {"available": false, "reason": str(r.get("error", "Sem conexão."))}
+	return {"available": bool(r.get("available", false)), "reason": str(r.get("reason", ""))}
+
+
+## Cria conta com nome único + senha.
+func signup(nick: String, password: String, age: int) -> Dictionary:
+	var r := await _request(HTTPClient.METHOD_POST, "/api/account/signup", {"name": nick, "password": password, "age": age})
+	if r.get("ok", false):
+		_store(r)
+		SaveManager.save_game()
+		upload_progress()
+	return r
+
+
+## Entra com nome + senha (em qualquer celular). Aplica o progresso da nuvem.
+func login(nick: String, password: String) -> Dictionary:
+	var r := await _request(HTTPClient.METHOD_POST, "/api/account/login", {"name": nick, "password": password})
+	if not r.get("ok", false):
+		if int(r.get("status", 0)) == 401 and not r.has("error"):
+			r["error"] = "Nome ou senha errados."
+		return r
+	_store(r)
+	var acc: Dictionary = r.get("account", {})
+	var prog: Variant = acc.get("progress")
+	r["imported"] = false
+	if prog is Dictionary and not (prog as Dictionary).is_empty() and int(acc.get("progressAt", 0)) > SaveManager.saved_at():
+		SaveManager.import_progress(prog, int(acc.get("progressAt", 0)))
+		r["imported"] = true
+	else:
+		SaveManager.save_game()
+		upload_progress()
+	return r
+
+
 func fetch_names() -> Array:
 	var r := await _request(HTTPClient.METHOD_GET, "/api/account/names")
 	return r.get("names", [])

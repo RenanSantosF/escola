@@ -26,7 +26,7 @@ const { WebSocketServer } = require('ws');
 const { check, QUICK_PHRASES } = require('./chat_filter');
 const { Safety } = require('./safety');
 const { RoomManager } = require('./rooms');
-const { Accounts, sha } = require('./accounts');
+const { Accounts, sha, nameKey, nameProblem, checkPassword } = require('./accounts');
 const { Analytics } = require('./analytics');
 const { TagGame } = require('./tag_game');
 const { Database } = require('./db');
@@ -139,6 +139,52 @@ function createServer(opts = {}) {
       return json(200, { ok: true, accepted: n });
     }
     // ---------------------------------------------------------- contas
+    // nome escolhido pela criança: checagem ao vivo
+    if (url === '/api/account/check' && req.method === 'GET') {
+      const name = new URL(req.url, 'http://x').searchParams.get('name') || '';
+      const why = nameProblem(name);
+      if (why) return json(200, { ok: true, available: false, reason: why });
+      const key = nameKey(name);
+      const taken = accounts.byName.has(key) || await db.nameTaken(key).catch(() => false);
+      return json(200, { ok: true, available: !taken, reason: taken ? 'Esse nome já tem dono. Tente outro!' : '' });
+    }
+    if (url === '/api/account/signup' && req.method === 'POST') {
+      if (limited(req, 'reg', 20, 3600000)) return json(429, { ok: false, error: 'Muitas contas criadas. Tente mais tarde.' });
+      const b = await readJson(req);
+      const why = nameProblem(b.name);
+      if (why) return json(400, { ok: false, error: why });
+      const pw = String(b.password || '');
+      if (pw.length < 6 || pw.length > 40) return json(400, { ok: false, error: 'A senha precisa ter de 6 a 40 caracteres.' });
+      const key = nameKey(b.name);
+      if (accounts.byName.has(key) || await db.nameTaken(key).catch(() => false)) {
+        return json(409, { ok: false, error: 'Esse nome já tem dono. Tente outro!' });
+      }
+      const acc = accounts.registerWithPassword({ name: b.name, password: pw, age: b.age });
+      try {
+        await db.saveAccount(acc);
+      } catch (e) {
+        accounts.remove(acc);
+        return json(409, { ok: false, error: 'Esse nome já tem dono. Tente outro!' });
+      }
+      return json(200, { ok: true, token: acc.token, account: publicAccount(acc) });
+    }
+    if (url === '/api/account/login' && req.method === 'POST') {
+      if (limited(req, 'login', 10, 600000)) return json(429, { ok: false, error: 'Muitas tentativas. Espere 10 minutos.' });
+      const b = await readJson(req);
+      const key = nameKey(b.name);
+      let acc = accounts.byName.get(key) || null;
+      if (!acc && db.ready) {
+        const tmp = require('crypto').randomBytes(18).toString('hex');
+        const found = await db.findByName(key, tmp).catch(() => null);
+        if (found) acc = accounts.adopt(found);
+      }
+      if (!acc || !checkPassword(String(b.password || ''), acc.passHash)) {
+        return json(401, { ok: false, error: 'Nome ou senha errados.' });
+      }
+      accounts.rotateToken(acc);
+      dbSafe(db.saveAccount(acc));
+      return json(200, { ok: true, token: acc.token, account: publicAccount(acc, true) });
+    }
     if (url === '/api/account/names' && req.method === 'GET') {
       return json(200, { names: Accounts.nameOptions(6) });
     }
@@ -216,7 +262,7 @@ function createServer(opts = {}) {
       if (!isAdmin(req)) return json(403, { ok: false });
       const b = await readJson(req);
       const acc = accounts.findById(String(b.id || ''));
-      if (acc) acc.freeChat = !!b.allow;
+      if (acc) acc.freeChat = b.allow ? null : false;
       const inDb = await db.setFreeChat(String(b.id || ''), b.allow).catch(() => false);
       return (acc || inDb) ? json(200, { ok: true }) : json(404, { ok: false });
     }

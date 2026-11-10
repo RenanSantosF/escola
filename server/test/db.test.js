@@ -94,3 +94,23 @@ test('banco: conta registrada e progresso voltam depois do deploy; recuperação
   srv.close();
   await srv.db.close();
 });
+
+
+test('banco: nome+senha sobrevivem ao deploy e o nome continua único', { skip }, async () => {
+  let srv = await start();
+  let base = 'http://127.0.0.1:' + srv.server.address().port;
+  const nm = 'Tester_' + Math.floor(Math.random() * 9000 + 1000);
+  const r = await (await fetch(base + '/api/account/signup', { method: 'POST', body: JSON.stringify({ name: nm, password: 'senha123', age: 10 }) })).json();
+  assert.ok(r.ok);
+  await wait(200);
+  srv.close();
+  await srv.db.close();
+  srv = await start();
+  base = 'http://127.0.0.1:' + srv.server.address().port;
+  const c = await (await fetch(base + '/api/account/check?name=' + nm.toLowerCase())).json();
+  assert.equal(c.available, false);
+  const l = await fetch(base + '/api/account/login', { method: 'POST', body: JSON.stringify({ name: nm, password: 'senha123' }) });
+  assert.equal(l.status, 200);
+  srv.close();
+  await srv.db.close();
+});
