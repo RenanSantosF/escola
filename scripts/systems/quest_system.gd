@@ -29,7 +29,9 @@ const QUESTS := {
 			{"t": "spot", "spots": [Vector3(-10, 0.45, -64), Vector3(-4.8, 0.45, -66), Vector3(0.4, 0.45, -68)], "prompt": "Plantar muda", "anim": "pickup", "time": 1.2, "text": "Plante 3 mudas nos canteiros da horta", "fx": "plant"},
 			{"t": "spot", "spots": [Vector3(6, 0.05, -68.6)], "prompt": "Pegar o regador", "anim": "interact", "time": 0.8, "text": "Pegue o regador na casinha de ferramentas"},
 			{"t": "spot", "spots": [Vector3(-10, 0.45, -64), Vector3(-4.8, 0.45, -66), Vector3(0.4, 0.45, -68)], "prompt": "Regar", "anim": "interact", "time": 1.0, "text": "Regue as 3 mudas", "fx": "water"},
-			{"t": "quiz", "subject": "Ciências", "text": "Responda a pergunta do Seu Zé"}]},
+			{"t": "activity", "kind": "order", "text": "Monte o ciclo da planta", "data": {"title": "Ciclo de vida da planta", "hint": "O Seu Zé quer saber: em que ordem a planta cresce?",
+				"items": ["Semente", "Broto", "Planta com folhas", "Flor", "Fruto (com novas sementes)"],
+				"success": "Isso! E as sementes do fruto começam tudo de novo. É um ciclo!"}}]},
 	"horta_colher": {"giver": "jardineiro", "title": "Horta: dia de colheita", "xp": 40, "coins": 30, "needs": "garden_ready",
 		"intro": ["Olha só! As verduras que você plantou cresceram.", "Vamos colher e levar para a Tia Rosa?"],
 		"steps": [
@@ -40,11 +42,11 @@ const QUESTS := {
 		"steps": [
 			{"t": "spot", "spots": ["tree_spot"], "prompt": "Plantar a árvore", "anim": "pickup", "time": 1.6, "text": "Plante a muda de árvore no lugar marcado", "fx": "tree"},
 			{"t": "quiz", "subject": "Ciências", "text": "Por que as árvores são importantes? Responda"}]},
-	"quimica_cores": {"giver": "teacher", "title": "Química: mistura de cores", "xp": 35, "coins": 20, "min_level": 1,
-		"intro": ["No laboratório tem uns frascos coloridos.", "Descubra como fazer a cor ROXA!"],
+	"quimica_cores": {"giver": "teacher", "title": "Laboratório: mistura de cores", "xp": 40, "coins": 22, "min_level": 1,
+		"intro": ["No laboratório tem tintas vermelha, amarela e azul.", "Descubra quais misturas fazem laranja, roxo e verde!"],
 		"steps": [
 			{"t": "goto", "pos": LAB, "r": 2.5, "text": "Vá ao Laboratório de Ciências (Bloco B)"},
-			{"t": "choice", "question": "Quais frascos você mistura para fazer ROXO?", "options": ["Azul + vermelho", "Amarelo + azul", "Verde + amarelo"], "answer": 0, "success": "Ficou roxinho! Química é mágica... mas é ciência!", "fx": "sparkle"}]},
+			{"t": "activity", "kind": "mix", "text": "Misture as tintas e descubra as cores"}]},
 	"quimica_vulcao": {"giver": "teacher", "title": "Química: vulcão de espuma", "xp": 45, "coins": 25, "min_level": 3,
 		"intro": ["Que tal fazer um vulcão que solta espuma?", "Use os ingredientes do laboratório."],
 		"steps": [
@@ -66,12 +68,12 @@ const QUESTS := {
 		"steps": [
 			{"t": "collect", "item": "livro", "count": 3, "area": Rect2(-40, -20, 70, 40), "text": "Recolha 3 livros esquecidos no pátio"},
 			{"t": "talk", "to": "bibliotecaria", "text": "Devolva os livros na biblioteca"}]},
-	"reciclagem": {"giver": "inspector", "title": "Reciclagem", "xp": 30, "coins": 18,
-		"intro": ["Tem papel jogado no chão do pátio.", "Recolha e jogue nas lixeiras de reciclagem, por favor!"],
+	"reciclagem": {"giver": "inspector", "title": "Coleta seletiva", "xp": 40, "coins": 22,
+		"intro": ["Tem lixo espalhado pelo pátio!", "Recolhe tudo e separa nas lixeiras coloridas? Cada cor é um material."],
 		"steps": [
-			{"t": "collect", "item": "paper_ball", "count": 4, "area": Rect2(-30, -22, 60, 30), "text": "Recolha 4 papéis jogados no pátio"},
-			{"t": "spot", "spots": [BINS], "prompt": "Jogar no lixo de papel", "anim": "throw", "time": 0.6, "text": "Leve o papel até as lixeiras coloridas"},
-			{"t": "choice", "question": "Em qual lixeira vai o papel?", "options": ["Azul", "Vermelha", "Verde", "Amarela"], "answer": 0, "success": "Isso! Papel na azul, plástico na vermelha, vidro na verde e metal na amarela."}]},
+			{"t": "collect", "item": "paper_ball", "count": 5, "area": Rect2(-30, -22, 60, 30), "text": "Recolha 5 lixos jogados no pátio", "label": "Recolher lixo"},
+			{"t": "spot", "spots": [BINS], "prompt": "Separar o lixo", "anim": "interact", "time": 0.4, "text": "Leve o lixo até as lixeiras coloridas"},
+			{"t": "activity", "kind": "sort", "text": "Separe cada resíduo na lixeira certa"}]},
 	"cantina_pratos": {"giver": "cook", "title": "Ajudando a Tia Rosa", "xp": 30, "coins": 20,
 		"intro": ["Querido, ficaram pratos nas mesas do refeitório.", "Traz pra mim? Ganha um suco!"],
 		"steps": [
@@ -84,16 +86,19 @@ const QUESTS := {
 			{"t": "goto", "pos": Vector3(-87.5, 0.05, -20), "r": 3.0, "text": "Pista 2: agora vá para o OESTE, no mural 'Recreio é alegria'"},
 			{"t": "goto", "pos": Vector3(87.5, 0.05, -50), "r": 3.0, "text": "Pista 3: atravesse até o LESTE, no mural do esporte"},
 			{"t": "choice", "question": "Se o sol nasce no leste, onde ele se põe?", "options": ["Oeste", "Norte", "Sul"], "answer": 0, "success": "Achou o tesouro: uma figurinha!", "fx": "sticker"}]},
-	"historia_linha": {"giver": "teacher", "title": "Linha do tempo", "xp": 35, "coins": 20, "min_level": 4,
-		"intro": ["Montei uma linha do tempo no quadro de avisos do hall.", "Vai lá e me diga qual veio primeiro."],
+	"historia_linha": {"giver": "teacher", "title": "Linha do tempo do Brasil", "xp": 40, "coins": 22, "min_level": 3,
+		"intro": ["Montei uma linha do tempo no quadro de avisos do hall.", "Mas os cartões caíram! Coloca na ordem pra mim?"],
 		"steps": [
 			{"t": "goto", "pos": HALL_BOARD, "r": 2.5, "text": "Vá ao quadro de avisos do hall de entrada"},
-			{"t": "choice", "question": "O que aconteceu PRIMEIRO no Brasil?", "options": ["Chegada dos portugueses (1500)", "Independência (1822)", "República (1889)"], "answer": 0, "success": "Muito bem, historiador!"}]},
-	"musica_ensaio": {"giver": "julia", "title": "Ensaio de música", "xp": 30, "coins": 18,
-		"intro": ["Vai ter apresentação na festa junina!", "Me ajuda a afinar o piano da sala de música?"],
+			{"t": "activity", "kind": "order", "text": "Coloque os fatos em ordem", "data": {"title": "Linha do tempo do Brasil", "hint": "Toque do MAIS ANTIGO para o mais recente.",
+				"items": ["Povos indígenas vivem aqui há milhares de anos", "Chegada dos portugueses (1500)", "Independência (1822)", "Fim da escravidão (1888)", "República (1889)"],
+				"success": "Linha do tempo completa! A história do Brasil começa muito antes de 1500, com os povos indígenas."}}]},
+	"musica_ensaio": {"giver": "julia", "title": "Ensaio de piano", "xp": 40, "coins": 22,
+		"intro": ["Vai ter apresentação na festa junina!", "Me ajuda a ensaiar uma música no piano da sala de música?"],
 		"steps": [
-			{"t": "spot", "spots": [MUSIC], "prompt": "Tocar o piano", "anim": "interact", "time": 1.5, "text": "Vá à Sala de Música (Bloco B) e toque o piano"},
-			{"t": "quiz", "subject": "Música", "text": "Responda a pergunta de música"}]},
+			{"t": "spot", "spots": [MUSIC], "prompt": "Sentar ao piano", "anim": "interact", "time": 0.5, "text": "Vá à Sala de Música (Bloco B) e sente ao piano"},
+			{"t": "activity", "kind": "piano", "text": "Ouça e toque a música, trecho por trecho"},
+			{"t": "choice", "question": "No piano, as notas da DIREITA são...", "options": ["Mais agudas (finas)", "Mais graves (grossas)", "Iguais às da esquerda"], "answer": 0, "success": "Isso! Para a direita o som fica mais agudo. Você arrasou no ensaio!", "fx": "confetti"}]},
 	"ingles_etiquetas": {"giver": "pedro", "title": "Etiquetas em inglês", "xp": 30, "coins": 18,
 		"intro": ["Quero colar etiquetas em inglês pela escola.", "Mas eu não sei as palavras... Me ajuda?"],
 		"steps": [
@@ -361,6 +366,8 @@ func _begin_step() -> void:
 			_ask_quiz(st.subject)
 		"choice":
 			_ask_choice(st)
+		"activity":
+			_open_activity(st)
 	_refresh_markers()
 
 
@@ -469,6 +476,23 @@ func _ask_choice(st: Dictionary) -> void:
 		else:
 			GameManager.show_toast("Hmm, não foi isso. Tente de novo!")
 			get_tree().create_timer(1.0).timeout.connect(func(): _ask_choice(st)), CONNECT_ONE_SHOT)
+
+
+## Atividade jogável (piano, coleta seletiva, cores). Bônus de moedas pelo desempenho.
+func _open_activity(st: Dictionary) -> void:
+	player.input_enabled = false
+	hud.controls.visible = false
+	var a := QuestActivity.open(hud, str(st.kind), st.get("data", {}))
+	a.finished.connect(func(score: float):
+		player.input_enabled = true
+		hud.controls.visible = true
+		var bonus := int(round(score * 10.0))
+		if bonus > 0:
+			GameManager.add_rewards(0, bonus)
+			GameManager.show_toast("Bônus de capricho: +%d moedas" % bonus)
+		Learning.record(score >= 0.6)
+		if active_id != "":
+			_advance())
 
 
 func _apply_fx(fx: String, pos: Vector3) -> void:

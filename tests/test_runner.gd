@@ -27,6 +27,12 @@ func _ready() -> void:
 	await _frames(5)
 	player = GameManager.player
 	cam = main.camera_rig
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--only="):
+			for fn in arg.substr(7).split(","):
+				await call(fn)
+			_finish()
+			return
 	await _test_spawn_on_floor()
 	await _test_walk()
 	await _test_run()
@@ -66,6 +72,7 @@ func _ready() -> void:
 	await _test_revisao5()
 	await _test_parque()
 	await _test_novas_brincadeiras()
+	await _test_atividades()
 	_finish()
 
 
@@ -1468,3 +1475,79 @@ func _test_revisao1() -> void:
 		top = maxf(top, v.y)
 	check(p.size() > 2 and top > 3.0, "Bloco C: rota de navegação sobe a escada", "pts=%d top=%.1f" % [p.size(), top])
 	_place(Vector3(0, 0.05, 66), 0)
+
+
+func _test_atividades() -> void:
+	var scores := []
+	var sc := func(x): scores.append(x)
+	# piano: ouvir e repetir todos os trechos
+	var a := QuestActivity.open(main.hud, "piano")
+	a.finished.connect(sc)
+	await _frames(2)
+	var parts: Array = a._song.parts
+	var wrong_tip := ""
+	for pi in parts.size():
+		for i in 120:
+			if not a._listening:
+				break
+			await _wait(0.1)
+		if pi == 0:
+			a._press_key((int(parts[0][0]) + 3) % 8)
+			wrong_tip = a._info.text
+		for nn in parts[pi]:
+			a._press_key(int(nn))
+		await _wait(1.0)
+	await _wait(2.2)
+	check(scores.size() == 1 and scores[0] > 0.5, "piano: toca a música inteira trecho por trecho", str(scores))
+	check("A certa é" in wrong_tip, "piano: erro ensina a nota certa (grave/agudo)")
+	# coleta seletiva: cada resíduo na lixeira certa
+	a = QuestActivity.open(main.hud, "sort")
+	a.finished.connect(sc)
+	await _frames(2)
+	var kinds := {}
+	for w in a._queue + [a._cur]:
+		kinds[w[1]] = true
+	check(kinds.size() == 5, "reciclagem: aparecem os 5 tipos de lixo")
+	a._drop("vidro" if a._cur[1] != "vidro" else "papel")
+	check("Dica" in a._info.text, "reciclagem: erro explica a lixeira certa")
+	for i in 20:
+		if not is_instance_valid(a) or scores.size() >= 2:
+			break
+		if a._cur.is_empty():
+			await _wait(0.4)
+			continue
+		a._drop(a._cur[1])
+		await _wait(0.4)
+		if scores.size() >= 2:
+			break
+	await _wait(2.5)
+	check(scores.size() == 2, "reciclagem: separa tudo e termina")
+	# cores: descobrir as 3 secundárias
+	a = QuestActivity.open(main.hud, "mix")
+	a.finished.connect(sc)
+	await _frames(2)
+	for i in 3:
+		var parts2: PackedStringArray = str(a._goals[0]).split("+")
+		a._add_paint(parts2[0])
+		a._add_paint(parts2[1])
+		await _wait(1.5)
+	await _wait(2.8)
+	check(scores.size() == 3, "laboratório: descobre laranja, roxo e verde")
+	# ordenar: linha do tempo
+	var st: Dictionary = QuestSystem.QUESTS.historia_linha.steps[1]
+	a = QuestActivity.open(main.hud, "order", st.data)
+	a.finished.connect(sc)
+	await _frames(2)
+	for txt in st.data.items:
+		for b in a.find_children("*", "Button", true, false):
+			if (b as Button).text == txt:
+				a._pick_card(txt, b)
+	await _wait(2.5)
+	check(scores.size() == 4, "linha do tempo: ordena e termina")
+	# missões usam as atividades
+	var kinds_used := {}
+	for q in QuestSystem.QUESTS.values():
+		for stp in q.steps:
+			if stp.t == "activity":
+				kinds_used[stp.kind] = true
+	check(kinds_used.size() >= 4, "missões: atividades jogáveis (%s)" % ", ".join(kinds_used.keys()))
