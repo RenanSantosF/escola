@@ -152,6 +152,9 @@ func build(progress: Callable) -> void:
 			lb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			lb.width = l.width
 		var parent_node: Node3D = _chunk_nodes.get(l.get("parent", ""), _labels_root)
+		# a posição do rótulo já é a do mundo; o chunk de um andar de cima já está deslocado
+		if parent_node != _labels_root:
+			lb.position.y -= parent_node.position.y
 		parent_node.add_child(lb)
 		_labels.append([lb, float(l.vis)])
 
@@ -164,6 +167,9 @@ func build(progress: Callable) -> void:
 	_apply_quality()
 	_limit_labels(self)
 	_set_interiors_visible("A", false)
+	_set_interiors_visible("A2", false)
+	_set_interiors_visible("C1", false)
+	_set_interiors_visible("C2", false)
 	_set_interiors_visible("B", false)
 	_set_interiors_visible("C", false)
 	print("Escola construída em %d ms (%d chunks, %d árvores, %d assentos)" % [Time.get_ticks_msec() - t0, builder.chunks.size(), builder.trees.size(), Props.seats.size()])

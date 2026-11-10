@@ -31,6 +31,7 @@ var heightfields: Array = []  # relevo com colisão {center, w, d, data}
 var slides: Array = []  # escorregadores {start, points}
 var lakes: Array = []  # lagos {center, radius}
 var chunk_offsets := {}  # chunk -> altura (prédios de vários andares)
+var floor_tag := ""  # sufixo de chunks compartilhados (placas) no andar sendo construído
 var spawn := Vector3(0, 0.05, 70)
 var spawn_yaw := PI
 var rng := RandomNumberGenerator.new()
@@ -132,7 +133,21 @@ func build_building_at(def: Dictionary, base_y: float) -> void:
 	var nb := nav_points.size()
 	var lk := nav_links.size()
 	var fb := Props.fountains.size()
+	var pb := pickups.size()
+	var cls_before := classrooms.keys()
+	floor_tag = "" if base_y < 0.5 else "_f%d" % int(round(base_y * 100.0))
 	build_building(def)
+	floor_tag = ""
+	for k in classrooms.keys():
+		if k in cls_before:
+			continue
+		var info: Dictionary = classrooms[k]
+		for key in ["door_in", "door_out", "board", "teacher", "teacher_desk"]:
+			if info.has(key):
+				info[key] += Vector3(0, base_y, 0)
+		var spots: Array = info.get("item_spots", [])
+		for i in spots.size():
+			spots[i] += Vector3(0, base_y, 0)
 	for k in chunks.keys():
 		if not k in chunk_before:
 			chunk_offsets[k] = base_y
@@ -148,6 +163,8 @@ func build_building_at(def: Dictionary, base_y: float) -> void:
 		nav_points[i] += Vector3(0, base_y, 0)
 	for i in range(lk, nav_links.size()):
 		nav_links[i] = [nav_links[i][0] + Vector3(0, base_y, 0), nav_links[i][1] + Vector3(0, base_y, 0)]
+	for i in range(pb, pickups.size()):
+		pickups[i].pos += Vector3(0, base_y, 0)
 	for i in range(fb, Props.fountains.size()):
 		Props.fountains[i].pos += Vector3(0, base_y, 0)
 		Props.fountains[i].spout += Vector3(0, base_y, 0)
@@ -646,50 +663,183 @@ func _outside() -> void:
 # Bloco A — prédio principal
 # =====================================================================
 
+const A_FLOOR2 := 3.85
+## Vão da escadaria central do hall (térreo -> 1º andar).
+const A_STAIR := Rect2(-2.0, 38.4, 4.0, 6.6)
+
+
 func _building_a() -> void:
-	var cls_inner := [Color("6fae7f"), Color("eef3f7"), 1.1]
 	var cor_inner := [Color("3d78c2"), Color("eef3f7"), 1.1]
-	var rooms: Array = []
-	var names_back := ["Sala 1", "Sala 2", "Sala 3", "Sala 4", "Sala 5"]
-	var names_back_e := ["Sala 6", "Sala 7", "Sala 8", "Sala 9", "Sala 10"]
 	var cls_colors := [Color("6fae7f"), Color("e9a35b"), Color("5d9bd5"), Color("d77a8f"), Color("9f86c9"),
 		Color("5fb3a3"), Color("e5c15a"), Color("7fa6d9"), Color("e08a6a"), Color("8cc06b")]
-	for i in 5:
-		var x0 := -60.0 + i * 10.0
-		rooms.append({"name": names_back[i], "rect": R(x0, 24, x0 + 10, 34), "kind": "classroom",
-			"doors": [["s", x0 + 8.4, 1.1]], "auto_windows": ["n"], "inner": [cls_colors[i], Color("eef3f7"), 1.1], "grade": i})
-		var x1 := 10.0 + i * 10.0
-		rooms.append({"name": names_back_e[i], "rect": R(x1, 24, x1 + 10, 34), "kind": "classroom",
-			"doors": [["s", x1 + 8.4, 1.1]], "auto_windows": ["n"], "inner": [cls_colors[i + 5], Color("eef3f7"), 1.1], "grade": i + 5})
-	rooms.append({"name": "Biblioteca", "rect": R(-60, 38, -40, 48), "kind": "library", "floor": "wood", "floor_col": Color("d9a066"),
+	var floor_cols := [Color("dfe5ec"), Color("e8dccb"), Color("d6e4ea"), Color("eadbe0"), Color("e2dcec"),
+		Color("d5e7e1"), Color("ece4c8"), Color("d9e2f0"), Color("ecd9cf"), Color("dfe9d2")]
+	# ------------------------------------------------ TÉRREO: secretaria, diretoria,
+	# biblioteca, cantinho das crianças e outras salas (sem salas de aula)
+	var g: Array = []
+	g.append({"name": "Enfermaria", "rect": R(-60, 24, -48, 34), "kind": "nurse", "floor_col": Color("e6f2f4"),
+		"doors": [["s", -50.5, 1.2]], "auto_windows": ["n"], "inner": [Color("7fc8c4"), Color("f4fbfb"), 1.1], "inner_mat": "tile"})
+	g.append({"name": "Refeitório", "rect": R(-48, 24, -30, 34), "kind": "refectory", "floor_col": Color("eadfca"),
+		"doors": [["s", -39.0, 1.8]], "auto_windows": ["n"], "inner": [Color("e67e22"), Color("fff6e8"), 1.2], "inner_mat": "tile"})
+	g.append({"name": "Auditório", "rect": R(-30, 24, -10, 34), "kind": "auditorium", "floor": "wood", "floor_col": Color("b98552"),
+		"doors": [["s", -14.0, 1.8]], "auto_windows": ["n"], "inner": [Color("7a2e3a"), Color("f3e9e4"), 1.2]})
+	g.append({"name": "Brinquedoteca", "rect": R(10, 24, 30, 34), "kind": "toys", "floor_col": Color("cfe8f7"),
+		"doors": [["s", 22.0, 1.6]], "auto_windows": ["n"], "inner": [Color("ff7eb6"), Color("fff7d6"), 1.1]})
+	g.append({"name": "Sala de Jogos", "rect": R(30, 24, 45, 34), "kind": "games", "floor_col": Color("d9e8d2"),
+		"doors": [["s", 37.5, 1.4]], "auto_windows": ["n"], "inner": [Color("2e8b57"), Color("eef7ea"), 1.1]})
+	g.append({"name": "Sala de Leitura", "rect": R(45, 24, 60, 34), "kind": "library", "floor": "wood", "floor_col": Color("d6a56e"),
+		"doors": [["s", 47.5, 1.4]], "auto_windows": ["n"], "inner": [Color("a0522d"), Color("fbf3e6"), 1.0]})
+	g.append({"name": "Biblioteca", "rect": R(-60, 38, -40, 48), "kind": "library", "floor": "wood", "floor_col": Color("d9a066"),
 		"doors": [["n", -42.0, 1.6]], "auto_windows": ["s"], "inner": [Color("8a5a32"), Color("eef3f7"), 1.0]})
-	rooms.append({"name": "Sala dos Professores", "rect": R(-40, 38, -30, 48), "kind": "teachers",
+	g.append({"name": "Sala dos Professores", "rect": R(-40, 38, -30, 48), "kind": "teachers",
 		"doors": [["n", -32.0, 1.1]], "auto_windows": ["s"], "inner": [Color("b39b72"), Color("eef3f7"), 1.1]})
-	rooms.append({"name": "Diretoria", "rect": R(-30, 38, -20, 48), "kind": "director", "floor": "wood", "floor_col": Color("b5794a"),
+	g.append({"name": "Diretoria", "rect": R(-30, 38, -20, 48), "kind": "director", "floor": "wood", "floor_col": Color("b5794a"),
 		"doors": [["n", -22.0, 1.1]], "auto_windows": ["s"], "inner": [Color("7c5a3c"), Color("eaf0f5"), 1.1]})
-	rooms.append({"name": "Secretaria", "rect": R(-20, 38, -10, 48), "kind": "office",
+	g.append({"name": "Secretaria", "rect": R(-20, 38, -10, 48), "kind": "office",
 		"doors": [["n", -12.0, 1.1]], "windows": [["n", -16.5, 2.2]], "auto_windows": ["s"], "inner": [Color("6a8caf"), Color("eef3f7"), 1.1]})
-	rooms.append({"name": "Hall de Entrada", "rect": R(-10, 24, 10, 48), "kind": "hall", "always_visible": true,
+	g.append({"name": "Hall de Entrada", "rect": R(-10, 24, 10, 48), "kind": "hall", "always_visible": true, "no_ceiling": true,
 		"doors": [["s", 0.0, 6.0, 3.0], ["w", 36.0, 4.0, 3.0], ["e", 36.0, 4.0, 3.0]], "open": ["n"],
 		"inner": [Color("3d78c2"), Color("eef3f7"), 1.1], "floor_col": Color("dde4ec")})
-	rooms.append({"name": "Sala de Informática", "rect": R(10, 38, 22, 48), "kind": "computer",
+	g.append({"name": "Sala de Informática", "rect": R(10, 38, 22, 48), "kind": "computer",
 		"doors": [["n", 20.0, 1.1]], "auto_windows": ["s"], "inner": [Color("4a6fa5"), Color("eef1f4"), 1.1]})
-	rooms.append({"name": "Sala de Artes", "rect": R(22, 38, 34, 48), "kind": "art",
+	g.append({"name": "Sala de Artes", "rect": R(22, 38, 34, 48), "kind": "art",
 		"doors": [["n", 32.0, 1.1]], "auto_windows": ["s"], "inner": [Color("e67e22"), Color("fdf2e0"), 1.1]})
-	rooms.append({"name": "Banheiro Feminino", "rect": R(34, 38, 42, 48), "kind": "bathroom_f",
+	g.append({"name": "Banheiro Feminino", "rect": R(34, 38, 42, 48), "kind": "bathroom_f",
 		"doors": [["n", 40.5, 1.2]], "windows": [["s", 38.0, 2.5]], "inner": [Color("f5b7c5"), Color("fdf0f3"), 1.8], "inner_mat": "tile"})
-	rooms.append({"name": "Banheiro Masculino", "rect": R(42, 38, 50, 48), "kind": "bathroom_m",
+	g.append({"name": "Banheiro Masculino", "rect": R(42, 38, 50, 48), "kind": "bathroom_m",
 		"doors": [["n", 48.5, 1.2]], "windows": [["s", 46.0, 2.5]], "inner": [Color("8fc1e3"), Color("eef6fb"), 1.8], "inner_mat": "tile"})
-	rooms.append({"name": "Depósito de Ed. Física", "rect": R(50, 38, 60, 48), "kind": "storage",
+	g.append({"name": "Depósito de Ed. Física", "rect": R(50, 38, 60, 48), "kind": "storage",
 		"doors": [["n", 52.0, 1.4]], "auto_windows": ["s"], "inner": [Color("7f8c8d"), Color("ecf0f1"), 1.1]})
-	rooms.append({"name": "Corredor Oeste", "rect": R(-60, 34, -10, 38), "kind": "corridor", "always_visible": true,
+	g.append({"name": "Corredor Oeste", "rect": R(-60, 34, -10, 38), "kind": "corridor", "always_visible": true,
 		"open": ["w"], "inner": cor_inner, "label": "Corredor"})
-	rooms.append({"name": "Corredor Leste", "rect": R(10, 34, 60, 38), "kind": "corridor", "always_visible": true,
+	g.append({"name": "Corredor Leste", "rect": R(10, 34, 60, 38), "kind": "corridor", "always_visible": true,
 		"open": ["e"], "inner": cor_inner, "label": "Corredor"})
-	build_building({"id": "A", "title": "Bloco A", "height": 3.6, "wall": CREAM, "bar": BLUE_BAR, "bar_h": 1.1,
-		"trim": Color("f4f4f4"), "rooms": rooms,
-		"roof": {"rect": R(-60, 24, 60, 48), "axis": "x", "pitch": 16.0, "overhang": 0.9}})
-	add_label("BLOCO A", Vector3(0, 3.3, 48.2), 0.0, 72, Color("2f5fa8"), Color(1, 1, 1, 0.9), 0.008, 80.0)
+	build_building_at({"id": "A", "title": "Bloco A", "height": 3.6, "wall": CREAM, "bar": BLUE_BAR, "bar_h": 1.1,
+		"trim": Color("f4f4f4"), "rooms": g}, 0.0)
+	# ------------------------------------------------ 1º ANDAR: as salas de aula
+	var u: Array = []
+	for i in 5:
+		var x0 := -60.0 + i * 10.0
+		u.append({"name": "Sala %d" % (i + 1), "rect": R(x0, 24, x0 + 10, 34), "kind": "classroom", "floor_col": floor_cols[i],
+			"doors": [["s", x0 + 8.4, 1.1]], "auto_windows": ["n"], "inner": [cls_colors[i], Color("eef3f7"), 1.1], "grade": i})
+		var x1 := 10.0 + i * 10.0
+		u.append({"name": "Sala %d" % (i + 6), "rect": R(x1, 24, x1 + 10, 34), "kind": "classroom", "floor_col": floor_cols[i + 5],
+			"doors": [["s", x1 + 8.4, 1.1]], "auto_windows": ["n"], "inner": [cls_colors[i + 5], Color("eef3f7"), 1.1], "grade": i + 5})
+	u.append({"name": "Sala de Dança", "rect": R(-60, 38, -45, 48), "kind": "dance", "floor": "wood", "floor_col": Color("c99a63"),
+		"doors": [["n", -47.0, 1.4]], "auto_windows": ["s"], "inner": [Color("9b59b6"), Color("f8f0fb"), 0.9]})
+	u.append({"name": "Sala 13", "rect": R(-45, 38, -35, 48), "kind": "classroom", "grade": 12, "floor_col": Color("e3e9d8"),
+		"doors": [["n", -36.6, 1.1]], "auto_windows": ["s"], "inner": [Color("16a085"), Color("eef3f7"), 1.1]})
+	u.append({"name": "Sala 14", "rect": R(-35, 38, -25, 48), "kind": "classroom", "grade": 13, "floor_col": Color("eadfd5"),
+		"doors": [["n", -26.6, 1.1]], "auto_windows": ["s"], "inner": [Color("c0392b"), Color("eef3f7"), 1.1]})
+	u.append({"name": "Sala de Vídeo", "rect": R(-25, 38, -10, 48), "kind": "auditorium", "floor_col": Color("6b5b7a"),
+		"doors": [["n", -12.0, 1.4]], "auto_windows": ["s"], "inner": [Color("34495e"), Color("ebe7f0"), 1.2]})
+	u.append({"name": "Mezanino", "rect": R(-10, 24, 10, 48), "kind": "mezzanine", "always_visible": true, "no_floor": true, "no_nav": true,
+		"doors": [["w", 36.0, 3.0, 2.8], ["e", 36.0, 3.0, 2.8]], "windows": [["s", -6.0, 3.0], ["s", 0.0, 3.0], ["s", 6.0, 3.0], ["n", -6.0, 3.0], ["n", 6.0, 3.0]],
+		"inner": [Color("3d78c2"), Color("eef3f7"), 1.1], "label": "Mezanino"})
+	u.append({"name": "Ateliê Maker", "rect": R(10, 38, 25, 48), "kind": "art", "floor_col": Color("e9e1d2"),
+		"doors": [["n", 12.0, 1.4]], "auto_windows": ["s"], "inner": [Color("f39c12"), Color("fff6e5"), 1.1]})
+	u.append({"name": "Sala de Xadrez", "rect": R(25, 38, 40, 48), "kind": "games", "floor_col": Color("e5e0d4"),
+		"doors": [["n", 27.0, 1.4]], "auto_windows": ["s"], "inner": [Color("2c3e50"), Color("f2f0ea"), 1.1]})
+	u.append({"name": "Banheiro Fem. (1º andar)", "rect": R(40, 38, 50, 48), "kind": "bathroom_f",
+		"doors": [["n", 48.5, 1.2]], "windows": [["s", 44.0, 2.5]], "inner": [Color("f5b7c5"), Color("fdf0f3"), 1.8], "inner_mat": "tile", "label": "Banheiro Feminino"})
+	u.append({"name": "Banheiro Masc. (1º andar)", "rect": R(50, 38, 60, 48), "kind": "bathroom_m",
+		"doors": [["n", 51.5, 1.2]], "windows": [["s", 56.0, 2.5]], "inner": [Color("8fc1e3"), Color("eef6fb"), 1.8], "inner_mat": "tile", "label": "Banheiro Masculino"})
+	var up_doors := [-47.0, -36.6, -26.6, -12.0, 12.0, 27.0, 48.5, 51.5]
+	u.append({"name": "Corredor Oeste (1º andar)", "rect": R(-60, 34, -10, 38), "kind": "corridor", "always_visible": true,
+		"windows": [["w", 36.0, 2.4]], "inner": cor_inner, "label": "Corredor do 1º andar", "door_xs": up_doors})
+	u.append({"name": "Corredor Leste (1º andar)", "rect": R(10, 34, 60, 38), "kind": "corridor", "always_visible": true,
+		"windows": [["e", 36.0, 2.4]], "inner": cor_inner, "label": "Corredor do 1º andar", "door_xs": up_doors})
+	build_building_at({"id": "A2", "title": "Bloco A 1º andar", "height": 3.5, "wall": CREAM, "bar": BLUE_BAR, "bar_h": 1.1,
+		"trim": Color("f4f4f4"), "rooms": u, "floor_collider": true,
+		"roof": {"rect": R(-60, 24, 60, 48), "axis": "x", "pitch": 16.0, "overhang": 0.9}}, A_FLOOR2)
+	# o telhado fica no 1º andar: some também quando se está no térreo
+	roof_chunks["A"] = roof_chunks.get("A2", [])
+	_a_band()
+	_a_grand_stairs()
+	add_label("BLOCO A", Vector3(0, A_FLOOR2 + 3.0, 48.2), 0.0, 72, Color("2f5fa8"), Color(1, 1, 1, 0.9), 0.008, 80.0)
+
+
+## Cinta entre os andares (faixa azul na fachada) — fecha a fresta entre as paredes.
+func _a_band() -> void:
+	var b := chunk("bld_A_cinta")
+	var y := 3.6 + (A_FLOOR2 - 3.6) * 0.5
+	var h := A_FLOOR2 - 3.6 + 0.12
+	b.box("paint", Vector3(0, y, 24.0), Vector3(120.4, h, WALL_T + 0.1), BLUE_BAR)
+	b.box("paint", Vector3(0, y, 48.0), Vector3(120.4, h, WALL_T + 0.1), BLUE_BAR)
+	b.box("paint", Vector3(-60.0, y, 36.0), Vector3(WALL_T + 0.1, h, 24.2), BLUE_BAR)
+	b.box("paint", Vector3(60.0, y, 36.0), Vector3(WALL_T + 0.1, h, 24.2), BLUE_BAR)
+
+
+## Escadaria central do hall (sobe da entrada para o norte) e piso do mezanino
+## com o vão da escada, guarda-corpo e pontos de navegação.
+func _a_grand_stairs() -> void:
+	var b := chunk("escada_a")
+	var H := A_FLOOR2
+	var x0 := A_STAIR.position.x
+	var x1 := A_STAIR.end.x
+	var z_bot := A_STAIR.end.y  # 45.0 (pé da escada, perto da porta)
+	var z_top := A_STAIR.position.y  # 38.4
+	var steps := 20
+	var run := (z_bot - z_top) / steps
+	for i in steps:
+		var hk := H * (i + 1) / steps
+		var z := z_bot - run * (i + 0.5)
+		b.box("tile", Vector3(0, hk * 0.5, z), Vector3(x1 - x0, hk, run + 0.01), Color("d9c7b0").darkened((i % 2) * 0.05))
+		# faixa antiderrapante amarela na quina do degrau
+		b.box("plain", Vector3(0, hk + 0.004, z + run * 0.42), Vector3(x1 - x0 - 0.2, 0.01, 0.06), Color("f1c40f"), 0.0, false)
+	var ang := atan2(H, z_bot - z_top)
+	var mid := Vector3(0, H * 0.5, (z_bot + z_top) * 0.5)
+	var slope := Basis(Vector3.RIGHT, ang)
+	var length := (z_bot - z_top) / cos(ang)
+	b.collider_xf(Transform3D(slope, mid + Vector3(0, 0.02, 0)), Vector3(x1 - x0, 0.08, length))
+	# corrimãos e laterais da escada
+	for x: float in [x0, x1]:
+		b.box_xf("metal", Transform3D(slope, mid + Vector3(x, 0.95, 0)), Vector3(0.07, 0.07, length), Color("2f5fa8"))
+		b.box_xf("glass", Transform3D(slope, mid + Vector3(x, 0.5, 0)), Vector3(0.03, 0.8, length), Color("bfe3f5"))
+		b.collider_xf(Transform3D(slope, mid + Vector3(x, 0.6, 0)), Vector3(0.08, 1.2, length))
+	# piso do mezanino (sobre o hall), deixando o vão da escada aberto
+	var col := Color("dde4ec")
+	var slabs := [R(-10, 24, 10, z_top), R(-10, z_top, x0, 48), R(x1, z_top, 10, 48), R(x0, z_bot, x1, 48)]
+	for r: Rect2 in slabs:
+		var c := r.get_center()
+		b.slab("tile", Vector3(c.x, H - 0.03, c.y), Vector3(r.size.x, 0.06, r.size.y), col)
+		b.box("paint", Vector3(c.x, H - 0.2, c.y), Vector3(r.size.x, 0.3, r.size.y), Color("f4f6f9"))
+		b.collider(Vector3(c.x, H - 0.15, c.y), Vector3(r.size.x, 0.3, r.size.y))
+	# luminárias penduradas sob o mezanino
+	for lx: float in [-6.0, 6.0]:
+		for lz: float in [28.0, 33.0, 41.0, 46.0]:
+			b.box("plain", Vector3(lx, H - 0.38, lz), Vector3(1.3, 0.05, 0.22), Color("fffbea"), 0.0, false)
+	# guarda-corpo em volta do vão (oeste, leste e sul)
+	for x: float in [x0, x1]:
+		b.box("metal", Vector3(x, H + 1.0, (z_top + z_bot) * 0.5), Vector3(0.06, 0.06, z_bot - z_top), Color("2f5fa8"))
+		b.box("glass", Vector3(x, H + 0.5, (z_top + z_bot) * 0.5), Vector3(0.03, 0.9, z_bot - z_top), Color("bfe3f5"))
+		b.collider(Vector3(x, H + 0.55, (z_top + z_bot) * 0.5), Vector3(0.1, 1.1, z_bot - z_top))
+	b.box("metal", Vector3(0, H + 1.0, z_bot), Vector3(x1 - x0, 0.06, 0.06), Color("2f5fa8"))
+	b.box("glass", Vector3(0, H + 0.5, z_bot), Vector3(x1 - x0, 0.9, 0.03), Color("bfe3f5"))
+	b.collider(Vector3(0, H + 0.55, z_bot), Vector3(x1 - x0, 1.1, 0.1))
+	# placas "1º ANDAR - SALAS DE AULA"
+	add_label("SOBE: SALAS DE AULA (1º ANDAR)", Vector3(0, 3.1, z_bot + 0.3), 0.0, 40, Color("2f5fa8"), Color(1, 1, 1, 0.95), 0.007, 30.0)
+	add_label("DESCE: SAÍDA E PÁTIO", Vector3(0, H + 2.6, z_top - 0.4), PI, 40, Color("2f5fa8"), Color(1, 1, 1, 0.95), 0.007, 25.0)
+	# navegação: pé -> degraus -> topo
+	var pts := [Vector3(0, 0.05, z_bot + 1.3)]
+	for k in 5:
+		var t := float(k) / 4.0
+		pts.append(Vector3(0, lerpf(0.05, H + 0.05, t), lerpf(z_bot - 0.1, z_top + 0.1, t)))
+	pts.append(Vector3(0, H + 0.05, z_top - 1.0))
+	for i in pts.size():
+		nav_points.append(pts[i])
+		if i > 0:
+			nav_links.append([pts[i - 1], pts[i]])
+	# grade de navegação do mezanino (fora do vão)
+	var hole := A_STAIR.grow(0.6)
+	var gx := -8.75
+	while gx < 9.0:
+		var gz := 25.25
+		while gz < 47.5:
+			if not hole.has_point(Vector2(gx, gz)):
+				nav_points.append(Vector3(gx, H + 0.05, gz))
+			gz += 2.5
+		gx += 2.5
 
 
 # =====================================================================

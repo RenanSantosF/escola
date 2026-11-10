@@ -351,17 +351,40 @@ func _test_fountain() -> void:
 func _test_zones_and_roofs() -> void:
 	_place(Vector3(-55, 0.05, 29), 0)
 	await _wait(0.5)
-	check(GameManager.current_zone == "Sala 1", "zonas: detecta Sala 1", GameManager.current_zone)
+	check(GameManager.current_zone == "Enfermaria", "zonas: térreo do Bloco A (Enfermaria)", GameManager.current_zone)
+	_place(Vector3(-55, SchoolBuilder.A_FLOOR2 + 0.1, 29), 0)
+	await _wait(0.5)
+	check(GameManager.current_zone == "Sala 1" and player.global_position.y > 3.5, "zonas: Sala 1 no 1º andar", "%s y=%.2f" % [GameManager.current_zone, player.global_position.y])
 	var w: SchoolWorld = GameManager.world
 	var roof_gi: GeometryInstance3D = null
-	for c in w._chunk_nodes["roof_A"].get_children():
+	for c in w._chunk_nodes["roof_A2"].get_children():
 		if c is GeometryInstance3D:
 			roof_gi = c
 	check(roof_gi != null and roof_gi.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY, "telhado: fica invisível (só sombra) ao entrar no Bloco A")
-	check(w._chunk_nodes["int_A_Sala 1"].visible, "interior: mobília visível dentro do prédio")
+	check(w._chunk_nodes["int_A2_Sala 1"].visible, "interior: mobília visível dentro do prédio")
+	# subir a escadaria do hall andando
+	_place(Vector3(0, 0.05, 46.6), 180)
+	await _wait(0.3)
+	cam.yaw = 0.0
+	Input.action_press("move_forward")
+	for i in 40:
+		await _wait(0.25)
+		if player.global_position.z < 37.0:
+			break
+	Input.action_release("move_forward")
+	await _wait(0.4)
+	check(player.global_position.y > SchoolBuilder.A_FLOOR2 - 0.2 and player.global_position.z < 38.5, "escada: sobe a escadaria até o 1º andar", str(player.global_position))
+	check(GameManager.current_zone == "Mezanino", "zonas: mezanino no 1º andar", GameManager.current_zone)
+	var info: Dictionary = GameManager.world.builder.classrooms["Sala 5"]
+	check(absf(info.board.y - SchoolBuilder.A_FLOOR2) < 3.0 and info.door_in.y > 3.5 and info.teacher.y > 3.5, "1º andar: lousa/porta/professor da Sala 5 no andar de cima")
+	var path: PackedVector3Array = main.npcs.nav.path(Vector3(0, 0.05, 10), info.door_in)
+	var top := 0.0
+	for q in path:
+		top = maxf(top, q.y)
+	check(path.size() > 3 and top > 3.5, "navegação: caminho do pátio até a Sala 5 sobe a escada", "%d pontos" % path.size())
 	_place(Vector3(0, 0.05, -10), 0)
 	await _wait(0.5)
-	check(w._chunk_nodes["roof_A"].visible and not w._chunk_nodes["int_A_Sala 1"].visible, "telhado/interior: restaurados ao sair")
+	check(w._chunk_nodes["roof_A2"].visible and not w._chunk_nodes["int_A2_Sala 1"].visible, "telhado/interior: restaurados ao sair")
 	check(w.surface_at(Vector3(0, 0, -15)) == "hard" and w.surface_at(Vector3(-75, 0, -60)) == "dirt", "piso: tipos de superfície para passos")
 
 
@@ -1551,3 +1574,4 @@ func _test_atividades() -> void:
 			if stp.t == "activity":
 				kinds_used[stp.kind] = true
 	check(kinds_used.size() >= 4, "missões: atividades jogáveis (%s)" % ", ".join(kinds_used.keys()))
+

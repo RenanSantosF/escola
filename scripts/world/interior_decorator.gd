@@ -55,6 +55,20 @@ static func _decorate_kind(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary,
 			_music(sb, b, r, rng)
 		"cantina":
 			_cantina(sb, b, r, rng)
+		"nurse":
+			_nurse(sb, b, room, r)
+		"refectory":
+			_refectory(sb, b, room, r)
+		"auditorium":
+			_auditorium(sb, b, room, r)
+		"toys":
+			_toys(sb, b, room, r, rng)
+		"games":
+			_games(sb, b, room, r, rng)
+		"dance":
+			_dance(sb, b, room, r)
+		"mezzanine":
+			_mezzanine(sb, b, r)
 
 
 ## Posição na face interna de uma parede. Retorna [pos, rot_y].
@@ -166,7 +180,48 @@ static func _classroom(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: 
 	for k in 2:
 		var along := ((x0 + 3.0 + k * 3.5) if side_wall in ["n", "s"] else (z0 + 3.0 + k * 3.5))
 		_poster(sb, b, r, side_wall, along, 1.75, titles[(grade + k) % titles.size()], cols[(grade + k) % cols.size()])
+	_classroom_theme(sb, b, room, r, grade, opp, rng)
 	_door_sign(sb, b, room, r, room.name.to_upper())
+
+
+## Cada sala com sua cara: pequenos (tapete e cantinho de brinquedos),
+## médios (mapa-múndi e plantinhas), maiores (estante e tabela periódica).
+static func _classroom_theme(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: Rect2, grade: int, back: String, rng: RandomNumberGenerator) -> void:
+	var accent: Color = room.get("inner", [Color("6fae7f")])[0]
+	# faixa de bandeirinhas no alto da parede do fundo, na cor da sala
+	var along_b := r.get_center().y if back in ["e", "w"] else r.get_center().x
+	for k in 9:
+		if k == 4:
+			continue  # relógio
+		var pf: Array = wp(r, back, along_b - 3.2 + k * 0.8, 3.05, 0.05)
+		b.box("plain", pf[0], Vector3(0.36, 0.3, 0.01), accent.lightened(0.25 * (k % 2)), pf[1] + PI * 0.25 * 0.0, false)
+	match grade % 3:
+		0:
+			# tapete de leitura colorido e caixa de brinquedos no fundo
+			var rp: Array = wp(r, back, along_b, FY + 0.012, 1.4)
+			b.slab("plain", rp[0], Vector3(3.0, 0.02, 1.8), accent.lightened(0.35))
+			b.slab("plain", rp[0] + Vector3(0, 0.004, 0), Vector3(2.4, 0.02, 1.2), Color("fff3c4"))
+			var tb: Array = wp(r, back, along_b + 2.6, FY + 0.3, 0.35)
+			b.box("plain", tb[0], Vector3(0.9, 0.6, 0.5), Color("ff8a65"), tb[1])
+			for t in 3:
+				b.sphere("plain", tb[0] + Vector3(-0.25 + t * 0.25, 0.38, 0), 0.12, [Color("ffd54f"), Color("4fc3f7"), Color("81c784")][t], Vector3.ONE, 8, 5, false)
+		1:
+			# mapa-múndi grande e vasinhos na janela
+			var mp := wall_rect(b, r, back, along_b - 2.6, 1.7, 1.6, 1.0, Color("4fa3d9"))
+			b.box("plain", mp + Vector3(0, 0.05, 0), Vector3(0.5, 0.35, 0.03), Color("7cc576"), wp(r, back, along_b, 0)[1], false)
+			for k in 3:
+				var ws: String = room.get("auto_windows", ["n"])[0]
+				var vp: Array = wp(r, ws, (r.position.x + 2.0 + k * 3.0) if ws in ["n", "s"] else (r.position.y + 2.0 + k * 3.0), FY + 1.05, 0.25)
+				b.cylinder("plain", vp[0], 0.12, 0.1, 0.2, Color("c0392b").darkened(0.2), 8)
+				b.sphere("foliage", vp[0] + Vector3(0, 0.22, 0), 0.18, Color("3f8a3a"), Vector3.ONE, 7, 5, false)
+		_:
+			# estante de livros e tabela periódica
+			var sp: Array = wp(r, back, along_b - 2.4, FY + 1.0, 0.3)
+			Props.bookshelf(b, Vector3(sp[0].x, FY, sp[0].z), sp[1], rng, 1.6, 1.9)
+			var tp := wall_rect(b, r, back, along_b + 2.6, 2.0, 1.5, 0.9, Color("f5f5f5"))
+			for i in 6:
+				for j in 3:
+					wall_rect(b, r, back, along_b + 2.6 - 0.6 + i * 0.24, 2.2 - j * 0.24, 0.2, 0.2, [Color("ef9a9a"), Color("90caf9"), Color("a5d6a7"), Color("ffe082")][(i + j) % 4], "plain", 0.045)
 
 
 ## Placa acima da porta, do lado de fora da sala.
@@ -191,10 +246,11 @@ static func _door_sign(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: 
 		_:
 			pos = Vector3(r.end.x + T * 0.5 + 0.04, 2.62, d[1])
 			rot = PI * 0.5
-	var outer := sb.chunk("signs", 45.0)
+	var sname := "signs" + sb.floor_tag
+	var outer := sb.chunk(sname, 45.0)
 	outer.box("plain", pos, Vector3(1.5, 0.34, 0.03), Color("2f5fa8"), rot, false)
 	sb.add_label(text, pos + Vector3(0, 0, 1).rotated(Vector3.UP, rot) * 0.02, rot, 40, Color.WHITE, Color(0, 0, 0, 0), 0.0055, 30.0)
-	sb.labels[-1]["parent"] = "signs"
+	sb.labels[-1]["parent"] = sname
 
 
 # --------------------------------------------------------------- biblioteca
@@ -462,7 +518,7 @@ static func _corridor(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: R
 		var k := 0
 		while x < r.end.x - 2.0:
 			var blocked := false
-			for door_x: float in [-42.0, -32.0, -22.0, -12.0, 20.0, 32.0, 40.5, 48.5, 52.0, -16.5]:
+			for door_x: float in room.get("door_xs", [-42.0, -32.0, -22.0, -12.0, 20.0, 32.0, 40.5, 48.5, 52.0, -16.5]):
 				if absf(door_x - x) < 1.8:
 					blocked = true
 			if not blocked:
@@ -585,3 +641,184 @@ static func _cantina(sb: SchoolBuilder, b: WorldBatcher, r: Rect2, rng: RandomNu
 	sb.add_label("CARDÁPIO\nCoxinha ...... R$ 4\nPão de queijo .. R$ 3\nPastel ...... R$ 5\nSuco ........ R$ 3\nBolo ........ R$ 3", Vector3(mx + 0.03, 1.7, 16.5), PI * 0.5, 32, Color("fdfefe"), Color(0, 0, 0, 0), 0.0055, 25.0)
 	sb.labels[-1]["parent"] = "cantina_outer"
 	sb.add_zone("Fila da Cantina", SchoolBuilder.R(-22, 8, -19, 16), false, "", 9, Color(0.9, 0.7, 0.3))
+
+
+
+# --------------------------------------------------------------- salas novas do Bloco A
+
+static func _enfeite_titulo(sb: SchoolBuilder, b: WorldBatcher, r: Rect2, side: String, text: String, col: Color) -> void:
+	var along := r.get_center().x if side in ["n", "s"] else r.get_center().y
+	var p := wall_rect(b, r, side, along, 2.55, minf(r.size.x - 2.0, 5.0), 0.6, col, "plain", 0.03)
+	var rot: float = wp(r, side, along, 0)[1]
+	sb.add_label(text, p + Vector3(0, 0, 1).rotated(Vector3.UP, rot) * 0.02, rot, 52, Color.WHITE, Color(0, 0, 0, 0), 0.006, 25.0)
+
+
+static func _nurse(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: Rect2) -> void:
+	# duas macas, biombo, armário de remédios com cruz, balança e pia
+	for k in 2:
+		var o := Vector3(r.position.x + 2.2 + k * 3.6, FY, r.position.y + 1.6)
+		b.box("metal", o + Vector3(0, 0.35, 0.8), Vector3(0.9, 0.7, 1.9), Color("bdc3c7"))
+		b.box("plain", o + Vector3(0, 0.75, 0.8), Vector3(0.88, 0.12, 1.86), Color("ffffff"))
+		b.box("plain", o + Vector3(0, 0.86, 0.15), Vector3(0.6, 0.12, 0.35), Color("dff3f2"))
+		b.collider(o + Vector3(0, 0.4, 0.8), Vector3(0.9, 0.8, 1.9))
+		Props.add_seat(o + Vector3(0, 0, 1.2), PI * 0.5, Vector3.ZERO, FY + 0.8, "Deitar um pouco")
+		# biombo
+		b.box("plain", o + Vector3(1.6, 0.9, 0.9), Vector3(0.04, 1.6, 2.0), Color("d6f0ee"))
+	var cab: Array = wp(r, "e", r.get_center().y, FY + 1.0, 0.25)
+	b.box("wood", cab[0], Vector3(1.4, 2.0, 0.45), Color("ffffff"), cab[1])
+	b.collider(cab[0], Vector3(1.4, 2.0, 0.45), cab[1])
+	var cross: Array = wp(r, "e", r.get_center().y, FY + 1.5, 0.49)
+	b.box("plain", cross[0], Vector3(0.5, 0.14, 0.02), Color("e74c3c"), cross[1], false)
+	b.box("plain", cross[0], Vector3(0.14, 0.5, 0.02), Color("e74c3c"), cross[1], false)
+	_poster(sb, b, r, "w", r.get_center().y, 1.7, "LAVE AS MÃOS", Color("3498db"))
+	_enfeite_titulo(sb, b, r, "n", "ENFERMARIA", Color("16a085"))
+	_door_sign(sb, b, room, r, "ENFERMARIA")
+
+
+static func _refectory(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: Rect2) -> void:
+	var cols := [Color("f6d365"), Color("a8e6cf"), Color("ffb3a7")]
+	var k := 0
+	var x := r.position.x + 3.0
+	while x < r.end.x - 2.5:
+		Props.cafeteria_table(b, Vector3(x, FY, r.position.y + 3.0), PI * 0.5, 3.2, cols[k % 3])
+		Props.cafeteria_table(b, Vector3(x, FY, r.end.y - 3.4), PI * 0.5, 3.2, cols[(k + 1) % 3])
+		x += 4.0
+		k += 1
+	# balcão de frutas e bebedouro
+	var fr: Array = wp(r, "w", r.get_center().y, FY + 0.45, 0.45)
+	b.box("wood", fr[0], Vector3(3.0, 0.9, 0.7), Color("8d6e63"), fr[1])
+	b.collider(fr[0], Vector3(3.0, 0.9, 0.7), fr[1])
+	for i in 6:
+		b.sphere("plain", fr[0] + Vector3(0, 0.55, -1.1 + i * 0.44).rotated(Vector3.UP, 0.0), 0.11, [Color("e74c3c"), Color("f39c12"), Color("f1c40f")][i % 3], Vector3.ONE, 8, 5)
+	_poster(sb, b, r, "n", r.position.x + 3.0, 1.8, "COMA FRUTAS!", Color("27ae60"))
+	_poster(sb, b, r, "n", r.end.x - 3.0, 1.8, "PRATO COLORIDO", Color("e67e22"))
+	_enfeite_titulo(sb, b, r, "e", "REFEITÓRIO", Color("e67e22"))
+	_door_sign(sb, b, room, r, "REFEITÓRIO")
+
+
+static func _auditorium(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: Rect2) -> void:
+	# palco/tela no lado oeste, fileiras de cadeiras estofadas viradas para ele
+	var sx := r.position.x + 1.6
+	b.box("wood", Vector3(sx, FY + 0.25, r.get_center().y), Vector3(2.6, 0.5, r.size.y - 0.6), Color("8b5a2b"))
+	b.collider(Vector3(sx, FY + 0.25, r.get_center().y), Vector3(2.6, 0.5, r.size.y - 0.6))
+	var scr: Array = wp(r, "w", r.get_center().y, 2.0, 0.04)
+	b.box("plain", scr[0], Vector3(minf(r.size.y - 2.0, 6.0), 2.2, 0.03), Color("f8f8f8"), scr[1], false)
+	sb.add_label(str(room.get("screen", "SESSÃO DE CINEMA\nHoje: O ciclo da água")), scr[0] + Vector3(0.03, 0, 0), scr[1], 48, Color("2c3e50"), Color(0, 0, 0, 0), 0.006, 22.0)
+	# cortinas
+	for zz: float in [r.position.y + 0.6, r.end.y - 0.6]:
+		b.box("plain", Vector3(sx, 2.0, zz), Vector3(0.2, 3.2, 1.0), Color("8e1b2b"))
+	var x := sx + 2.6
+	var row := 0
+	while x < r.end.x - 1.0:
+		var z := r.position.y + 1.2
+		while z < r.end.y - 1.0:
+			if absf(z - r.get_center().y) > 0.7:
+				var o := Vector3(x, FY, z)
+				b.box("plain", o + Vector3(0, 0.42, 0), Vector3(0.5, 0.12, 0.5), Color("a93226"))
+				b.box("plain", o + Vector3(0.22, 0.75, 0), Vector3(0.1, 0.6, 0.5), Color("a93226"))
+				b.box("metal", o + Vector3(0, 0.18, 0), Vector3(0.08, 0.36, 0.4), Color("2c3e50"))
+				Props.add_seat(o, -PI * 0.5, Vector3.ZERO, FY + 0.48, "Sentar")
+			z += 0.75
+		b.collider(Vector3(x + 0.05, 0.5, r.get_center().y), Vector3(0.55, 1.0, r.size.y - 2.4))
+		x += 1.5
+		row += 1
+	_door_sign(sb, b, room, r, room.name.to_upper())
+
+
+static func _toys(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: Rect2, rng: RandomNumberGenerator) -> void:
+	var c := r.get_center()
+	# tapete de EVA colorido em quadrados
+	var cols := [Color("ff6b6b"), Color("ffd93d"), Color("6bcB77"), Color("4d96ff"), Color("c77dff")]
+	for i in 6:
+		for j in 4:
+			b.slab("plain", Vector3(c.x - 3.75 + i * 1.5, FY + 0.012, c.y - 2.25 + j * 1.5), Vector3(1.48, 0.02, 1.48), cols[(i + j) % cols.size()])
+	# piscina de bolinhas
+	var pit := Vector3(r.end.x - 2.6, FY, r.position.y + 2.4)
+	b.box("plain", pit + Vector3(0, 0.3, 0), Vector3(3.0, 0.6, 3.0), Color("4d96ff"))
+	b.collider(pit + Vector3(0, 0.3, 0), Vector3(3.0, 0.6, 3.0))
+	for i in 40:
+		b.sphere("plain", pit + Vector3(rng.randf_range(-1.3, 1.3), 0.62, rng.randf_range(-1.3, 1.3)), 0.12, cols[i % cols.size()], Vector3.ONE, 6, 4, false)
+	# prateleiras baixas com brinquedos
+	for k in 3:
+		var sp: Array = wp(r, "e", r.position.y + 5.0 + k * 1.6, FY + 0.45, 0.3)
+		b.box("wood", sp[0], Vector3(1.4, 0.9, 0.45), Color("f4d35e"), sp[1])
+		b.collider(sp[0], Vector3(1.4, 0.9, 0.45), sp[1])
+		for t in 3:
+			b.box("plain", sp[0] + Vector3(0, 0.55, -0.45 + t * 0.45).rotated(Vector3.UP, 0.0), Vector3(0.25, 0.25, 0.25), cols[(k + t) % cols.size()])
+	# casinha de bonecas e pufes
+	var hp := Vector3(r.position.x + 2.2, FY, r.position.y + 2.2)
+	b.box("wood", hp + Vector3(0, 0.6, 0), Vector3(1.6, 1.2, 1.2), Color("ffb4c6"))
+	b.box_xf("roof", Transform3D(Basis(Vector3.FORWARD, 0.0), hp + Vector3(0, 1.35, 0)), Vector3(1.8, 0.3, 1.4), Color("c0392b"))
+	b.collider(hp + Vector3(0, 0.7, 0), Vector3(1.6, 1.4, 1.2))
+	for k in 4:
+		var bp := Vector3(c.x - 3.0 + k * 2.0, FY, r.end.y - 1.4)
+		b.sphere("plain", bp + Vector3(0, 0.28, 0), 0.42, cols[k], Vector3(1, 0.7, 1), 10, 6)
+		Props.add_seat(bp, PI, Vector3.ZERO, FY + 0.45, "Sentar no pufe")
+	_enfeite_titulo(sb, b, r, "w", "BRINQUEDOTECA", Color("ff6b9a"))
+	_door_sign(sb, b, room, r, "BRINQUEDOTECA")
+
+
+static func _games(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: Rect2, rng: RandomNumberGenerator) -> void:
+	var c := r.get_center()
+	# mesa de pingue-pongue (se couber) e mesas de xadrez/dama
+	if r.size.x >= 14.0 and room.name != "Sala de Xadrez":
+		var tp := Vector3(c.x, FY, c.y)
+		b.box("plain", tp + Vector3(0, 0.74, 0), Vector3(2.74, 0.05, 1.52), Color("1e5aa8"))
+		b.box("plain", tp + Vector3(0, 0.77, 0), Vector3(0.02, 0.01, 1.52), Color.WHITE, 0.0, false)
+		b.box("plain", tp + Vector3(0, 0.85, 0), Vector3(0.02, 0.15, 1.6), Color("ecf0f1"), 0.0, false)
+		for lx: float in [-1.1, 1.1]:
+			b.box("metal", tp + Vector3(lx, 0.36, 0), Vector3(0.08, 0.72, 1.2), Color("2c3e50"))
+		b.collider(tp + Vector3(0, 0.4, 0), Vector3(2.74, 0.8, 1.52))
+	var x := r.position.x + 2.0
+	while x < r.end.x - 1.5:
+		for z: float in [r.position.y + 2.0, r.end.y - 2.2]:
+			if r.size.x >= 14.0 and room.name != "Sala de Xadrez" and absf(x - c.x) < 2.4:
+				continue
+			var o := Vector3(x, FY, z)
+			b.box("wood", o + Vector3(0, 0.7, 0), Vector3(0.8, 0.04, 0.8), Color("d7b98e"))
+			b.box("metal", o + Vector3(0, 0.35, 0), Vector3(0.08, 0.7, 0.08), Color("2c3e50"))
+			# tabuleiro quadriculado
+			for i in 4:
+				for j in 4:
+					if (i + j) % 2 == 0:
+						b.box("plain", o + Vector3(-0.21 + i * 0.14, 0.725, -0.21 + j * 0.14), Vector3(0.14, 0.006, 0.14), Color("2c2c2c"), 0.0, false)
+			b.collider(o + Vector3(0, 0.37, 0), Vector3(0.8, 0.74, 0.8))
+			for sd: float in [-1.0, 1.0]:
+				var so := o + Vector3(sd * 0.75, 0, 0)
+				b.box("wood", so + Vector3(0, 0.42, 0), Vector3(0.38, 0.05, 0.38), Color("8e5b3a"))
+				Props.add_seat(so, -PI * 0.5 * sd, Vector3.ZERO, FY + 0.45)
+		x += 3.0
+	_enfeite_titulo(sb, b, r, "n" if _door_side(room) == "s" else "s", room.name.to_upper(), Color("2e8b57"))
+	_door_sign(sb, b, room, r, room.name.to_upper())
+
+
+static func _dance(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: Rect2) -> void:
+	# parede de espelhos com barra e caixa de som
+	var mp: Array = wp(r, "w", r.get_center().y, 1.4, 0.04)
+	b.box("glass", mp[0], Vector3(r.size.y - 1.6, 2.2, 0.03), Color("dfeff7"), mp[1], false)
+	var bar: Array = wp(r, "w", r.get_center().y, 1.0, 0.3)
+	b.box("wood", bar[0], Vector3(r.size.y - 1.6, 0.06, 0.06), Color("c49a6c"), bar[1])
+	b.collider(bar[0], Vector3(r.size.y - 1.6, 1.0, 0.1), bar[1])
+	for zz: float in [r.position.y + 1.0, r.end.y - 1.0]:
+		var sp := Vector3(r.end.x - 0.8, FY + 0.5, zz)
+		b.box("plain", sp, Vector3(0.6, 1.0, 0.6), Color("222222"))
+		b.cylinder_xf("plain", Transform3D(Basis(Vector3.FORWARD, PI * 0.5), sp + Vector3(-0.31, 0.15, 0)), 0.2, 0.2, 0.02, Color("555555"), 12)
+		b.collider(sp, Vector3(0.6, 1.0, 0.6))
+	_enfeite_titulo(sb, b, r, "e", "DANÇA", Color("9b59b6"))
+	_door_sign(sb, b, room, r, "SALA DE DANÇA")
+
+
+static func _mezzanine(sb: SchoolBuilder, b: WorldBatcher, r: Rect2) -> void:
+	# bancos e vasos em volta do vão da escada, mural de boas-vindas
+	for sx: float in [-1.0, 1.0]:
+		Props.bench(b, Vector3(sx * 8.6, FY, 30.0), -PI * 0.5 * sx, 1.8, true)
+		b.cylinder("plain", Vector3(sx * 8.8, FY + 0.3, 25.2), 0.3, 0.25, 0.6, Color("c0392b").darkened(0.3), 10)
+		b.sphere("foliage", Vector3(sx * 8.8, FY + 1.05, 25.2), 0.5, Color("3f8a3a"), Vector3(1, 1.4, 1), 8, 6)
+		b.collider_cyl(Vector3(sx * 8.8, FY + 0.5, 25.2), 0.32, 1.0)
+	var wp2: Array = wp(r, "n", 0.0, 2.2, 0.03)
+	b.box("plain", wp2[0], Vector3(5.0, 0.9, 0.03), Color("3aa45b"), wp2[1])
+	sb.add_label("1º ANDAR · SALAS DE AULA", wp2[0] + Vector3(0, 0, 0.025), wp2[1], 56, Color.WHITE, Color(0, 0, 0, 0), 0.006, 30.0)
+	for side: String in ["w", "e"]:
+		var sp: Array = wp(r, side, 36.0, 3.1, 0.03)
+		b.box("plain", sp[0], Vector3(3.0, 0.42, 0.03), Color("2f5fa8"), sp[1])
+		sb.add_label("SALAS 1 A 5 · 13 · 14" if side == "w" else "SALAS 6 A 10", sp[0] + Vector3(0, 0, 1).rotated(Vector3.UP, sp[1]) * 0.02, sp[1], 40, Color.WHITE, Color(0, 0, 0, 0), 0.006, 25.0)
