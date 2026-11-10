@@ -57,6 +57,9 @@ func _ready() -> void:
 	btn_play.released.connect(_on_play_release)
 	btn_jump.pressed.connect(_on_jump)
 	btn_interact.pressed.connect(_on_interact)
+	btn_interact.released.connect(func():
+		if player:
+			player.request_interact_release())
 	btn_run.pressed.connect(_on_run)
 	btn_run.released.connect(_on_run_release)
 	btn_pause.pressed.connect(pause_pressed.emit)

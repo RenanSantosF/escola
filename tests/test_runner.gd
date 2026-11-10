@@ -683,22 +683,40 @@ func _test_minigames() -> void:
 
 	# Futebol: gol detectado na trave do adversário
 	var fb = await _mg_start("futebol")
+	check(not fb._started and fb._setup_panel != null, "futebol: seletor aparece antes da partida")
+	fb._start_match()
 	await _wait(3.4)
-	check(fb.team_a.size() >= 2 and fb.team_b.size() >= 3 and fb.keeper_b != null, "futebol: times e goleiros montados")
+	check(fb.team_a.size() >= 2 and fb.team_b.size() >= 3 and fb.keeper_b != null and fb.keeper_a != null, "futebol: times e goleiros (bots) montados")
+	fb._release(Vector3.ZERO, 0.0)
 	fb.ball.global_position = Vector3(60.6, 0.3, -49)
 	fb.ball.linear_velocity = Vector3(3, 0, 0)
 	await _frames(3)
 	check(fb.score_a == 1, "futebol: gol contabilizado", "placar %d x %d" % [fb.score_a, fb.score_b])
 	await _wait(3.5)
 	# chute do jogador
-	fb.ball.global_position = player.global_position + Vector3(sin(player.yaw), 0.1, cos(player.yaw)) * 0.6
-	fb.ball.linear_velocity = Vector3.ZERO
+	for i in 60:
+		if fb._goal_pause <= 0.0 and fb._countdown <= 0.0:
+			break
+		await _wait(0.1)
+	fb._take(player)
+	await _frames(3)
+	check(fb.ball.global_position.distance_to(player.global_position) < 1.0, "futebol: bola colada no pé")
 	var bpos: Vector3 = fb.ball.global_position
 	player.request_play()
-	await _wait(1.0)
-	check(fb.ball.global_position.distance_to(bpos) > 1.5, "futebol: jogador chuta a bola")
+	await _wait(0.5)
+	player.request_play_release()
+	await _wait(0.8)
+	check(fb.holder != player and fb.ball.global_position.distance_to(bpos) > 1.5, "futebol: jogador chuta a bola")
+	# passe curto para um colega
+	await _wait(3.5)
+	fb._take(player)
+	player.request_interact()
+	player.request_interact_release()
+	await _frames(2)
+	check(fb.holder != player and fb.ball.linear_velocity.length() > 3.0, "futebol: passe sai do pé")
 	await _wait(2.0)
 	await _wait(3.5)
+	fb._release(Vector3.ZERO, 0.0)
 	fb.ball.global_position = Vector3(30, 0.3, -45)
 	fb.ball.linear_velocity = Vector3.ZERO
 	var d0: float = fb.team_b[0].global_position.distance_to(fb.ball.global_position)

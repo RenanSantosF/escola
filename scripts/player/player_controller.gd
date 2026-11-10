@@ -235,6 +235,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		request_play()
 	elif event.is_action_released("play"):
 		request_play_release()
+	elif event.is_action_released("interact"):
+		request_interact_release()
 	elif event.is_action_pressed("emote"):
 		emote("wave")
 
@@ -299,6 +301,11 @@ func request_interact() -> void:
 		nearby.interact(self)
 	elif held_item:
 		drop_item()
+
+
+func request_interact_release() -> void:
+	if minigame and minigame.has_method("on_interact_release"):
+		minigame.on_interact_release()
 
 
 func request_play_release() -> void:

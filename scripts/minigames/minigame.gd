@@ -46,6 +46,10 @@ func on_interact() -> bool:
 	return false
 
 
+func on_interact_release() -> bool:
+	return false
+
+
 func on_jump() -> bool:
 	return false
 
