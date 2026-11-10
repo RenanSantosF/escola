@@ -657,6 +657,8 @@ func _process(delta: float) -> void:
 		if refresh_vis:
 			var hidden := d > _vis_range or world.interior_hidden_at(n.global_position)
 			n.visual.visible = not hidden
+			# sombra só de quem está perto (sombra de longe não aparece e custa caro)
+			n.visual.set_shadow(d < 22.0)
 		if not n.visual.visible:
 			continue
 		var behind := to.dot(fwd) < -1.0 and d > 6.0

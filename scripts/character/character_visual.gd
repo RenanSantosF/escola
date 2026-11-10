@@ -48,6 +48,19 @@ func _process(delta: float) -> void:
 		animator.update(delta)
 
 
+var _shadow_on := true
+
+
+## Liga/desliga a sombra do personagem (LOD de sombra dos NPCs).
+func set_shadow(on: bool) -> void:
+	if on == _shadow_on:
+		return
+	_shadow_on = on
+	for c in skeleton.get_children() if skeleton else []:
+		if c is GeometryInstance3D:
+			(c as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if on else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
 func stop_upper(fade := true) -> void:
 	animator.stop_upper(fade)
 

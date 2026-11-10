@@ -73,10 +73,10 @@ func _capture_aerial() -> void:
 	env.ambient_light_color = Color(0.85, 0.88, 0.95)
 	env.ambient_light_energy = 0.35
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 0.78
+	env.tonemap_exposure = 0.62
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.12
-	env.adjustment_contrast = 1.12
+	env.adjustment_saturation = 0.92
+	env.adjustment_contrast = 1.08
 	cam.environment = env
 	vp.add_child(cam)
 	add_child(vp)

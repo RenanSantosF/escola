@@ -64,6 +64,7 @@ func _ready() -> void:
 	await _test_revisao3()
 	await _test_online_tag()
 	await _test_revisao5()
+	await _test_parque()
 	_finish()
 
 
@@ -1131,6 +1132,36 @@ func _finish() -> void:
 		print(l)
 	print("Total: %d ok, %d falhas" % [passed, failed])
 	get_tree().quit(0 if failed == 0 else 1)
+
+
+func _test_parque() -> void:
+	# relevo: altura do chão bate com a colisão (o jogador fica em pé no morro)
+	var top := Vector3(ParkHill.HILL.x + 2.0, 0, ParkHill.HILL.z + 6.0)
+	var hy := ParkHill.height(top.x, top.z)
+	_place(Vector3(top.x, hy + 1.5, top.z), 0)
+	await _wait(0.8)
+	check(absf(player.global_position.y - hy) < 0.35 and player.is_on_floor(), "parque: jogador fica em pé no morro", "y=%.2f chão=%.2f" % [player.global_position.y, hy])
+	# bots sobem a trilha até o topo
+	var p: PackedVector3Array = main.npcs.nav.path(Vector3(0, 0.05, -60), Vector3(ParkHill.HILL.x - 1.0, ParkHill.HILL.y, ParkHill.HILL.z + 0.5))
+	var topy := -INF
+	for v in p:
+		topy = maxf(topy, v.y)
+	check(p.size() > 3 and topy > 4.5, "parque: caminho dos bots sobe o morro pela trilha", "pts=%d top=%.1f" % [p.size(), topy])
+	var p2: PackedVector3Array = main.npcs.nav.path(Vector3(0, 0.05, -60), Vector3(ParkHill.LAKE.x + ParkHill.LAKE_R + 3.0, 0.05, ParkHill.LAKE.y))
+	check(p2.size() > 2, "parque: caminho até o outro lado do lago")
+	# escorregador leva lá para baixo
+	var slide: SlideSpot = null
+	for n in get_tree().get_nodes_in_group("interactable"):
+		if n is SlideSpot:
+			slide = n
+	check(slide != null, "parque: escorregador existe")
+	if slide:
+		_place(slide.global_position + Vector3(-0.3, 0.3, 0), 90)
+		await _wait(0.3)
+		slide.interact(player)
+		await _wait(3.2)
+		check(player.global_position.y < 1.5 and player.input_enabled, "parque: escorregar desce o morro", "y=%.2f" % player.global_position.y)
+	_place(Vector3(0, 0.05, -6), 0)
 
 
 func _test_revisao5() -> void:

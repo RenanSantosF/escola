@@ -25,6 +25,12 @@ const SHOTS := [
 	["fonte", Vector3(0, 0.05, 66), 180.0, 0.0, -20.0, 7.0],
 	["mapa", Vector3(0, 0.05, -6), 180.0, 0.0, -20.0, 4.0],
 	["rosto", Vector3(6, 0.05, -2), 200.0, 180.0, -4.0, 2.2],
+	["parque", Vector3(0, 0.05, -66), 180.0, 0.0, -12.0, 6.0],
+	["morro", Vector3(-22, 0.05, -90), -115.0, 0.0, -10.0, 6.5],
+	["lago", Vector3(10, 0.05, -90), 140.0, 0.0, -16.0, 6.5],
+	["anfiteatro", Vector3(-2, 0.05, -97), 180.0, 0.0, -14.0, 6.0],
+	["lago_alto", Vector3(28, 0.05, -87), 180.0, 0.0, -50.0, 9.0],
+	["mirante_morro", Vector3(-42, 7.0, -103), 70.0, 0.0, -14.0, 6.0],
 	["blococ_escada", Vector3(-66, 0.05, 26), -90.0, 0.0, -18.0, 3.0],
 	["mirante", Vector3(-70, 3.9, 40), 90.0, 0.0, -18.0, 3.5],
 	["amarelinha", Vector3(-14, 0.05, 3), 180.0, 0.0, -24.0, 6.0],
@@ -61,6 +67,8 @@ func _ready() -> void:
 		if not only.is_empty() and not s[0] in only:
 			continue
 		player.global_position = s[1]
+		if s[1].y < 0.5:
+			player.global_position.y = ParkHill.height(s[1].x, s[1].z) + 0.1
 		player.yaw = deg_to_rad(s[2])
 		player.velocity = Vector3.ZERO
 		cam.yaw = player.yaw + PI + deg_to_rad(s[3])
@@ -68,8 +76,7 @@ func _ready() -> void:
 		cam.distance = s[5]
 		cam._cur_distance = s[5]
 		cam.snap_to_target()
-		if s[0] == "mapa":
-			main.hud.minimap.open_full(true)
+		main.hud.minimap.open_full(s[0] == "mapa")
 		if s[0] == "andando":
 			Input.action_press("move_forward")
 		if s[0] == "sentado":

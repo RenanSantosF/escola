@@ -109,6 +109,7 @@ func build(progress: Callable) -> void:
 		n += 1
 		if n % 12 == 0:
 			await get_tree().process_frame
+	_build_terrain_extras(geo)
 	progress.call(0.9, "Plantando árvores...")
 	await get_tree().process_frame
 	var trees := Node3D.new()
@@ -161,6 +162,7 @@ func build(progress: Callable) -> void:
 	progress.call(0.97, "Tocando o sinal...")
 	await get_tree().process_frame
 	_apply_quality()
+	_limit_labels(self)
 	_set_interiors_visible("A", false)
 	_set_interiors_visible("B", false)
 	_set_interiors_visible("C", false)
@@ -168,7 +170,51 @@ func build(progress: Callable) -> void:
 	built.emit()
 
 
+## Relevo com colisão (campo de alturas) e lagos.
+func _build_terrain_extras(parent: Node3D) -> void:
+	for hf in builder.heightfields:
+		var body := StaticBody3D.new()
+		body.name = "Relevo"
+		body.collision_layer = 1
+		body.collision_mask = 0
+		var cs := CollisionShape3D.new()
+		var shape := HeightMapShape3D.new()
+		shape.map_width = hf.w
+		shape.map_depth = hf.d
+		shape.map_data = hf.data
+		cs.shape = shape
+		body.add_child(cs)
+		parent.add_child(body)
+		body.global_position = hf.center
+	for lk in builder.lakes:
+		var mi := MeshInstance3D.new()
+		mi.name = "Lago"
+		var disc := CylinderMesh.new()
+		disc.top_radius = lk.radius
+		disc.bottom_radius = lk.radius
+		disc.height = 0.02
+		disc.radial_segments = 32
+		disc.rings = 1
+		mi.mesh = disc
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color(0.25, 0.55, 0.85, 0.82)
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.roughness = 0.08
+		m.metallic = 0.2
+		m.rim_enabled = true
+		m.rim = 0.4
+		mi.material_override = m
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		parent.add_child(mi)
+		mi.global_position = lk.center
+
+
 func _spawn_interactables() -> void:
+	for sl in builder.slides:
+		var ss := SlideSpot.new()
+		ss.points = sl.points
+		ss.position = sl.start
+		add_child(ss)
 	var seats_root := Node3D.new()
 	seats_root.name = "Seats"
 	add_child(seats_root)
@@ -392,6 +438,19 @@ func _apply_quality() -> void:
 		(e[0] as Label3D).visibility_range_end = e[1] * mult
 	for e in _ranged:
 		(e[0] as GeometryInstance3D).visibility_range_end = e[1] * mult
+
+
+## Placas e textos 3D: cada um custa uma chamada de desenho; sem alcance
+## definido, somem a partir de 28 m (de longe nem dá para ler).
+func _limit_labels(n: Node) -> void:
+	for c in n.get_children():
+		if c is Label3D:
+			var l := c as Label3D
+			if l.visibility_range_end <= 0.0:
+				l.visibility_range_end = 28.0
+				l.visibility_range_end_margin = 2.0
+			l.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_limit_labels(c)
 
 
 func _set_far(far: float) -> void:

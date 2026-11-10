@@ -32,7 +32,7 @@ func build(world: Node3D, builder: SchoolBuilder, lot: Rect2) -> void:
 	while x < lot.end.x - 1.0:
 		var z := lot.position.y + 1.5
 		while z < lot.end.y - 1.0:
-			candidates.append(Vector3(x, 0.05, z))
+			candidates.append(Vector3(x, ParkHill.height(x, z) + 0.05, z))
 			z += GRID
 		x += GRID
 	var extra_start := candidates.size()

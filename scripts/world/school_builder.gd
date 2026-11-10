@@ -6,7 +6,12 @@ extends RefCounted
 
 const FLOOR_TOP := 0.025
 const WALL_T := 0.25
-const LOT := Rect2(-90, -75, 180, 150)
+## Terreno total (escola + Parque do Morro nos fundos).
+const LOT := Rect2(-90, -125, 180, 200)
+## Parte plana original da escola.
+const SCHOOL_AREA := Rect2(-90, -75, 180, 150)
+## Tom da grama (a textura sozinha fica verde-limão demais).
+const GRASS_TINT := Color("cddcc2")
 
 var chunks := {}
 var zones: Array = []
@@ -22,6 +27,9 @@ var classrooms := {}  # nome -> {rect, board, teacher, door_in, door_out, board_
 var nav_points: Array = []  # pontos extras de navegação (portas, corredores)
 var nav_links: Array = []  # pares [a, b] que devem ser ligados (passagem por portas)
 var spots: Array = []  # pontos de atividade do recreio {type, pos, yaw}
+var heightfields: Array = []  # relevo com colisão {center, w, d, data}
+var slides: Array = []  # escorregadores {start, points}
+var lakes: Array = []  # lagos {center, radius}
 var chunk_offsets := {}  # chunk -> altura (prédios de vários andares)
 var spawn := Vector3(0, 0.05, 70)
 var spawn_yaw := PI
@@ -96,6 +104,7 @@ func build_all(step: Callable) -> void:
 	_garden_and_woods()
 	await step.call(0.74, "Espalhando as árvores...")
 	BuildingC.build(self)
+	ParkHill.build(self)
 	_fountain_plaza()
 	_general_zones()
 	_recess_spots()
@@ -486,13 +495,25 @@ func _ground() -> void:
 	var g := chunk("ground")
 	g.cast_shadows = false
 	# gramado do terreno inteiro
-	g.slab("grass", Vector3(0, -0.05, 0), Vector3(LOT.size.x, 0.1, LOT.size.y), Color("ffffff"))
+	var sa := SCHOOL_AREA
+	g.slab("grass", Vector3(sa.get_center().x, -0.05, sa.get_center().y), Vector3(sa.size.x, 0.1, sa.size.y), GRASS_TINT)
 	# entorno (fora da murada)
 	var o := chunk("outside_ground")
 	o.cast_shadows = false
-	o.slab("grass", Vector3(0, -0.07, 0), Vector3(420, 0.1, 380), Color("d8e8c8"))
-	# colisão única do chão
-	g.collider(Vector3(0, -0.5 + 0.02, 0), Vector3(440, 1.0, 400))
+	# quatro faixas em volta do terreno (não cobrem o relevo do parque)
+	var L := LOT
+	var col := Color("d8e8c8")
+	o.slab("grass", Vector3(0, -0.07, (L.end.y + 215.0) * 0.5), Vector3(420, 0.1, 215.0 - L.end.y), col)
+	o.slab("grass", Vector3(0, -0.07, (L.position.y - 240.0) * 0.5), Vector3(420, 0.1, L.position.y + 240.0), col)
+	for sx: float in [-1.0, 1.0]:
+		o.slab("grass", Vector3(sx * (L.end.x + 210.0) * 0.5, -0.07, L.get_center().y), Vector3(210.0 - L.end.x, 0.1, L.size.y), col)
+	# colisão do chão plano: tudo menos o parque (que tem relevo próprio)
+	g.collider(Vector3(0, -0.5 + 0.02, (sa.position.y + 240.0) * 0.5), Vector3(440, 1.0, 240.0 - sa.position.y))
+	var park := ParkHill.AREA
+	g.collider(Vector3(0, -0.5 + 0.02, (park.position.y - 240.0) * 0.5), Vector3(440, 1.0, park.position.y + 240.0))
+	for sx: float in [-1.0, 1.0]:
+		var cx := sx * (park.end.x + 220.0) * 0.5
+		g.collider(Vector3(cx, -0.5 + 0.02, park.get_center().y), Vector3(220.0 - park.end.x, 1.0, park.size.y))
 
 
 func _wall_perimeter() -> void:
