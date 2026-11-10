@@ -278,6 +278,15 @@ func on_interact_release() -> bool:
 	return true
 
 
+## "in" seguro: procurar o jogador num Array[NPC] gera erro no Godot.
+func _has(arr: Array, n: Object) -> bool:
+	if n == null:
+		return false
+	if arr.is_typed() and not (n is NPC):
+		return false
+	return arr.has(n)
+
+
 func _fwd(n: Node3D) -> Vector3:
 	var y: float = n.get("yaw") if n.get("yaw") != null else 0.0
 	return Vector3(sin(y), 0, cos(y))
@@ -297,7 +306,7 @@ func _best_mate(from: Node3D, mates: Array, max_dist := 22.0) -> Node3D:
 		if d < 2.0 or d > max_dist:
 			continue
 		var ang := fwd.angle_to(to.normalized())
-		var press := _pressure(n as Node3D, from in team_a or from == player or from == keeper_a)
+		var press := _pressure(n as Node3D, _has(team_a, from) or from == player or from == keeper_a)
 		var s := ang * 4.0 + d * 0.08 + press * 2.0
 		if s < best_score:
 			best_score = s
@@ -379,7 +388,7 @@ func _shoot_player(power: float) -> void:
 
 
 func _ask_ball() -> void:
-	if holder is NPC and holder in team_a:
+	if holder is NPC and _has(team_a, holder):
 		var h := holder as NPC
 		var to := player.global_position - ball.global_position
 		to.y = 0
@@ -394,7 +403,7 @@ func _tackle() -> void:
 		return
 	_tackle_cd = 0.8
 	player.visual.play("kick")
-	if holder != null and holder != player and not (holder in team_a) and holder != keeper_b:
+	if holder != null and holder != player and not _has(team_a, holder) and holder != keeper_b:
 		var d := holder.global_position.distance_to(player.global_position)
 		if d < 1.8 and _hold_immune <= 0.0:
 			var chance: float = [0.85, 0.7, 0.55][difficulty]
@@ -414,7 +423,7 @@ func _take(n: Node3D) -> void:
 	ball.freeze = true
 	ball.linear_velocity = Vector3.ZERO
 	ball.angular_velocity = Vector3.ZERO
-	_last_touch_team = 0 if (n == player or n in team_a or n == keeper_a) else 1
+	_last_touch_team = 0 if (n == player or _has(team_a, n) or n == keeper_a) else 1
 	if n is NPC:
 		_think[(n as NPC).get_instance_id()] = {"decide": randf_range(0.5, 1.1)}
 
@@ -627,8 +636,8 @@ func _field_ai(n: NPC, team: int, delta: float) -> void:
 					_kick_from(n, to.normalized(), clampf(to.length() * 0.95 + 3.0, 5.0, 13.0), 0.3)
 		_think[key] = st
 		return
-	var holder_is_mate := holder != null and holder in mates
-	var holder_is_foe := holder != null and (holder in foes)
+	var holder_is_mate := _has(mates, holder)
+	var holder_is_foe := _has(foes, holder)
 	var nearest := true
 	for o in mates:
 		if o != n and o != player and (o as Node3D).global_position.distance_to(bp) < n.global_position.distance_to(bp):
