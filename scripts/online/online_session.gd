@@ -127,7 +127,7 @@ func _add_remote(p: Dictionary) -> void:
 	var root := Node3D.new()
 	root.name = "Online_" + id
 	var vis := CharacterVisual.new()
-	vis.detail = 0.75
+	vis.detail = 0.5 if Settings.quality() == Settings.Quality.LOW else 0.75
 	var look: Variant = p.get("look", {})
 	vis.appearance = CharacterAppearance.from_dict(look) if look is Dictionary and not look.is_empty() else CharacterAppearance.random(id.hash(), true)
 	root.add_child(vis)

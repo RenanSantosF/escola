@@ -7,7 +7,12 @@ func _ready() -> void:
 	add_child(main)
 	while GameManager.player == null:
 		await get_tree().process_frame
-	for i in 30:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--quality="):
+			Settings.set_value("quality", int(a.substr(10)), false)
+	main._start_game()
+	GameManager.player.global_position = Vector3(0, 0.05, -2)
+	for i in 60:
 		await get_tree().process_frame
 	var counts := {}
 	var shadows := {}
@@ -53,8 +58,11 @@ func _tris(n: Node, out: Array) -> void:
 
 
 func _walk(n: Node, counts: Dictionary, shadows: Dictionary) -> void:
-	if n is GeometryInstance3D:
+	if n is GeometryInstance3D and (n as Node3D).is_visible_in_tree():
 		var gi := n as GeometryInstance3D
+		var cam := get_viewport().get_camera_3d()
+		if gi.visibility_range_end > 0.0 and cam and cam.global_position.distance_to(gi.global_position) > gi.visibility_range_end + 5.0:
+			return
 		var owner_name := _origin(n)
 		var key := "%s / %s" % [n.get_class(), owner_name]
 		counts[key] = counts.get(key, 0) + 1

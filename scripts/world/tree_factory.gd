@@ -95,7 +95,7 @@ static func build(parent: Node3D, trees: Array, shadows: bool) -> void:
 	# Agrupa por tipo e por célula de 90 m: permite frustum culling e
 	# distância de visibilidade por grupo (MultiMesh é culled como um todo).
 	var by_cell := {}
-	var cell_size := 90.0
+	var cell_size := 170.0  # grupos maiores = menos desenhos por quadro
 	for tr in trees:
 		var cell := Vector2i(floori(tr.pos.x / cell_size), floori(tr.pos.z / cell_size))
 		var key := "%s|%d|%d" % [tr.type, cell.x, cell.y]

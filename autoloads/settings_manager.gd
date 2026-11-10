@@ -32,6 +32,9 @@ func _ready() -> void:
 	# Na primeira execução escolhe a qualidade pelo hardware.
 	if not FileAccess.file_exists(PATH):
 		values.quality = _detect_quality()
+		# celular fraco: 30 quadros por segundo (esquenta menos e gasta menos bateria)
+		if values.quality == Quality.LOW and OS.get_name() in ["Android", "iOS"]:
+			values["fps_limit_30"] = true
 		save_settings()
 	apply_all()
 
@@ -83,9 +86,50 @@ func _apply(key: String) -> void:
 	match key:
 		"fps_limit_30":
 			Engine.max_fps = 30 if values.fps_limit_30 else 60
+			# 30 quadros: física também a 30 (um passo por quadro, metade do custo)
+			Engine.physics_ticks_per_second = 30 if values.fps_limit_30 else 60
 		"music_volume", "sfx_volume", "ambient_volume":
 			if has_node("/root/AudioManager"):
 				get_node("/root/AudioManager").apply_volumes()
+
+
+# ---------------------------------------------------------------- ajuste automático
+# Jogando e o celular não aguenta (poucos quadros por segundo): baixa a
+# qualidade sozinho, uma vez, e avisa. Na qualidade baixa ainda pesado:
+# diminui a resolução interna do 3D.
+var _perf_t := 0.0
+var _perf_frames := 0
+var _slow_secs := 0.0
+var render_scale_low := 0.75
+
+
+func _process(delta: float) -> void:
+	if not has_node("/root/GameManager") or not get_node("/root/GameManager").is_playing():
+		_slow_secs = 0.0
+		return
+	_perf_t += delta
+	_perf_frames += 1
+	if _perf_t < 2.0:
+		return
+	var fps := _perf_frames / _perf_t
+	_perf_t = 0.0
+	_perf_frames = 0
+	var target := 24.0 if bool(values.get("fps_limit_30", false)) else 40.0
+	if fps < target:
+		_slow_secs += 2.0
+	else:
+		_slow_secs = maxf(_slow_secs - 2.0, 0.0)
+	if _slow_secs < 10.0:
+		return
+	_slow_secs = 0.0
+	if quality() > Quality.LOW:
+		set_value("quality", quality() - 1)
+		if quality() == Quality.LOW:
+			set_value("fps_limit_30", true)
+		get_node("/root/GameManager").show_toast("Ajustamos os gráficos para o jogo ficar mais leve no seu celular.")
+	elif render_scale_low > 0.55:
+		render_scale_low = maxf(render_scale_low - 0.1, 0.55)
+		changed.emit("quality")
 
 
 func _detect_quality() -> int:
@@ -95,6 +139,11 @@ func _detect_quality() -> int:
 		var method := str(ProjectSettings.get_setting("rendering/renderer/rendering_method"))
 		if RenderingServer.get_rendering_device() == null or cores <= 4:
 			return Quality.LOW
+		# placas de vídeo de entrada (Mali antigas, Adreno 3xx-50x, PowerVR)
+		var gpu := RenderingServer.get_video_adapter_name().to_lower()
+		for weak in ["mali-4", "mali-t", "mali-g31", "mali-g51", "mali-g52", "adreno (tm) 3", "adreno (tm) 4", "adreno (tm) 50", "powervr"]:
+			if weak in gpu:
+				return Quality.LOW
 		if cores >= 8 and method == "mobile":
 			return Quality.MEDIUM
 		return Quality.LOW

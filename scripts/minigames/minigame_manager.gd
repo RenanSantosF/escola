@@ -92,6 +92,8 @@ func _build_sign(st: Node3D, g: Dictionary) -> void:
 	var ring := MeshInstance3D.new()
 	ring.mesh = ring_md.build_mesh(rmat)
 	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ring.name = "Ring"
+	ring.visible = Settings.quality() != Settings.Quality.LOW  # anel no chão: só fora da qualidade baixa
 	st.add_child(ring)
 	for side: float in [1.0, -1.0]:
 		var lb := Label3D.new()
@@ -113,7 +115,7 @@ func _build_sign(st: Node3D, g: Dictionary) -> void:
 		lb.autowrap_mode = TextServer.AUTOWRAP_WORD
 		lb.position = Vector3(0.9, 2.0, 0.06 * side)
 		lb.rotation.y = 0.0 if side > 0 else PI
-		lb.visibility_range_end = 45.0
+		lb.visibility_range_end = 26.0 if Settings.quality() == Settings.Quality.LOW else 45.0
 		st.add_child(lb)
 
 

@@ -423,7 +423,7 @@ func _apply_quality() -> void:
 			env.fog_enabled = false
 			env.adjustment_enabled = false
 			env.glow_enabled = false
-			vp.scaling_3d_scale = 0.75
+			vp.scaling_3d_scale = Settings.render_scale_low
 			vp.msaa_3d = Viewport.MSAA_DISABLED
 			vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 			_set_far(110.0)
@@ -459,6 +459,15 @@ func _apply_quality() -> void:
 			if not c is GeometryInstance3D:
 				continue
 			(c as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if q != Settings.Quality.LOW else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Qualidade baixa: pedaços pequenos do cenário (bancos, enfeites, placas)
+	# que estavam "sempre visíveis" somem de longe (menos desenhos por quadro).
+	_limit_small_chunks(q == Settings.Quality.LOW)
+	# bichinhos e partículas (bebedouros) só fora da qualidade baixa
+	if has_node("AmbientLife"):
+		(get_node("AmbientLife") as Node3D).visible = q != Settings.Quality.LOW
+	if has_node("Seats"):
+		for c in get_node("Seats").find_children("*", "GPUParticles3D", true, false):
+			(c as GPUParticles3D).visible = q != Settings.Quality.LOW
 	# Distância de exibição (rótulos, áreas externas, árvores)
 	var mult := 0.6 if q == Settings.Quality.LOW else (0.85 if q == Settings.Quality.MEDIUM else 1.0)
 	for e in _labels:
@@ -478,6 +487,34 @@ func _limit_labels(n: Node) -> void:
 				l.visibility_range_end_margin = 2.0
 			l.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_limit_labels(c)
+
+
+var _small_limited := {}
+
+
+func _limit_small_chunks(on: bool) -> void:
+	for cname in _chunk_nodes.keys():
+		var node: Node3D = _chunk_nodes[cname]
+		if node == null:
+			continue
+		for c in node.get_children():
+			if not c is GeometryInstance3D:
+				continue
+			var gi := c as GeometryInstance3D
+			if on:
+				if gi.visibility_range_end > 0.0 or _small_limited.has(gi):
+					continue
+				var size := gi.get_aabb().size
+				if maxf(size.x, size.z) < 26.0 and size.y < 12.0:
+					_small_limited[gi] = true
+					gi.visibility_range_end = 55.0
+					gi.visibility_range_end_margin = 4.0
+			elif _small_limited.has(gi):
+				gi.visibility_range_end = 0.0
+		if not on:
+			continue
+	if not on:
+		_small_limited.clear()
 
 
 func _set_far(far: float) -> void:
