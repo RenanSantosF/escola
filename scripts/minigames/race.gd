@@ -17,6 +17,22 @@ var _base_run := 5.0
 
 
 func begin() -> void:
+	if is_multi():
+		# corrida com amigos: cada um na sua raia (sem bots), todos largam juntos
+		var idx := maxi(int(net.get("index", 0)), 0)
+		player.force_stand()
+		player.global_position = Vector3(START_X, 0.05, -22.4 + idx * 1.05)
+		player.yaw = PI * 0.5
+		player.velocity = Vector3.ZERO
+		player.movement_locked = true
+		if player.camera_rig:
+			player.camera_rig.yaw = player.yaw + PI
+			player.camera_rig.pitch = -14.0
+			player.camera_rig.snap_to_target()
+		countdown(3.0)
+		super.begin()
+		hud.set_minigame_text("Corrida com a turma! Prepare o botão Correr")
+		return
 	var prefer := ["bia", "rafa", "lucas"]
 	for nid in prefer:
 		for n in npcs.npcs:
@@ -97,7 +113,10 @@ func tick(delta: float) -> void:
 		if r.global_position.x > player.global_position.x:
 			pos += 1
 	var left := maxf(FINISH_X - player.global_position.x, 0.0)
-	hud.set_minigame_text("Corrida  ·  %dº lugar  ·  faltam %d m  ·  %.1f s  ·  TOQUE RÁPIDO em Correr!" % [pos, int(left), _elapsed])
+	if is_multi():
+		hud.set_minigame_text("Corrida com a turma  ·  faltam %d m  ·  %.1f s  ·  TOQUE RÁPIDO em Correr!" % [int(left), _elapsed])
+	else:
+		hud.set_minigame_text("Corrida  ·  %dº lugar  ·  faltam %d m  ·  %.1f s  ·  TOQUE RÁPIDO em Correr!" % [pos, int(left), _elapsed])
 	if _player_done or _elapsed > 40.0:
 		_finish()
 
@@ -107,12 +126,14 @@ func _finish() -> void:
 	if place == 0:
 		place = 3
 	var won := 1 if place == 1 else (0 if place == 2 else -1)
+	if is_multi():
+		won = 0  # quem ganhou é decidido pelo placar da turma (menor tempo)
 	if won > 0:
 		GameManager.unlock_achievement("velocista")
 	var best: float = SaveManager.section("stats").get("corrida_recorde", 999.0)
 	if _player_done and _elapsed < best:
 		SaveManager.section("stats")["corrida_recorde"] = _elapsed
-	end_game(won, "%dº lugar em %.1f s" % [place, _elapsed], [0, 20, 10, 5][place], [0, 30, 18, 10][place], {"score": place})
+	end_game(won, "%dº lugar em %.1f s" % [place, _elapsed], [0, 20, 10, 5][place], [0, 30, 18, 10][place], {"score": place, "time": snappedf(_elapsed, 0.01)})
 
 
 func cleanup() -> void:

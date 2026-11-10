@@ -1,0 +1,260 @@
+extends Node
+## Ponta a ponta com DOIS jogos de verdade na mesma sala (servidor local).
+## O jogador A cria a sala; o B entra pelo código. Testa: relógio igual,
+## carteiras diferentes, futebol com entrada no meio (B vira colega do
+## anfitrião), gol, posse, chute do colega, fim para os dois; rodada
+## (pontaria) com placar da turma; vez com fila (amarelinha).
+##
+## Uso (servidor com CLOCK_START=recess):
+##   godot --headless --path . res://tests/multi_probe.tscn -- --role=A --dir=/tmp/x --url=ws://127.0.0.1:8150
+##   godot --headless --path . res://tests/multi_probe.tscn -- --role=B --dir=/tmp/x --url=ws://127.0.0.1:8150
+
+var role := "A"
+var dir := "/tmp"
+var url := "ws://127.0.0.1:8150"
+var main: Node
+var fails: Array = []
+var oks := 0
+var events: Array = []
+
+
+func _ready() -> void:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--role="):
+			role = a.substr(7)
+		elif a.begins_with("--dir="):
+			dir = a.substr(6)
+		elif a.begins_with("--url="):
+			url = a.substr(6)
+	Settings.set_value("server_url", url, false)
+	SaveManager.section("online").clear()
+	NetworkManager.mg_event.connect(func(e): events.append(e))
+	main = load("res://scenes/main/main.tscn").instantiate()
+	add_child(main)
+	while GameManager.player == null:
+		await get_tree().process_frame
+	await _frames(5)
+	main._online_menu.visible = true
+	if role == "A":
+		main._join_online("create", "")
+	else:
+		var code := await _wait_file("code", 60.0)
+		main._join_online("code", code)
+	var t := 0.0
+	while not (NetworkManager.is_online() and GameManager.is_playing()) and t < 20.0:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	if not NetworkManager.is_online():
+		_done("não conectou")
+		return
+	if role == "A":
+		_write("code", NetworkManager.room_code)
+	await _secs(1.0)
+	await _test_basics()
+	await _test_football()
+	await _test_round()
+	await _test_turn()
+	_done("")
+
+
+func check(cond: bool, name: String, detail := "") -> void:
+	if cond:
+		oks += 1
+		print("  OK   [%s] %s" % [role, name])
+	else:
+		fails.append(name)
+		print("  FALHA [%s] %s  (%s)" % [role, name, detail])
+
+
+func _done(err: String) -> void:
+	if err != "":
+		fails.append(err)
+	print("MULTI_PROBE %s %s  ok=%d falhas=%d %s" % [role, "OK" if fails.is_empty() else "FALHOU", oks, fails.size(), str(fails)])
+	_write("done_" + role, "1")
+	await _secs(1.0)
+	get_tree().quit(0 if fails.is_empty() else 1)
+
+
+# ------------------------------------------------------------- sincronização
+
+func _write(name: String, text: String) -> void:
+	var f := FileAccess.open(dir.path_join(name), FileAccess.WRITE)
+	f.store_string(text)
+	f.close()
+
+
+func _wait_file(name: String, timeout := 40.0) -> String:
+	var t := 0.0
+	while t < timeout:
+		if FileAccess.file_exists(dir.path_join(name)):
+			return FileAccess.get_file_as_string(dir.path_join(name))
+		await _secs(0.1)
+		t += 0.1
+	fails.append("esperou demais por " + name)
+	return ""
+
+
+## Os dois chegam neste ponto antes de seguir.
+func barrier(name: String) -> void:
+	_write(name + "_" + role, "1")
+	await _wait_file(name + "_" + ("B" if role == "A" else "A"))
+
+
+func _frames(n: int) -> void:
+	for i in n:
+		await get_tree().process_frame
+
+
+func _secs(s: float) -> void:
+	await get_tree().create_timer(s).timeout
+
+
+func _until(cond: Callable, timeout: float) -> bool:
+	var t := 0.0
+	while t < timeout:
+		if cond.call():
+			return true
+		await _secs(0.1)
+		t += 0.1
+	return cond.call()
+
+
+func _place(pos: Vector3) -> void:
+	var p: PlayerController = GameManager.player
+	if p.mode == PlayerController.Mode.SITTING:
+		p.force_stand()
+	p.global_position = pos
+	p.velocity = Vector3.ZERO
+
+
+# ------------------------------------------------------------- testes
+
+func _test_basics() -> void:
+	await barrier("joined")
+	await _secs(1.0)
+	var sd: SchoolDay = main.school_day
+	check(sd.synced and sd.phase == SchoolDay.Phase.RECESS, "relógio: no recreio, igual ao servidor", "fase %d" % sd.phase)
+	var npcm: NPCManager = main.npcs
+	var seats := npcm.desk_seats()
+	check(NetworkManager.my_desk >= 0 and npcm.player_desk == seats[NetworkManager.my_desk], "carteira: a minha é a reservada")
+	check(npcm.desk_owner.size() == 1 and not npcm.desk_owner.has(npcm.player_desk), "carteira: a do colega é outra e eu sei de quem é")
+	var s := get_tree().get_first_node_in_group("online_session")
+	check(s != null and s.remotes.size() == 1, "vejo o colega na escola")
+
+
+func _test_football() -> void:
+	var mgr: MinigameManager = main.minigames
+	if role == "A":
+		_place(Vector3(40, 0.05, -40))
+		await _secs(0.5)
+		mgr.start("futebol")
+		var ok := await _until(func(): return mgr.active != null, 5.0)
+		check(ok, "futebol: anfitrião começa")
+		if ok:
+			mgr.active.side_size = 3
+			mgr.active._start_match()
+		await barrier("fb_started")
+		await barrier("fb_joined")
+		var fb = mgr.active
+		var got := await _until(func(): return fb != null and fb.humans_a.size() + fb.humans_b.size() == 1, 6.0)
+		check(got, "futebol: colega entrou no meio e virou jogador do time")
+		await _secs(3.5)
+		# gol do time do anfitrião
+		fb._release(Vector3.ZERO, 0.0)
+		fb.ball.global_position = Vector3(60.6, 0.3, -49)
+		fb.ball.linear_velocity = Vector3(3, 0, 0)
+		await _secs(0.4)
+		check(fb.score_a == 1, "futebol: gol no anfitrião")
+		await barrier("goal")
+		await _secs(6.0)
+		# a bola vai para o pé do colega
+		var hs: Array = fb.humans_a + fb.humans_b
+		var r: Node3D = hs[0] if not hs.is_empty() else null
+		if r:
+			fb._take(r)
+		await barrier("given")
+		await barrier("shot")
+		await _secs(0.8)
+		check(fb.holder != r, "futebol: o chute do colega chegou e a bola saiu do pé dele")
+		fb._finish()
+		await barrier("fb_end")
+		check(mgr.active == null, "futebol: acabou no anfitrião")
+	else:
+		_place(Vector3(0, 0.05, -5))
+		await barrier("fb_started")
+		_place(Vector3(41, 0.05, -40))
+		await _secs(0.3)
+		mgr.start("futebol")
+		var ok2 := await _until(func(): return mgr.active != null and mgr.active.net_role == "client" and not mgr.active._last_state.is_empty(), 6.0)
+		check(ok2, "futebol: entrei no meio como colega e recebo o jogo do anfitrião")
+		await barrier("fb_joined")
+		await barrier("goal")
+		var fb = mgr.active
+		var seen := await _until(func(): return fb != null and fb._my_score()[0] + fb._my_score()[1] == 1, 4.0)
+		check(seen, "futebol: o colega vê o placar do gol")
+		check(fb != null and fb._puppets.size() >= 2, "futebol: o colega vê os bots do anfitrião", str(fb._puppets.size() if fb else -1))
+		await barrier("given")
+		var has := await _until(func(): return fb != null and is_instance_valid(fb) and fb.holder == GameManager.player, 3.0)
+		check(has, "futebol: a bola chegou no meu pé")
+		var bpos: Vector3 = fb.ball.global_position
+		check(bpos.distance_to(GameManager.player.global_position) < 1.2, "futebol: bola colada no pé sem atraso")
+		fb._charge = true
+		fb._power = 0.8
+		fb.on_play_release()
+		await barrier("shot")
+		var ended := await _until(func(): return mgr.active == null, 6.0)
+		check(ended, "futebol: o fim do anfitrião encerra a minha partida")
+		await barrier("fb_end")
+	await _secs(1.0)
+
+
+func _test_round() -> void:
+	var mgr: MinigameManager = main.minigames
+	events.clear()
+	_place(Vector3(24, 0.05, -14))
+	if role == "A":
+		mgr.start("pontaria")
+		var ok := await _until(func(): return mgr.active != null, 5.0)
+		check(ok, "rodada: começa na hora (ninguém perto)")
+		await barrier("pt")
+	else:
+		await barrier("pt")
+		mgr.start("pontaria")
+		var ok2 := await _until(func(): return mgr.active != null, 5.0)
+		check(ok2, "rodada: entrei com a rodada rolando")
+	await barrier("pt_both")
+	if mgr.active:
+		mgr.active.end_game(0, "fim", 0, 0, {"score": 10 if role == "A" else 20})
+	var got := await _until(func(): return events.any(func(e): return e.get("kind") == "results" and e.get("gid") == "pontaria"), 6.0)
+	check(got, "rodada: placar da turma no fim")
+	if got:
+		var ev: Dictionary = events.filter(func(e): return e.get("kind") == "results")[0]
+		var rk: Array = ev.ranking
+		check(rk.size() == 2 and float(rk[0].score) == 20.0, "rodada: os dois no placar e o melhor em 1º", str(rk))
+	await barrier("pt_end")
+
+
+func _test_turn() -> void:
+	var mgr: MinigameManager = main.minigames
+	events.clear()
+	_place(Vector3(-14, 0.05, 3))
+	if role == "A":
+		mgr.start("amarelinha")
+		var ok := await _until(func(): return mgr.active != null, 5.0)
+		check(ok, "vez: primeiro a jogar")
+		await barrier("am")
+		await barrier("am_queue")
+		mgr.active.end_game(0, "fim", 0, 0, {"score": 5})
+	else:
+		await barrier("am")
+		mgr.start("amarelinha")
+		var queued := await _until(func(): return (NetworkManager.game_state("amarelinha").get("queue", []) as Array).has(NetworkManager.my_id), 4.0)
+		check(queued and mgr.active == null, "vez: entrei na fila e espero (sem jogar junto)")
+		await barrier("am_queue")
+		var mine := await _until(func(): return mgr.active != null, 6.0)
+		check(mine, "vez: chegou a minha vez")
+		if mgr.active:
+			mgr.active.end_game(0, "fim", 0, 0, {"score": 7})
+	var got := await _until(func(): return events.any(func(e): return e.get("kind") == "results" and e.get("gid") == "amarelinha"), 6.0)
+	check(got, "vez: placar no fim da fila")
+	await barrier("am_end")

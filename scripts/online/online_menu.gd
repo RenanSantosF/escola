@@ -23,7 +23,7 @@ func _ready() -> void:
 	var t := UITheme.title_label("Jogar online", 52, UITheme.BLUE)
 	root.add_child(t)
 	var sub := Label.new()
-	sub.text = "Jogue o recreio com outras crianças. Os colegas da escola (bots)\ncontinuam lá e dão as missões!"
+	sub.text = "Todas as salas são abertas: o código serve para os amigos\ncaírem juntos na mesma sala."
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.add_theme_font_size_override("font_size", 22)
 	root.add_child(sub)
@@ -31,8 +31,8 @@ func _ready() -> void:
 	_main = VBoxContainer.new()
 	_main.add_theme_constant_override("separation", 12)
 	root.add_child(_main)
-	_main.add_child(_big("Entrar numa sala", "Cai numa turma aberta agora mesmo", UITheme.GREEN, func(): _go("quick", "")))
-	_main.add_child(_big("Criar sala com amigos", "Recebe um código para passar aos amigos", UITheme.ORANGE, func(): _go("create", "")))
+	_main.add_child(_big("Entrar numa sala", "Vai para uma turma que já está jogando", UITheme.GREEN, func(): _go("quick", "")))
+	_main.add_child(_big("Criar sala nova", "Sala aberta: passe o código para os amigos entrarem juntos", UITheme.ORANGE, func(): _go("create", "")))
 	_main.add_child(_big("Entrar com código", "Digite o código que o amigo passou", UITheme.BLUE, _open_pad))
 
 	_pad = VBoxContainer.new()
@@ -147,10 +147,14 @@ func _refresh_code() -> void:
 	_code_lbl.text = s
 
 
+var last_mode := ""
+
+
 func _go(mode: String, code: String) -> void:
 	if _busy:
 		return
 	_busy = true
+	last_mode = mode
 	set_status("Conectando...", false)
 	chosen.emit(mode, code)
 

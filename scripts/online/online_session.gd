@@ -22,6 +22,7 @@ var _was_online := false
 
 
 func setup(p: PlayerController, w: Node3D, ui_parent: Node, hud: HUD) -> void:
+	add_to_group("online_session")
 	player = p
 	world = w
 	hud_ref = hud
@@ -60,6 +61,9 @@ func setup(p: PlayerController, w: Node3D, ui_parent: Node, hud: HUD) -> void:
 			(r.visual as CharacterVisual).set_appearance(CharacterAppearance.from_dict(look))
 			r.label.text = "%s  ·  nv %d" % [r.name, lv]
 			r.name_text = r.label.text)
+	nm.desks_changed.connect(func(map):
+		if npcs:
+			npcs.apply_desks(map, NetworkManager.my_id))
 	nm.count_changed.connect(func(n):
 		_refresh_badge()
 		if npcs:
@@ -98,14 +102,16 @@ func _exit_tree() -> void:
 		player.input_enabled = true
 	if npcs:
 		npcs.set_online_players(1)
+		npcs.apply_desks({}, "")
+	for id in remotes.keys():
+		_release_seat(remotes[id])
 
 
 func _on_welcome(m: Dictionary) -> void:
 	chat_panel.setup_phrases(NetworkManager.quick_phrases, NetworkManager.free_chat)
 	chat_panel.set_room(str(m.get("code", "")))
 	chat_panel.add_line("", "Você entrou na sala %s como %s." % [m.get("code", ""), m.name], true)
-	if bool(m.get("private", false)):
-		chat_panel.add_line("", "Código para os amigos: %s" % m.get("code", ""), true)
+	chat_panel.add_line("", "Código da sala para os amigos: %s" % m.get("code", ""), true)
 	for p in m.get("players", []):
 		_add_remote(p)
 	_refresh_badge()
@@ -138,12 +144,15 @@ func _add_remote(p: Dictionary) -> void:
 	var pos := _vec(p.get("pos", [0, 0, 70]))
 	root.global_position = pos
 	remotes[id] = {"root": root, "visual": vis, "label": label, "name": str(p.get("name", "")), "name_text": label.text,
-		"from": pos, "to": pos, "t": 1.0, "yaw": float(p.get("yaw", 0.0)), "anim": str(p.get("anim", "idle"))}
+		"from": pos, "to": pos, "t": 1.0, "yaw": float(p.get("yaw", 0.0)), "anim": str(p.get("anim", "idle")), "seat": null}
+	if remotes[id].anim == "sit":
+		_on_remote_anim(remotes[id], "idle", "sit")
 
 
 func _remove_remote(id: String) -> void:
 	if not remotes.has(id):
 		return
+	_release_seat(remotes[id])
 	remotes[id].root.queue_free()
 	remotes.erase(id)
 
@@ -157,7 +166,37 @@ func _on_states(list: Array) -> void:
 		r.to = _vec(s.get("pos", [0, 0, 0]))
 		r.t = 0.0
 		r.yaw = float(s.get("yaw", 0.0))
-		r.anim = str(s.get("anim", "idle"))
+		var anim := str(s.get("anim", "idle"))
+		if anim != r.anim:
+			_on_remote_anim(r, r.anim, anim)
+		r.anim = anim
+
+
+## Colega online sentou/levantou: mostra a pose e ocupa o assento (ninguém senta no colo dele).
+func _on_remote_anim(r: Dictionary, before: String, now: String) -> void:
+	var vis: CharacterVisual = r.visual
+	if now == "sit":
+		vis.play("sit_down")
+		var best: Seat = null
+		var bd := 0.7
+		for st in (world as SchoolWorld).seats if world is SchoolWorld else []:
+			var d: float = (st as Seat).global_position.distance_to(r.to)
+			if d < bd:
+				bd = d
+				best = st
+		if best and best.occupant == null:
+			best.occupy(r.root)
+			r["seat"] = best
+	elif before == "sit":
+		vis.play("stand_up")
+		_release_seat(r)
+
+
+func _release_seat(r: Dictionary) -> void:
+	var st: Seat = r.get("seat")
+	if st and is_instance_valid(st) and st.occupant == r.root:
+		st.release()
+	r["seat"] = null
 
 
 func _on_chat(id: String, sender: String, text: String) -> void:

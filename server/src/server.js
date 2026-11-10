@@ -60,7 +60,8 @@ function createServer(opts = {}) {
     onReport: (e) => dbSafe(db.insertReport(e)),
     onBlock: (id, other) => dbSafe(db.saveBlock(id, other)),
   });
-  const rooms = new RoomManager({ clock: { scale: opts.clockScale ?? (Number(process.env.CLOCK_SCALE) || 1) } });
+  // CLOCK_SCALE/CLOCK_START só para testes locais (o dia inteiro em segundos, ou já no recreio)
+  const rooms = new RoomManager({ clock: { scale: opts.clockScale ?? (Number(process.env.CLOCK_SCALE) || 1), startPhase: opts.clockStart ?? process.env.CLOCK_START } });
   const analytics = opts.analytics || new Analytics({
     ...(opts.dataDir !== undefined ? { dataDir: opts.dataDir } : {}),
     ...(db.enabled ? { dataDir: '' } : {}),

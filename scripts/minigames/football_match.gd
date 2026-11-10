@@ -42,6 +42,21 @@ var _started := false
 var side_size := 4  # jogadores de linha por time (contando você)
 var difficulty := 1  # 0 fácil, 1 normal, 2 difícil
 var fill_bots := true
+# ---- online: o celular do anfitrião simula a bola e os bots; os outros mandam
+# os comandos (chute, passe, roubo) e recebem o jogo ~12 vezes por segundo.
+var net_role := ""  # "" sozinho, "host" ou "client"
+var my_team := "a"
+var humans_a: Array = []  # colegas online no time do anfitrião (nós dos avatares)
+var humans_b: Array = []
+var _human_id := {}  # avatar -> id do jogador
+var _net_t := 0.0
+var _ko := 0  # contador de saídas de bola (o cliente se reposiciona)
+var _last_state: Dictionary = {}
+var _state_age := 0.0
+var _puppets: Array[NPC] = []
+var _client_holder := ""
+var _client_ko := -1
+var _ball_target := Vector3(40, 0.3, -49)
 
 
 func begin() -> void:
@@ -54,6 +69,15 @@ func begin() -> void:
 	player.global_position = Vector3(37.0, 0.05, -49.0)
 	player.yaw = PI * 0.5
 	super.begin()
+	if is_net():
+		my_team = str((net.get("teams", {}) as Dictionary).get(net.get("me", ""), "a"))
+		if str(net.get("host", "")) == str(net.get("me", "")):
+			net_role = "host"
+			_show_setup()
+		else:
+			net_role = "client"
+			_start_client()
+		return
 	_show_setup()
 
 
@@ -73,7 +97,7 @@ func _show_setup() -> void:
 	v.add_child(UITheme.title_label("Futebol na quadra", 44, Color("1e8449")))
 	v.add_child(_option_row("Tamanho do time", [["3 x 3", 3], ["4 x 4", 4], ["5 x 5", 5]], func(x): side_size = x, side_size))
 	v.add_child(_option_row("Dificuldade", [["Fácil", 0], ["Normal", 1], ["Difícil", 2]], func(x): difficulty = x, difficulty))
-	v.add_child(_option_row("Completar com bots", [["Sim", true], ["Não (só 1 x 1)", false]], func(x): fill_bots = x, fill_bots))
+	v.add_child(_option_row("Completar com bots", [["Sim", true], ["Não (só quem está jogando)" if is_multi() else "Não (só 1 x 1)", false]], func(x): fill_bots = x, fill_bots))
 	var tip := Label.new()
 	tip.text = "Goleiros são sempre bots. Com a bola: Amarelo chuta, Verde passa (segure = lançamento), Azul = profundidade. Sem a bola: Verde rouba."
 	tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -134,16 +158,20 @@ func _start_match() -> void:
 		if n.role == "student" and n.active and n.activity != "minigame":
 			pool.append(n)
 	pool.sort_custom(func(a, b): return a.global_position.distance_squared_to(Vector3(40, 0, -49)) < b.global_position.distance_squared_to(Vector3(40, 0, -49)))
-	var mates := (side_size - 1) if fill_bots else 0
-	var rivals := side_size if fill_bots else 1
+	if net_role == "host":
+		_collect_humans()
+	var mates := maxi(side_size - 1 - humans_a.size(), 0) if fill_bots else 0
+	var rivals := maxi(side_size - humans_b.size(), 0) if fill_bots else (0 if not humans_b.is_empty() else 1)
 	var lucas := _pick(pool, "lucas")
 	var cap := _pick(pool, captain)
-	if lucas and mates > 0:
+	if lucas and mates > 0 and team_a.size() < mates:
 		team_a.append(lucas)
 	elif lucas:
 		pool.append(lucas)
-	if cap:
+	if cap and rivals > 0:
 		team_b.append(cap)
+	elif cap:
+		pool.append(cap)
 	while not pool.is_empty() and (team_a.size() < mates or team_b.size() < rivals):
 		var n: NPC = pool.pop_front()
 		if team_a.size() < mates:
@@ -164,7 +192,11 @@ func _start_match() -> void:
 	time_left = MATCH_TIME
 	player.movement_locked = false
 	_kickoff(0)
-	hud.show_banner("Futebol!", "Seu time x %s" % _rival)
+	if net_role == "host":
+		_rival = "o time laranja"
+		hud.show_banner("Futebol com a turma!", "Você e seu time contra o time laranja")
+	else:
+		hud.show_banner("Futebol!", "Seu time x %s" % _rival)
 
 
 func _pick(pool: Array[NPC], nid: String) -> NPC:
@@ -176,6 +208,7 @@ func _pick(pool: Array[NPC], nid: String) -> NPC:
 
 
 func _kickoff(team_starts: int) -> void:
+	_ko += 1
 	_release(Vector3.ZERO, 0.0)
 	ball.reset_ball()
 	ball.global_position = Vector3(40, 0.3, -49)
@@ -214,7 +247,7 @@ func _update_hud() -> void:
 # ---------------------------------------------------------------- botões
 
 func play_label() -> String:
-	if not _started:
+	if not _started or (net_role == "client" and _last_state.is_empty()):
 		return ""
 	if holder == player:
 		return "Solte: chute!" if _charge else "Chutar"
@@ -227,7 +260,16 @@ func interact_label() -> String:
 	return "Passe / Lançar" if holder == player else "Roubar"
 
 
+func _client_blocked() -> bool:
+	return _last_state.is_empty() or int(_last_state.get("c", 0)) == 1
+
+
 func on_jump() -> bool:
+	if net_role == "client":
+		if holder == player and not _client_blocked():
+			_client_cmd("through")
+			player.visual.play("kick")
+		return true
 	if holder == player and _countdown <= 0.0:
 		_through_ball()
 		return true
@@ -235,6 +277,16 @@ func on_jump() -> bool:
 
 
 func on_play() -> bool:
+	if net_role == "client":
+		if _client_blocked():
+			return true
+		if holder == player:
+			_charge = true
+			_power = 0.0
+		else:
+			_client_cmd("ask")
+			GameManager.show_toast("Pedindo a bola!")
+		return true
 	if not _started or _countdown > 0.0:
 		return true
 	if holder == player:
@@ -249,12 +301,26 @@ func on_play_release() -> bool:
 	if _charge:
 		_charge = false
 		hud.set_meter(-1.0)
-		if holder == player:
+		if net_role == "client":
+			if holder == player:
+				_client_cmd("shoot", {"p": snappedf(_power, 0.01)})
+				player.visual.play("kick")
+		elif holder == player:
 			_shoot_player(_power)
 	return true
 
 
 func on_interact() -> bool:
+	if net_role == "client":
+		if _client_blocked():
+			return true
+		if holder == player:
+			_pass_down_ms = Time.get_ticks_msec()
+		elif _tackle_cd <= 0.0:
+			_tackle_cd = 0.8
+			player.visual.play("kick")
+			_client_cmd("tackle")
+		return true
 	if not _started or _countdown > 0.0:
 		return true
 	if holder == player:
@@ -270,6 +336,10 @@ func on_interact_release() -> bool:
 	var held := Time.get_ticks_msec() - _pass_down_ms
 	_pass_down_ms = 0
 	if holder != player:
+		return true
+	if net_role == "client":
+		_client_cmd("long" if held > 350 else "pass")
+		player.visual.play("kick")
 		return true
 	if held > 350:
 		_long_pass()
@@ -288,7 +358,11 @@ func _has(arr: Array, n: Object) -> bool:
 
 
 func _fwd(n: Node3D) -> Vector3:
-	var y: float = n.get("yaw") if n.get("yaw") != null else 0.0
+	var y := 0.0
+	if n.get("yaw") != null:
+		y = n.get("yaw")
+	elif n.get_child_count() > 0 and n.get_child(0) is Node3D:
+		y = (n.get_child(0) as Node3D).rotation.y  # avatar online: o visual guarda o ângulo
 	return Vector3(sin(y), 0, cos(y))
 
 
@@ -316,7 +390,7 @@ func _best_mate(from: Node3D, mates: Array, max_dist := 22.0) -> Node3D:
 
 ## 0..1: quanto o colega está marcado.
 func _pressure(n: Node3D, is_team_a: bool) -> float:
-	var foes: Array = team_b if is_team_a else (team_a + [player])
+	var foes: Array = (team_b + humans_b) if is_team_a else (team_a + [player] + humans_a)
 	var m := 0.0
 	for f in foes:
 		var d: float = (f as Node3D).global_position.distance_to(n.global_position)
@@ -325,7 +399,7 @@ func _pressure(n: Node3D, is_team_a: bool) -> float:
 
 
 func _mates_of_player() -> Array:
-	return team_a.duplicate()
+	return team_a + humans_a
 
 
 func _short_pass() -> void:
@@ -336,7 +410,8 @@ func _short_pass() -> void:
 	var to := t.global_position - ball.global_position
 	to.y = 0
 	_kick_from(player, to.normalized(), clampf(to.length() * 0.95 + 3.0, 5.0, 13.0), 0.3)
-	(t as NPC).say("Tô livre!", 1.0)
+	if t is NPC:
+		(t as NPC).say("Tô livre!", 1.0)
 
 
 func _long_pass() -> void:
@@ -423,7 +498,7 @@ func _take(n: Node3D) -> void:
 	ball.freeze = true
 	ball.linear_velocity = Vector3.ZERO
 	ball.angular_velocity = Vector3.ZERO
-	_last_touch_team = 0 if (n == player or _has(team_a, n) or n == keeper_a) else 1
+	_last_touch_team = 0 if (n == player or _has(team_a, n) or n == keeper_a or humans_a.has(n)) else 1
 	if n is NPC:
 		_think[(n as NPC).get_instance_id()] = {"decide": randf_range(0.5, 1.1)}
 
@@ -460,6 +535,8 @@ func _dribble_pos(n: Node3D) -> Vector3:
 		sp = Vector2(player.velocity.x, player.velocity.z).length()
 	elif n is NPC:
 		sp = 4.0 if (n as NPC).moving else 0.0
+	else:
+		sp = 3.0
 	var loose := DRIBBLE_DIST + (0.25 if sp > 4.6 else 0.0) + sin(Time.get_ticks_msec() * 0.012) * 0.06 * clampf(sp / 4.0, 0.0, 1.0)
 	return n.global_position + fwd * loose + Vector3(0, 0.11, 0)
 
@@ -471,8 +548,15 @@ func running_game() -> bool:
 
 
 func tick(delta: float) -> void:
-	if not running or not _started:
+	if not running:
 		return
+	if net_role == "client":
+		_client_tick(delta)
+		return
+	if not _started:
+		return
+	if net_role == "host":
+		_net_send(delta)
 	if counting(delta):
 		if holder == null:
 			ball.linear_velocity = Vector3.ZERO
@@ -523,7 +607,7 @@ func _try_catch() -> void:
 	var bp := ball.global_position
 	if bp.y > 0.7 or ball.linear_velocity.length() > 13.0:
 		return
-	var cands: Array = [player] + team_a + team_b
+	var cands: Array = [player] + team_a + team_b + humans_a + humans_b
 	var best: Node3D = null
 	var bd := CATCH_DIST
 	for n in cands:
@@ -601,8 +685,8 @@ func _field_ai(n: NPC, team: int, delta: float) -> void:
 	var st: Dictionary = _think.get(key, {})
 	var goal := GOAL_A if team == 0 else GOAL_B
 	var my_goal := GOAL_B if team == 0 else GOAL_A
-	var mates: Array = (team_a + [player]) if team == 0 else team_b
-	var foes: Array = team_b if team == 0 else (team_a + [player])
+	var mates: Array = (team_a + [player] + humans_a) if team == 0 else (team_b + humans_b)
+	var foes: Array = (team_b + humans_b) if team == 0 else (team_a + [player] + humans_a)
 	var bp := ball.global_position
 	# corrida pedida (passe em profundidade)
 	if st.has("run_to") and holder != n:
@@ -640,22 +724,26 @@ func _field_ai(n: NPC, team: int, delta: float) -> void:
 	var holder_is_foe := _has(foes, holder)
 	var nearest := true
 	for o in mates:
-		if o != n and o != player and (o as Node3D).global_position.distance_to(bp) < n.global_position.distance_to(bp):
+		if o != n and o is NPC and (o as Node3D).global_position.distance_to(bp) < n.global_position.distance_to(bp):
 			nearest = false
-	if team == 0 and player.global_position.distance_to(bp) < n.global_position.distance_to(bp) and holder == null:
-		nearest = false
+	# colega de verdade mais perto da bola livre: o bot deixa ele ir
+	if holder == null:
+		for o in mates:
+			if not (o is NPC) and (o as Node3D).global_position.distance_to(bp) < n.global_position.distance_to(bp):
+				nearest = false
 	if holder == null and nearest:
 		_go(n, bp, true)
 	elif holder_is_foe and nearest:
 		# marca e tenta roubar
 		_go(n, holder.global_position, true)
 		if n.global_position.distance_to(holder.global_position) < 1.3 and _hold_immune <= 0.0 and holder != keeper_a and holder != keeper_b:
-			var rate: float = float([0.35, 0.7, 1.1][difficulty]) * (0.6 if holder == player else 1.0)
+			var rate: float = float([0.35, 0.7, 1.1][difficulty]) * (0.6 if not (holder is NPC) else 1.0)
 			if randf() < rate * delta:
 				n.visual.play("kick")
 				if holder == player:
 					hud.show_banner("Roubaram a bola!", "")
 				_take(n)
+				_think[n.get_instance_id()] = {"decide": randf_range(0.5, 1.1)}
 	else:
 		# posicionamento: apoio ao ataque ou volta para defender
 		var idx: int = maxi(mates.find(n), 0)
@@ -680,7 +768,7 @@ func _keeper_ai(k: NPC, x: float, dir: float, delta: float) -> void:
 		st.wait = float(st.get("wait", 1.0)) - delta
 		if st.wait <= 0.0:
 			st.erase("wait")
-			var mates: Array = (team_a + [player]) if k == keeper_a else team_b
+			var mates: Array = (team_a + [player] + humans_a) if k == keeper_a else (team_b + humans_b)
 			var t: Node3D = null
 			for m in mates:
 				if t == null or (m as Node3D).global_position.distance_to(k.global_position) < t.global_position.distance_to(k.global_position) + randf_range(-3, 3):
@@ -724,6 +812,9 @@ func _finish() -> void:
 	if not running:
 		return
 	var won := 1 if score_a > score_b else (0 if score_a == score_b else -1)
+	if net_role == "host":
+		NetworkManager.mg_send_relay(str(net.gid), _state_dict(true))
+		NetworkManager.mg_team_result(str(net.gid), score_a, score_b)
 	var stats: Dictionary = SaveManager.section("stats")
 	var t: Dictionary = stats.get("torneio", {"wins": 0, "round": 0})
 	var extra := ""
@@ -749,7 +840,409 @@ func cleanup() -> void:
 		holder = null
 		ball.freeze = false
 		ball.reset_ball()
-	for n in team_a + team_b + [keeper_a, keeper_b]:
+	for n in team_a + team_b + [keeper_a, keeper_b] + _puppets:
 		if is_instance_valid(n):
 			(n as NPC).run_speed = 4.3
+	if NetworkManager.mg_relay.is_connected(_on_relay):
+		NetworkManager.mg_relay.disconnect(_on_relay)
 	super.cleanup()
+
+
+# ================================================================ online
+# Anfitrião (host): simula tudo e manda o estado. Os colegas (client) mandam
+# comandos e desenham a bola e os bots do jeito que o anfitrião mandou.
+
+func _session() -> Node:
+	return get_tree().get_first_node_in_group("online_session")
+
+
+func _remote_root(id: String) -> Node3D:
+	var s := _session()
+	if s and s.remotes.has(id):
+		return s.remotes[id].root
+	return null
+
+
+## Anfitrião: monta os times com os avatares dos colegas.
+func _collect_humans() -> void:
+	humans_a.clear()
+	humans_b.clear()
+	_human_id.clear()
+	var teams: Dictionary = net.get("teams", {})
+	for id in net.get("players", []):
+		if str(id) == str(net.get("me", "")):
+			continue
+		_add_human(str(id), str(teams.get(id, "b")))
+	if not NetworkManager.mg_relay.is_connected(_on_relay):
+		NetworkManager.mg_relay.connect(_on_relay)
+
+
+func _add_human(id: String, team: String) -> bool:
+	var r := _remote_root(id)
+	if r == null or _human_id.has(r):
+		return false
+	_human_id[r] = id
+	(humans_a if team == "a" else humans_b).append(r)
+	return true
+
+
+func _remove_human(id: String) -> void:
+	for r in _human_id.keys():
+		if _human_id[r] == id:
+			if holder == r:
+				_release(Vector3.ZERO, 0.0)
+			humans_a.erase(r)
+			humans_b.erase(r)
+			_human_id.erase(r)
+
+
+func _id_of(n: Node3D) -> String:
+	if n == null:
+		return ""
+	if n == player:
+		return str(net.get("me", ""))
+	if _human_id.has(n):
+		return _human_id[n]
+	var bots := _bot_list()
+	var i := bots.find(n)
+	return "b%d" % i if i >= 0 else ""
+
+
+## Bots em ordem fixa: [papel, npc]. Papel: 0 time a, 1 time b, 2 goleiro a, 3 goleiro b.
+func _bot_list() -> Array:
+	var out: Array = []
+	for n in team_a:
+		out.append(n)
+	for n in team_b:
+		out.append(n)
+	if keeper_a:
+		out.append(keeper_a)
+	if keeper_b:
+		out.append(keeper_b)
+	return out
+
+
+func _bot_role(n: NPC) -> int:
+	if n == keeper_a:
+		return 2
+	if n == keeper_b:
+		return 3
+	return 0 if _has(team_a, n) else 1
+
+
+func _state_dict(ended := false) -> Dictionary:
+	var bp := ball.global_position
+	var bots: Array = []
+	for n in _bot_list():
+		var b := n as NPC
+		bots.append([snappedf(b.global_position.x, 0.01), snappedf(b.global_position.z, 0.01), snappedf(b.yaw, 0.01), 1 if b.moving else 0, _bot_role(b)])
+	var d := {"a": score_a, "b": score_b, "t": snappedf(time_left, 0.1), "c": 1 if _countdown > 0.0 else 0,
+		"ball": [snappedf(bp.x, 0.01), snappedf(bp.y, 0.01), snappedf(bp.z, 0.01)], "h": _id_of(holder), "ko": _ko, "bots": bots}
+	if ended:
+		d["end"] = 1
+	return d
+
+
+func _net_send(delta: float) -> void:
+	_net_t -= delta
+	if _net_t > 0.0:
+		return
+	_net_t = 0.08
+	NetworkManager.mg_send_relay(str(net.gid), _state_dict())
+
+
+func _on_relay(gid: String, from: String, d: Variant) -> void:
+	if gid != str(net.get("gid", "")) or not (d is Dictionary):
+		return
+	if net_role == "host":
+		_host_input(from, d)
+	elif net_role == "client" and from == str(net.get("host", "")):
+		_last_state = d
+		_state_age = 0.0
+
+
+## Anfitrião: comando de um colega.
+func _host_input(from: String, d: Dictionary) -> void:
+	var r: Node3D = null
+	for k in _human_id.keys():
+		if _human_id[k] == from:
+			r = k
+	if r == null or not _started or _countdown > 0.0 or _goal_pause > 0.0:
+		return
+	var team_a_side := humans_a.has(r)
+	var mates: Array = (team_a + [player] + humans_a) if team_a_side else (team_b + humans_b)
+	mates.erase(r)
+	var goal := GOAL_A if team_a_side else GOAL_B
+	var dir_arr: Array = d.get("d", [])
+	var fwd := Vector3(float(dir_arr[0]), 0, float(dir_arr[1])).normalized() if dir_arr.size() == 2 else _fwd(r)
+	match str(d.get("k", "")):
+		"shoot":
+			if holder != r:
+				return
+			var power := clampf(float(d.get("p", 0.5)), 0.0, 1.0)
+			var to_goal := goal - r.global_position
+			to_goal.y = 0
+			var dir := fwd
+			if fwd.angle_to(to_goal.normalized()) < deg_to_rad(45):
+				var aim := goal + Vector3(0, 0, randf_range(-1.05, 1.05))
+				dir = (aim - r.global_position)
+				dir.y = 0
+				dir = dir.normalized()
+			_kick_from(r, dir, lerpf(7.0, 16.0, power), lerpf(0.6, 3.0, power))
+		"pass", "long", "through":
+			if holder != r:
+				return
+			var t := _best_mate(r, mates, 24.0 if d.k != "pass" else 18.0)
+			if t == null:
+				_kick_from(r, fwd, 8.0, 0.4)
+				return
+			var target := t.global_position
+			var lift := 0.3
+			if d.k == "through":
+				target += (goal - t.global_position).normalized() * 4.5
+				target.z = clampf(target.z, COURT.position.y + 1.0, COURT.end.y - 1.0)
+				lift = 0.2
+			var to := target - ball.global_position
+			to.y = 0
+			var dist := to.length()
+			if d.k == "long":
+				_kick_from(r, to.normalized(), clampf(dist * 0.62 + 2.0, 6.0, 15.0), clampf(dist * 0.32, 3.0, 6.5))
+			else:
+				_kick_from(r, to.normalized(), clampf(dist * 0.95 + 3.0, 5.0, 14.0), lift)
+			if t is NPC:
+				(t as NPC).say("Vai!" if d.k == "through" else "Tô livre!", 1.0)
+				if d.k == "through":
+					_think[t.get_instance_id()] = {"run_to": target, "t": 2.5}
+		"tackle":
+			if holder == null or holder == r or mates.has(holder) or holder == keeper_a or holder == keeper_b:
+				return
+			if holder.global_position.distance_to(r.global_position) < 1.8 and _hold_immune <= 0.0 and randf() < [0.85, 0.7, 0.55][difficulty]:
+				if holder is NPC:
+					(holder as NPC).say("Ei!", 0.8)
+				elif holder == player:
+					hud.show_banner("Roubaram a bola!", "")
+				_take(r)
+		"ask":
+			if holder is NPC and mates.has(holder):
+				var h := holder as NPC
+				var to2 := r.global_position - ball.global_position
+				to2.y = 0
+				h.say("Toma!", 1.0)
+				_kick_from(h, to2.normalized(), clampf(to2.length() * 0.95 + 3.0, 5.0, 13.0), 0.3)
+
+
+## Mudanças na turma durante a partida (do OnlinePlay).
+func on_net_event(ev: Dictionary) -> void:
+	var kind := str(ev.get("kind", ""))
+	var id := str(ev.get("id", ""))
+	if kind == "host" and id == str(net.get("me", "")) and net_role == "client":
+		_become_host(ev)
+		return
+	if kind == "host" and net_role == "client":
+		net["host"] = id
+		net["teams"] = ev.get("teams", net.get("teams", {}))
+		my_team = str((net.teams as Dictionary).get(net.get("me", ""), my_team))
+		return
+	if net_role != "host":
+		return
+	match kind:
+		"joined":
+			# quem chega entra no lugar de um bot do time dele
+			var team := str(ev.get("team", "b"))
+			if not _add_human(id, team):
+				return
+			(net.players as Array).append(id)
+			var list := team_a if team == "a" else team_b
+			if fill_bots and not list.is_empty():
+				var out: NPC = list.pop_back()
+				if holder == out:
+					_release(Vector3.ZERO, 0.0)
+				out.activity = "wander"
+				participants.erase(out)
+				hud.show_banner("Substituição!", "%s entrou no lugar de %s" % [NetworkManager.name_of(id), out.display_name])
+			else:
+				hud.show_banner("Reforço!", "%s entrou no jogo" % NetworkManager.name_of(id))
+		"left":
+			var was_a := false
+			for r in _human_id.keys():
+				if _human_id[r] == id:
+					was_a = humans_a.has(r)
+			_remove_human(id)
+			if fill_bots:
+				_add_sub_bot(0 if was_a else 1)
+
+
+## Um bot entra no lugar de quem saiu.
+func _add_sub_bot(team: int) -> void:
+	for n in npcs.npcs:
+		if n.role == "student" and n.active and n.activity != "minigame" and not n.talking_to_player:
+			take_npcs([n])
+			n.run_speed = [3.7, 4.2, 4.7][difficulty]
+			(team_a if team == 0 else team_b).append(n)
+			n.teleport(Vector3(40.0 + (-6.0 if team == 0 else 6.0), 0.05, -49.0), PI * 0.5 if team == 0 else -PI * 0.5)
+			hud.show_banner("Substituição!", "%s entrou no jogo" % n.display_name)
+			return
+
+
+# ---------------------------------------------------------------- colega (client)
+
+func _start_client() -> void:
+	_started = true
+	player.movement_locked = false
+	ball.freeze = true
+	ball.linear_velocity = Vector3.ZERO
+	time_left = MATCH_TIME
+	if not NetworkManager.mg_relay.is_connected(_on_relay):
+		NetworkManager.mg_relay.connect(_on_relay)
+	_client_kickoff()
+	hud.set_minigame_text("Futebol com a turma · esperando o anfitrião escolher as opções...")
+
+
+func _client_side() -> float:
+	return 1.0 if my_team == "a" else -1.0
+
+
+func _client_kickoff() -> void:
+	var idx := maxi((net.get("players", []) as Array).find(net.get("me", "")), 0)
+	var side := _client_side()
+	player.force_stand()
+	player.global_position = Vector3(40.0 - side * (4.0 + (idx % 3) * 2.5), 0.05, -49.0 + (idx % 2) * 4.0 - 2.0)
+	player.yaw = PI * 0.5 * side
+	player.velocity = Vector3.ZERO
+	if player.camera_rig:
+		player.camera_rig.yaw = player.yaw + PI
+		player.camera_rig.pitch = -24.0
+		player.camera_rig.snap_to_target()
+
+
+func _client_tick(delta: float) -> void:
+	_state_age += delta
+	_tackle_cd = maxf(_tackle_cd - delta, 0.0)
+	if _charge:
+		_power = minf(_power + delta * 0.9, 1.0)
+		hud.set_meter(_power)
+	var st := _last_state
+	if st.is_empty():
+		if _state_age > 45.0:
+			end_game(0, "O anfitrião não começou a partida", 2, 4)
+		return
+	if _state_age > 8.0:
+		hud.set_minigame_text("Conexão com o anfitrião caiu... esperando outro assumir")
+		return
+	var prev_a := score_a
+	var prev_b := score_b
+	score_a = int(st.get("a", 0))
+	score_b = int(st.get("b", 0))
+	time_left = float(st.get("t", time_left))
+	if score_a != prev_a or score_b != prev_b:
+		var ours := (score_a > prev_a) == (my_team == "a")
+		hud.show_banner("GOOOL!" if ours else "Gol do adversário", "Seu time %d x %d" % _my_score())
+		if ours:
+			player.visual.play("celebrate")
+			AudioManager.play_ui("applause", -4.0)
+	var ko := int(st.get("ko", 0))
+	if ko != _client_ko:
+		if _client_ko >= 0:
+			_client_kickoff()
+		_client_ko = ko
+	_client_holder = str(st.get("h", ""))
+	holder = player if _client_holder == str(net.get("me", "")) else null
+	# bola: no meu pé (sem atraso) ou onde o anfitrião mandou
+	var b: Array = st.get("ball", [])
+	if b.size() == 3:
+		_ball_target = Vector3(float(b[0]), float(b[1]), float(b[2]))
+	if holder == player:
+		ball.global_position = _dribble_pos(player)
+	else:
+		ball.global_position = ball.global_position.lerp(_ball_target, 1.0 - exp(-14.0 * delta))
+	_client_bots(st.get("bots", []), delta)
+	var who := "  ·  com você" if holder == player else ""
+	hud.set_minigame_text("Seu time %d x %d  ·  %s%s" % [_my_score()[0], _my_score()[1], fmt_time(time_left), who])
+	if int(st.get("end", 0)) == 1:
+		var mine: int = _my_score()[0]
+		var theirs: int = _my_score()[1]
+		var won := 1 if mine > theirs else (0 if mine == theirs else -1)
+		end_game(won, "%d x %d" % [mine, theirs], 25 if won > 0 else (12 if won == 0 else 8), 40 if won > 0 else 20, {"score": mine})
+		return
+	player._emit_context()
+
+
+func _my_score() -> Array:
+	return [score_a, score_b] if my_team == "a" else [score_b, score_a]
+
+
+## Bots desenhados onde o anfitrião mandou (bonecos sem cérebro).
+func _client_bots(list: Array, delta: float) -> void:
+	while _puppets.size() < list.size():
+		var got: NPC = null
+		for n in npcs.npcs:
+			if n.role == "student" and n.active and n.activity != "minigame" and not n.talking_to_player:
+				got = n
+				break
+		if got == null:
+			break
+		take_npcs([got])
+		_puppets.append(got)
+	for i in _puppets.size():
+		var n := _puppets[i]
+		if i >= list.size():
+			n.visible = false
+			continue
+		var e: Array = list[i]
+		n.visible = true
+		var tgt := Vector3(float(e[0]), 0.05, float(e[1]))
+		if n.global_position.distance_to(tgt) > 6.0:
+			n.teleport(tgt, float(e[2]))
+		else:
+			n.global_position = n.global_position.lerp(tgt, 1.0 - exp(-12.0 * delta))
+			n.yaw = lerp_angle(n.yaw, float(e[2]), 1.0 - exp(-12.0 * delta))
+			n.visual.rotation.y = n.yaw
+		n.moving = false
+
+
+## O anfitrião saiu: este celular assume a partida de onde parou.
+func _become_host(ev: Dictionary) -> void:
+	var st := _last_state
+	net["host"] = net.get("me", "")
+	net["teams"] = ev.get("teams", net.get("teams", {}))
+	var was_team := my_team
+	my_team = "a"
+	var swapped := was_team == "b"
+	score_a = int(st.get("b" if swapped else "a", 0))
+	score_b = int(st.get("a" if swapped else "b", 0))
+	time_left = float(st.get("t", time_left))
+	# os bonecos viram bots de verdade, cada um no seu papel
+	team_a.clear()
+	team_b.clear()
+	keeper_a = null
+	keeper_b = null
+	var roles: Array = st.get("bots", [])
+	for i in mini(_puppets.size(), roles.size()):
+		var r := int((roles[i] as Array)[4])
+		if swapped:
+			r = [1, 0, 3, 2][r]
+		var n := _puppets[i]
+		n.visible = true
+		match r:
+			0: team_a.append(n)
+			1: team_b.append(n)
+			2: keeper_a = n
+			3: keeper_b = n
+	_puppets.clear()
+	ball.freeze = false
+	net_role = "host"
+	_collect_humans()
+	(net.players as Array).clear()
+	for id in (net.teams as Dictionary).keys():
+		(net.players as Array).append(id)
+	hud.show_banner("Você é o anfitrião agora", "A partida continua no seu celular")
+	_kickoff(0)
+
+
+# ---------------------------------------------------------------- botões do colega
+
+func _client_cmd(k: String, extra := {}) -> void:
+	var f := _fwd(player)
+	var d := {"k": k, "d": [snappedf(f.x, 0.01), snappedf(f.z, 0.01)]}
+	d.merge(extra)
+	NetworkManager.mg_send_relay(str(net.gid), d)

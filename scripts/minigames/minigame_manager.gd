@@ -40,6 +40,8 @@ var stations := {}
 var _invite_t := 35.0
 var _inviter: NPC
 var _labels: Array[Label3D] = []
+## Brincadeiras com outros jogadores (só age quando está online).
+var online_play: OnlinePlay
 
 
 func setup(w: SchoolWorld, m: NPCManager, p: PlayerController, h: HUD, d: SchoolDay) -> void:
@@ -60,6 +62,10 @@ func setup(w: SchoolWorld, m: NPCManager, p: PlayerController, h: HUD, d: School
 		stations[gid] = st
 		_build_sign(st, g)
 	d.phase_changed.connect(_on_phase)
+	online_play = OnlinePlay.new()
+	online_play.name = "OnlinePlay"
+	add_child(online_play)
+	online_play.setup(self)
 
 
 ## Placa de madeira colorida + anel no chão (fácil de achar e ler).
@@ -157,6 +163,8 @@ func _on_phase(_p: int) -> void:
 	var rec := is_recess()
 	if not rec and active:
 		active.end_game(0, "O sinal tocou!", 5, 10)
+	if not rec and online_play and online_play.in_session():
+		online_play._reset(false)
 	_invite_t = randf_range(30.0, 50.0)
 
 
@@ -184,12 +192,23 @@ func start(gid: String) -> bool:
 			hud.controls.visible = true
 			start(gid))
 		return true
+	# online: a brincadeira é da turma (espera, fila, rodada ou time)
+	if NetworkManager.is_online() and OnlinePlay.is_shared(gid):
+		return online_play.request(gid)
+	return start_local(gid, {})
+
+
+## Começa a partida neste celular (net vazio = sozinho).
+func start_local(gid: String, net: Dictionary) -> bool:
+	if active != null or not GAMES.has(gid) or not is_recess():
+		return false
 	var script: GDScript = load(GAMES[gid].script)
 	var g: Minigame = script.new()
 	g.id = gid
 	g.title = GAMES[gid].title
 	add_child(g)
 	g.setup(self)
+	g.net = net
 	g.finished.connect(_on_finished)
 	active = g
 	_show_stations(false)
@@ -212,6 +231,8 @@ func _on_finished(result: Dictionary) -> void:
 		g.queue_free()
 	Telemetry.track("minigame", {"id": str(result.get("id", "")), "won": int(result.get("won", 0)) > 0})
 	game_finished.emit(result)
+	if online_play:
+		online_play.on_local_finished(result)
 
 
 var guide_id := ""

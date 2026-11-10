@@ -235,8 +235,10 @@ func is_available(qid: String) -> bool:
 	return last < day.day  # uma vez por dia cada missão
 
 
+## Missões só no recreio e na saída: indo para a aula ou na aula, ninguém
+## oferece missão (nem quando você passa perto).
 func _free_phase() -> bool:
-	return day.phase in [SchoolDay.Phase.ARRIVAL, SchoolDay.Phase.RECESS, SchoolDay.Phase.RETURN, SchoolDay.Phase.DAY_END]
+	return day.phase in [SchoolDay.Phase.RECESS, SchoolDay.Phase.DAY_END]
 
 
 func available_for(npc: NPC) -> String:

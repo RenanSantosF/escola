@@ -32,6 +32,7 @@ const KIND_TEXT := {
 	"esbarrao_forte": "sair esbarrando nos colegas", "esbarrao_repetido": "empurrar um colega de propósito",
 	"correr_corredor": "correr pelo corredor", "bolinha_em_colega": "jogar bolinha de papel nos colegas",
 	"levantou_na_aula": "levantar no meio da aula", "bagunca_aula": "bagunçar na aula",
+	"lugar_colega": "sentar no lugar do colega e não sair quando a professora pediu",
 }
 
 var npcs: NPCManager

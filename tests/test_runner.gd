@@ -73,6 +73,7 @@ func _ready() -> void:
 	await _test_parque()
 	await _test_novas_brincadeiras()
 	await _test_atividades()
+	await _test_relogio_servidor()
 	_finish()
 
 
@@ -1575,3 +1576,116 @@ func _test_atividades() -> void:
 				kinds_used[stp.kind] = true
 	check(kinds_used.size() >= 4, "missões: atividades jogáveis (%s)" % ", ".join(kinds_used.keys()))
 
+
+
+## Relógio do servidor: simula o que o servidor mandaria (sem rede).
+func _fake_clock(phase: String, day_n: int, left_s: float) -> Dictionary:
+	var now := Time.get_unix_time_from_system() * 1000.0
+	var st := {"phase": phase, "day": day_n, "startedAt": now - 1000.0, "endsAt": now + left_s * 1000.0, "now": now, "seed": 1, "left": int(left_s)}
+	NetworkManager.clock = st
+	NetworkManager.clock_offset_ms = 0.0
+	return st
+
+
+func _test_relogio_servidor() -> void:
+	var sd: SchoolDay = main.school_day
+	var npcm: NPCManager = main.npcs
+	var qs: QuestSystem = main.quests
+	if player.minigame:
+		player.minigame.end_game(0, "fim", 0, 0)
+	await _wait(0.3)
+	NetworkManager.my_id = "eu"
+	NetworkManager.room = "sala-teste"
+	NetworkManager.names = {"eu": "Eu", "amigo": "Amigo", "amiga": "Amiga"}
+	# carteiras: cada jogador uma; bots saem das carteiras dos jogadores e diminuem
+	var total_bots := npcm.classmates.size() + npcm.benched.size()
+	NetworkManager.desks = {"eu": 3, "amigo": 0, "amiga": 1}
+	npcm.apply_desks(NetworkManager.desks, "eu")
+	var seats := npcm.desk_seats()
+	check(npcm.player_desk == seats[3], "carteiras: a minha é a que o servidor reservou")
+	var clash := false
+	for n in npcm.classmates:
+		if n.activity_data.get("desk") in [seats[0], seats[1], seats[3]]:
+			clash = true
+	check(not clash, "carteiras: nenhum bot fica com carteira de jogador")
+	check(npcm.classmates.size() == total_bots - 2 and npcm.benched.size() == 2, "bots: cada jogador real tira um bot", "%d ativos, %d fora" % [npcm.classmates.size(), npcm.benched.size()])
+	# entrou com a aula começada: vai para a porta da sala, sem bronca
+	sd.apply_clock(_fake_clock("class1", 4, 120.0))
+	await _wait(0.3)
+	check(sd.synced and sd.phase == SchoolDay.Phase.CLASS_1, "relógio: entra direto na aula em andamento")
+	check(player.global_position.y > 3.0 and player.global_position.distance_to(npcm.class_info().door_out) < 3.0, "relógio: quem chega atrasado aparece na porta da sala", str(player.global_position))
+	check(sd._out_of_class < 0.0 and not main.discipline.truant, "relógio: atrasado tem tempo para chegar (não é matar aula)")
+	# senta na carteira certa: tarefa aparece
+	player.global_position = npcm.player_desk.global_position + npcm.player_desk.global_basis.z * 0.5
+	player.sit_on(npcm.player_desk)
+	await _wait(2.0)
+	check(sd._task_active or sd.classroom_ui.visible, "relógio: sentou na carteira e a tarefa aparece", "modo=%d ocupante=%s sentado=%s" % [player.mode, str(npcm.player_desk.occupant), str(player.current_seat == npcm.player_desk)])
+	# terminou antes do sinal: espera a turma (não vai sozinho para o recreio)
+	sd.classroom_ui.hide_panel()
+	sd.lesson_index = sd.lesson.size() - 1
+	sd._on_answered(true)
+	await _wait(0.5)
+	check(sd.phase == SchoolDay.Phase.CLASS_1 and sd._class_done, "relógio: terminou as tarefas e espera o sinal da turma")
+	# o servidor toca o sinal: recreio para todos
+	sd.apply_clock(_fake_clock("recess", 4, 300.0))
+	await _wait(0.3)
+	check(sd.phase == SchoolDay.Phase.RECESS and absf(sd.recess_left - 300.0) < 3.0, "relógio: recreio com o tempo do servidor", "%.1f" % sd.recess_left)
+	sd._process(1.0)
+	check(sd.phase == SchoolDay.Phase.RECESS, "relógio: o recreio não acaba sozinho no celular")
+	# volta do recreio: ninguém oferece missão
+	sd.apply_clock(_fake_clock("return", 4, 60.0))
+	await _wait(0.3)
+	var offer := false
+	for n in npcm.npcs:
+		if n.active and qs.available_for(n) != "":
+			offer = true
+	check(sd.phase == SchoolDay.Phase.RETURN and not offer, "missões: ninguém oferece missão na volta para a aula")
+	# sentou no lugar do colega: professora reclama; não saiu: diretoria
+	sd.apply_clock(_fake_clock("class2", 4, 150.0))
+	await _wait(0.3)
+	var other: Seat = seats[0]
+	if player.mode == PlayerController.Mode.SITTING:
+		player.force_stand()
+	player.global_position = other.global_position + other.global_basis.z * 0.5
+	player.sit_on(other)
+	await _wait(0.4)
+	check(player.current_seat == other and sd._wrong_seat_t >= 0.0, "lugar do colega: professora percebe")
+	check("Amigo" in sd.desk_owner_name(other), "lugar do colega: sabe de quem é a carteira")
+	sd._update_wrong_seat(SchoolDay.WRONG_SEAT_WARN2)
+	check(sd._wrong_seat_warned == 1, "lugar do colega: segundo aviso")
+	sd._update_wrong_seat(SchoolDay.WRONG_SEAT_LIMIT)
+	await _wait(0.6)
+	var disc: DisciplineSystem = main.discipline
+	check(disc.in_cutscene, "lugar do colega: não saiu e foi para a diretoria")
+	var dlg: DialogueUI = sd.dialogue
+	for i in 80:
+		await _wait(0.1)
+		if dlg.is_open():
+			dlg.advance()
+			dlg.advance()
+		if not disc.in_cutscene:
+			break
+	await _wait(1.0)
+	check(not disc.in_cutscene and player.input_enabled, "lugar do colega: volta da diretoria")
+	# saiu do lugar errado a tempo: sem diretoria
+	sd._wrong_seat_t = -1.0
+	# fim do dia e dia seguinte (todo mundo junto)
+	sd.apply_clock(_fake_clock("end", 4, 30.0))
+	await _wait(0.3)
+	check(sd.phase == SchoolDay.Phase.DAY_END, "relógio: saída para todos")
+	sd.apply_clock(_fake_clock("arrival", 5, 70.0))
+	await _wait(0.5)
+	check(sd.phase == SchoolDay.Phase.ARRIVAL and sd._server_day == 5, "relógio: o próximo dia começa no sinal do servidor")
+	# outra sala: entra de novo na fase dela
+	NetworkManager.room = "sala-outra"
+	sd.apply_clock(_fake_clock("recess", 1, 200.0))
+	await _wait(0.3)
+	check(sd.phase == SchoolDay.Phase.RECESS and player.global_position.z < 10.0, "relógio: trocou de sala e entrou no recreio dela")
+	# saiu do online: bots voltam e o dia volta a ser local
+	npcm.apply_desks({}, "")
+	sd.unsync()
+	NetworkManager.desks = {}
+	NetworkManager.my_id = ""
+	NetworkManager.room = ""
+	NetworkManager.clock = {}
+	check(npcm.classmates.size() == total_bots and npcm.benched.is_empty(), "bots: voltam quando sai do online")

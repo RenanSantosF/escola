@@ -18,7 +18,12 @@ func _ready() -> void:
 
 
 func can_interact(_player: Node) -> bool:
-	return occupant == null
+	return occupant == null or _only_reserved()
+
+
+## Um bot "guardou" o lugar mas ainda não sentou: o jogador pode sentar.
+func _only_reserved() -> bool:
+	return occupant is NPC and not (occupant as NPC).sitting and (occupant as NPC).seat != self
 
 
 ## O ponto de interação fica um pouco à frente do assento.
@@ -27,6 +32,9 @@ func interact_point() -> Vector3:
 
 
 func interact(player: Node) -> void:
+	if occupant != null and _only_reserved():
+		(occupant as NPC).cancel_seat()
+		occupant = null
 	if occupant != null:
 		return
 	if player.has_method("sit_on"):

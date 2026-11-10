@@ -24,6 +24,9 @@ var npcs: Array[NPC] = []
 ## Online: quanto mais jogadores na sala, menos alunos-bot de outras turmas.
 ## Os colegas de turma (que dão missões) e os adultos sempre ficam.
 const MIN_OTHER_BOTS := 2
+## Colegas-bot mínimos na turma (os que dão missões). Cada jogador real que
+## entra tira um bot (no futuro, com a sala cheia, quase não haverá bots).
+const MIN_CLASS_BOTS := 3
 const BOTS_PER_PLAYER := 3
 var online_players := 1
 var classmates: Array[NPC] = []
@@ -93,6 +96,126 @@ func _pick_player_desk() -> void:
 	player_desk = best
 
 
+# =================================================================== carteiras
+
+signal player_desk_changed(seat: Seat)
+
+## Bots fora da turma agora (deram lugar a jogadores reais).
+var benched: Array[NPC] = []
+var _class_roster: Array[NPC] = []  # todos os colegas-bot, na ordem (os com missão primeiro)
+## Carteira -> id do jogador real dono dela (online).
+var desk_owner := {}
+
+
+## Carteiras da sala da turma numa ordem que é IGUAL em todos os celulares.
+func desk_seats() -> Array:
+	var list: Array = room_seats.get(CLASS_ROOM, []).duplicate()
+	list.sort_custom(func(a: Seat, b: Seat):
+		var za := snappedf(a.global_position.z, 0.1)
+		var zb := snappedf(b.global_position.z, 0.1)
+		return za < zb if za != zb else a.global_position.x < b.global_position.x)
+	return list
+
+
+## Aplica as carteiras reservadas pelo servidor: a do jogador, as dos colegas
+## online, e reorganiza os bots (menos bots quanto mais jogadores).
+func apply_desks(map: Dictionary, my_id: String) -> void:
+	var seats := desk_seats()
+	if seats.is_empty():
+		return
+	desk_owner.clear()
+	for id in map.keys():
+		var i := int(map[id])
+		if i >= 0 and i < seats.size() and str(id) != my_id:
+			desk_owner[seats[i]] = str(id)
+	var mine := int(map.get(my_id, -1))
+	var new_desk: Seat = seats[mine] if mine >= 0 and mine < seats.size() else null
+	if new_desk == null and map.is_empty():
+		_pick_player_desk()
+		new_desk = player_desk
+	if new_desk and new_desk != player_desk:
+		player_desk = new_desk
+		player_desk_changed.emit(new_desk)
+	# quantos bots ficam na turma
+	var humans := maxi(map.size(), 1)
+	var total := _class_roster.size()
+	var want := clampi(total - (humans - 1), mini(MIN_CLASS_BOTS, total), total)
+	want = mini(want, seats.size() - humans)
+	for i in total:
+		var n := _class_roster[i]
+		if i < want and n in benched:
+			_unbench(n)
+		elif i >= want and n in classmates:
+			_bench(n)
+	# cada bot numa carteira livre (nunca na de um jogador)
+	var used := {}
+	for sd in desk_owner.keys():
+		used[sd] = true
+	if player_desk:
+		used[player_desk] = true
+	var need_new: Array[NPC] = []
+	for n in classmates:
+		var d: Seat = n.activity_data.get("desk")
+		if d == null or used.has(d):
+			need_new.append(n)
+		else:
+			used[d] = true
+	var free: Array = seats.filter(func(sd): return not used.has(sd))
+	for n in need_new:
+		var nd: Seat = free.pop_front() if not free.is_empty() else null
+		var old: Seat = n.activity_data.get("desk")
+		n.activity_data["desk"] = nd
+		if nd:
+			used[nd] = true
+		if old != null and (old.occupant == n or n.seat == old):
+			# sai da carteira que agora é de um jogador (sentado ou só a caminho)
+			if n.sitting and n.seat == old:
+				n.say("Opa, esse lugar é seu!", 2.0)
+				n.stand_up()
+			else:
+				n.cancel_seat()
+			if old.occupant == n:
+				old.release()
+			if nd and phase in ["class", "arrival", "return"]:
+				var nn := n
+				get_tree().create_timer(0.8).timeout.connect(func():
+					if nn.active and nn.activity_data.get("desk") == nd:
+						nn.sit_on(nd))
+
+
+func _bench(n: NPC) -> void:
+	classmates.erase(n)
+	if not n in benched:
+		benched.append(n)
+	_leave_activity(n)
+	if n.seat or n.sitting:
+		n.force_unseat()
+	n.activity = "benched"
+	n.stop()
+	n.set_active(false)
+
+
+func _unbench(n: NPC) -> void:
+	benched.erase(n)
+	if not n in classmates:
+		classmates.append(n)
+	n.set_active(true)
+	n.activity = "wander"
+	match phase:
+		"recess":
+			n.teleport(Vector3(rng.randf_range(-15, 15), 0.05, rng.randf_range(-10, 5)), PI)
+			_start_recess_for(n, false)
+		"class", "arrival", "return":
+			var info := class_info()
+			n.teleport(info.get("door_out", Vector3(0, 0.05, 30)), PI)
+			n.activity = "go_desk"
+			var d: Seat = n.activity_data.get("desk")
+			if d:
+				n.sit_on(d)
+		_:
+			n.teleport(Vector3(rng.randf_range(-6, 6), 0.05, 60), PI)
+
+
 func _make(entry: Dictionary) -> NPC:
 	var n := NPC.new()
 	n.setup(entry, self)
@@ -114,6 +237,7 @@ func _spawn_all(n_class: int, n_other: int) -> void:
 		n.activity_data["desk"] = desks[i % desks.size()] if not desks.is_empty() else null
 		n.activity_data["home"] = CLASS_ROOM
 		classmates.append(n)
+		_class_roster.append(n)
 	var rooms: Array = world.builder.classrooms.keys().filter(func(r): return r != CLASS_ROOM)
 	for i in n_other:
 		var entry2 := NPCRoster.generic_student(100 + i)

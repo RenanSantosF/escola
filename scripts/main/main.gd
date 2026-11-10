@@ -414,8 +414,8 @@ func _on_online_welcome(m: Dictionary) -> void:
 	if not _online_menu.visible:
 		return
 	_online_menu.visible = false
-	if bool(m.get("private", false)):
-		GameManager.show_toast("Sala criada! Passe o código %s para seus amigos." % m.get("code", ""))
+	if _online_menu.last_mode == "create":
+		GameManager.show_toast("Sala %s criada! Passe o código para os amigos entrarem juntos." % m.get("code", ""))
 	_start_game()
 
 
@@ -427,6 +427,7 @@ func _on_online_error(text: String) -> void:
 
 func _stop_online() -> void:
 	NetworkManager.leave()
+	school_day.unsync()
 	if online:
 		online.chat_panel.queue_free()
 		online.queue_free()

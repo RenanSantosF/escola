@@ -2,6 +2,8 @@ extends Minigame
 ## Cabo de guerra no gramado do Parque do Morro: seu time (você + 3 colegas)
 ## contra outro time. TOQUE RÁPIDO no botão amarelo para puxar; acertar no
 ## "PUXA!" (quando a barra enche) vale o dobro. Puxe a fita até a sua marca!
+## Online: cada jogador fica numa vaga do seu time (bots completam até 4);
+## o anfitrião soma os puxões de todos e manda a posição da fita.
 
 const CENTER := Vector3(12, 0.05, -88)
 const WIN_OFFSET := 2.2
@@ -15,17 +17,40 @@ var _their := 0.0
 var _rope: MeshInstance3D
 var _flag: MeshInstance3D
 var _root: Node3D
+var net_role := ""
+var my_team := "a"
+var _slot := 0  # minha vaga no time
+var _humans := {"a": 0, "b": 0}
+var _pulls := {"a": 0.0, "b": 0.0}  # anfitrião: puxões recebidos
+var _net_t := 0.0
+var _state: Dictionary = {}
+var _state_age := 0.0
 
 
 func begin() -> void:
+	var bots_a := 3
+	var bots_b := 4
+	if is_net():
+		var teams: Dictionary = net.get("teams", {})
+		my_team = str(teams.get(net.get("me", ""), "a"))
+		net_role = "host" if str(net.get("host", "")) == str(net.get("me", "")) else "client"
+		for id in net.get("players", []):
+			var t := str(teams.get(id, "a"))
+			if str(id) == str(net.get("me", "")):
+				_slot = _humans[t]
+			_humans[t] += 1
+		var fill: bool = (net.get("opts", {}) as Dictionary).get("bots", true)
+		bots_a = maxi(4 - _humans.a, 0) if fill else 0
+		bots_b = maxi(4 - _humans.b, 0) if fill else (0 if _humans.b > 0 else 2)
+		NetworkManager.mg_relay.connect(_on_relay)
 	var cands: Array[NPC] = []
 	for n in npcs.classmates + npcs.others:
 		if n.active and n.role == "student" and n.activity != "minigame" and not n.talking_to_player:
 			cands.append(n)
 	for n in cands:
-		if team_a.size() < 3:
+		if team_a.size() < bots_a:
 			team_a.append(n)
-		elif team_b.size() < 4:
+		elif team_b.size() < bots_b:
 			team_b.append(n)
 	take_npcs(team_a + team_b)
 	_root = Node3D.new()
@@ -67,13 +92,19 @@ func _place_people() -> void:
 	var c := CENTER + Vector3(offset, 0, 0)
 	_rope.global_position = c + Vector3(0, rope_y, 0)
 	_flag.global_position = c + Vector3(0, rope_y, 0)
-	player.global_position = c + Vector3(-1.4, 0, 0)
-	player.yaw = PI * 0.5
+	# vagas: os jogadores de verdade primeiro, os bots depois
+	var side := -1.0 if my_team == "a" else 1.0
+	player.global_position = c + Vector3(side * (1.4 + _slot * 0.8), 0, 0.12 * (1 - 2 * (_slot % 2)))
+	player.yaw = -side * PI * 0.5
+	var na: int = _humans.a if is_net() else 1
+	var nb: int = _humans.b if is_net() else 0
 	for i in team_a.size():
-		team_a[i].global_position = c + Vector3(-2.2 - i * 0.8, 0, 0.12 * (1 - 2 * (i % 2)))
+		var k := na + i
+		team_a[i].global_position = c + Vector3(-1.4 - k * 0.8, 0, 0.12 * (1 - 2 * (k % 2)))
 		team_a[i].yaw = PI * 0.5
 	for i in team_b.size():
-		team_b[i].global_position = c + Vector3(1.4 + i * 0.8, 0, 0.12 * (1 - 2 * (i % 2)))
+		var k := nb + i
+		team_b[i].global_position = c + Vector3(1.4 + k * 0.8, 0, 0.12 * (1 - 2 * (k % 2)))
 		team_b[i].yaw = -PI * 0.5
 
 
@@ -86,8 +117,29 @@ func interact_label() -> String:
 
 
 func on_interact() -> bool:
+	if net_role != "" and mgr and mgr.online_play:
+		mgr.online_play.leave()
+		return true
 	_finish()
 	return true
+
+
+## O anfitrião saiu e eu assumo (o servidor deixa o meu time como "a").
+func on_net_event(ev: Dictionary) -> void:
+	if str(ev.get("kind", "")) == "joined":
+		(net.teams as Dictionary)[str(ev.get("id", ""))] = str(ev.get("team", "b"))
+		return
+	if str(ev.get("kind", "")) != "host":
+		return
+	var teams: Dictionary = ev.get("teams", {})
+	net["teams"] = teams
+	net["host"] = str(ev.get("id", ""))
+	var new_team := str(teams.get(net.get("me", ""), my_team))
+	if new_team != my_team:
+		offset = -offset
+		my_team = new_team
+	if str(ev.get("id", "")) == str(net.get("me", "")):
+		net_role = "host"
 
 
 func on_play() -> bool:
@@ -95,7 +147,12 @@ func on_play() -> bool:
 		return true
 	# no "PUXA!" (barra quase cheia) vale o dobro
 	var on_beat := fposmod(_beat, 1.0) > 0.78
-	offset -= 0.09 if on_beat else 0.045
+	if net_role == "client":
+		NetworkManager.mg_send_relay(str(net.gid), {"k": "pull", "beat": on_beat})
+	elif net_role == "host":
+		_pulls[my_team] += 0.09 if on_beat else 0.045
+	else:
+		offset -= 0.09 if on_beat else 0.045
 	player.visual.play("push")
 	if on_beat:
 		AudioManager.play_ui("ui_confirm", -10.0)
@@ -108,7 +165,15 @@ func tick(delta: float) -> void:
 	if not running:
 		return
 	_place_people()
+	if net_role == "client":
+		_client_tick(delta)
+		return
 	if counting(delta):
+		if net_role == "host":
+			_send(delta, true)
+		return
+	if net_role == "host":
+		_host_tick(delta)
 		return
 	time_left -= delta
 	_beat += delta / 0.55
@@ -129,6 +194,9 @@ func tick(delta: float) -> void:
 func _finish() -> void:
 	if not running:
 		return
+	if net_role != "":
+		_finish_net()
+		return
 	var won := 1 if offset < -0.2 else (-1 if offset > 0.2 else 0)
 	for n in (team_a if won > 0 else team_b):
 		n.visual.play("celebrate")
@@ -136,6 +204,78 @@ func _finish() -> void:
 
 
 func cleanup() -> void:
+	if NetworkManager.mg_relay.is_connected(_on_relay):
+		NetworkManager.mg_relay.disconnect(_on_relay)
 	if is_instance_valid(_root):
 		_root.queue_free()
 	super.cleanup()
+
+
+
+# ---------------------------------------------------------------- online
+
+func _on_relay(gid: String, from: String, d: Variant) -> void:
+	if gid != str(net.get("gid", "")) or not (d is Dictionary):
+		return
+	if net_role == "host" and str(d.get("k", "")) == "pull" and running and _countdown <= 0.0:
+		var t := str((net.get("teams", {}) as Dictionary).get(from, "b"))
+		_pulls[t] += 0.09 if bool(d.get("beat", false)) else 0.045
+	elif net_role == "client" and from == str(net.get("host", "")):
+		_state = d
+		_state_age = 0.0
+
+
+## Anfitrião: soma os puxões dos dois times + a força dos bots.
+func _host_tick(delta: float) -> void:
+	time_left -= delta
+	_beat += delta / 0.55
+	hud.set_meter(fposmod(_beat, 1.0))
+	var bots_force := (team_b.size() - team_a.size()) * 0.06
+	offset += bots_force * delta + 0.12 * maxf(sin(Time.get_ticks_msec() * 0.0021), 0.0) * delta * signf(bots_force)
+	offset += _pulls.b - _pulls.a
+	_pulls = {"a": 0.0, "b": 0.0}
+	_net_hud()
+	_send(delta, false)
+	if offset <= -WIN_OFFSET or offset >= WIN_OFFSET or time_left <= 0.0:
+		_finish()
+
+
+func _send(delta: float, counting_now: bool) -> void:
+	_net_t -= delta
+	if _net_t > 0.0:
+		return
+	_net_t = 0.1
+	NetworkManager.mg_send_relay(str(net.gid), {"off": snappedf(offset, 0.001), "t": snappedf(maxf(time_left, 0.0), 0.1), "c": 1 if counting_now else 0})
+
+
+func _client_tick(delta: float) -> void:
+	_state_age += delta
+	_beat += delta / 0.55
+	hud.set_meter(fposmod(_beat, 1.0))
+	if _state.is_empty():
+		hud.set_minigame_text("Cabo de guerra · esperando o anfitrião...")
+		if _state_age > 20.0:
+			end_game(0, "O anfitrião não respondeu", 2, 4)
+		return
+	offset = lerpf(offset, float(_state.get("off", offset)), 1.0 - exp(-12.0 * delta))
+	time_left = float(_state.get("t", time_left))
+	_net_hud()
+	if _state.has("end"):
+		var w := str(_state.get("end", "draw"))
+		var won := 0 if w == "draw" else (1 if w == my_team else -1)
+		end_game(won, "Cabo de guerra: " + ("seu time venceu!" if won > 0 else ("empate!" if won == 0 else "o outro time venceu")), 6 if won > 0 else 3, 14 if won > 0 else 6)
+
+
+func _net_hud() -> void:
+	var winning := offset < 0.0 if my_team == "a" else offset > 0.0
+	hud.set_minigame_text("Cabo de guerra com a turma  ·  %s  ·  %d s  ·  toque RÁPIDO e no PUXA!" % ["Ganhando!" if winning else "Perdendo!", int(maxf(time_left, 0.0))])
+
+
+func _finish_net() -> void:
+	if net_role == "client":
+		return  # quem decide é o anfitrião
+	var w := "a" if offset < -0.2 else ("b" if offset > 0.2 else "draw")
+	NetworkManager.mg_send_relay(str(net.gid), {"off": offset, "t": 0.0, "c": 0, "end": w})
+	NetworkManager.mg_team_result(str(net.gid), 1 if w == "a" else 0, 1 if w == "b" else 0)
+	var won := 0 if w == "draw" else (1 if w == my_team else -1)
+	end_game(won, "Cabo de guerra: " + ("seu time venceu!" if won > 0 else ("empate!" if won == 0 else "o outro time venceu")), 6 if won > 0 else 3, 14 if won > 0 else 6)

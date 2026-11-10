@@ -17,6 +17,17 @@ signal look_changed(id: String, look: Dictionary, level: int)
 signal emote_received(id: String, emote: String)
 signal tag_state(st: Dictionary)
 signal tag_event(ev: Dictionary)
+## Relógio da escola (o servidor manda a fase do dia para a sala toda).
+signal clock_changed(st: Dictionary)
+## Carteiras reservadas na sala de aula: {id: índice}.
+signal desks_changed(map: Dictionary)
+## Brincadeiras compartilhadas: estados, eventos e repasse do anfitrião.
+signal mg_states(list: Array)
+signal mg_event(ev: Dictionary)
+signal mg_relay(gid: String, from: String, d: Variant)
+signal mg_error(gid: String, text: String)
+## Mensagem direta de outro jogador (missão em grupo).
+signal direct(from: String, from_name: String, kind: String, data: Variant)
 
 ## Servidor oficial no Railway.
 const SERVER_URL := "wss://escola-production-061f.up.railway.app"
@@ -37,6 +48,13 @@ var _retry_t := 0.0
 var _mode := "quick"
 var _code := ""
 var _want_online := false
+## Último relógio recebido e diferença de horário servidor - aparelho (ms).
+var clock: Dictionary = {}
+var clock_offset_ms := 0.0
+var desks: Dictionary = {}
+var my_desk := -1
+var games := {}  # gid -> estado
+var names := {}  # id -> nome dos jogadores da sala
 
 
 func _ready() -> void:
@@ -82,6 +100,10 @@ func leave() -> void:
 	_want_online = false
 	disconnect_from_server()
 	room_code = ""
+	clock = {}
+	desks = {}
+	my_desk = -1
+	games.clear()
 
 
 func https_base() -> String:
@@ -134,18 +156,17 @@ func _process(delta: float) -> void:
 		_retry_t += delta
 		if _retry_t > 5.0 and _want_online:
 			_retry_t = 0.0
-			# volta para a mesma sala depois de cair
-			if room_code != "":
-				_mode = "code"
-				_code = room_code
 			connect_to_server()
 
 
 func _send_hello() -> void:
 	var sec: Dictionary = SaveManager.section("online")
 	var p: Dictionary = SaveManager.section("player")
-	send({"t": "hello", "token": sec.get("token", ""), "age": Learning.age(),
-		"level": int(p.get("level", 1)), "look": p.get("appearance", {}), "room": sec.get("room", "")})
+	var hello := {"t": "hello", "token": sec.get("token", ""), "age": Learning.age(),
+		"level": int(p.get("level", 1)), "look": p.get("appearance", {}), "mode": _mode}
+	if _mode == "code":
+		hello["code"] = _code
+	send(hello)
 
 
 func _handle(m: Dictionary) -> void:
@@ -158,15 +179,33 @@ func _handle(m: Dictionary) -> void:
 			room_code = str(m.get("code", ""))
 			room_private = bool(m.get("private", false))
 			players_in_room = 1 + (m.get("players", []) as Array).size()
+			names = {my_id: my_name}
+			for pl in m.get("players", []):
+				names[str(pl.get("id", ""))] = str(pl.get("name", ""))
 			quick_phrases = m.get("quick", [])
 			var sec: Dictionary = SaveManager.section("online")
 			sec["token"] = str(m.token)
 			sec["room"] = room
+			my_desk = int(m.get("desk", -1))
+			desks = m.get("desks", {}) if m.get("desks") is Dictionary else {}
+			games.clear()
+			for g in m.get("games", []):
+				games[str(g.gid)] = g
+			# reconexão: volta para a mesma sala pelo código
+			_mode = "code"
+			_code = room_code
+			if m.get("clock") is Dictionary:
+				clock = m.clock
+				clock_offset_ms = float(m.clock.get("now", 0.0)) - Time.get_unix_time_from_system() * 1000.0
 			online_changed.emit(true)
 			welcomed.emit(m)
+			desks_changed.emit(desks)
+			if not clock.is_empty():
+				clock_changed.emit(clock)
 		"join_error":
 			# reconexão numa sala que fechou: cai numa sala aberta
 			if _mode == "code" and room_code != "" and _code == room_code:
+				# a sala de antes fechou: entra numa aberta
 				room_code = ""
 				_mode = "quick"
 				_send_hello()
@@ -174,6 +213,29 @@ func _handle(m: Dictionary) -> void:
 			join_error.emit(str(m.get("text", "Não deu para entrar.")))
 		"emote":
 			emote_received.emit(str(m.id), str(m.name))
+		"clock":
+			_set_clock(m)
+		"desks":
+			desks = m.get("map", {}) if m.get("map") is Dictionary else {}
+			if desks.has(my_id):
+				my_desk = int(desks[my_id])
+			desks_changed.emit(desks)
+		"mg":
+			var list: Array = m.get("list", [])
+			for g in list:
+				if str(g.get("state", "")) == "none":
+					games.erase(str(g.gid))
+				else:
+					games[str(g.gid)] = g
+			mg_states.emit(list)
+		"mg_event":
+			mg_event.emit(m)
+		"mg_relay":
+			mg_relay.emit(str(m.get("gid", "")), str(m.get("from", "")), m.get("d"))
+		"mg_error":
+			mg_error.emit(str(m.get("gid", "")), str(m.get("text", "")))
+		"direct":
+			direct.emit(str(m.get("from", "")), str(m.get("fromName", "")), str(m.get("kind", "")), m.get("data"))
 		"tag":
 			tag_state.emit(m)
 		"tag_event":
@@ -184,8 +246,10 @@ func _handle(m: Dictionary) -> void:
 			players_in_room = int(m.get("n", 1))
 			count_changed.emit(players_in_room)
 		"join":
+			names[str(m.player.get("id", ""))] = str(m.player.get("name", ""))
 			player_joined.emit(m.player)
 		"leave":
+			names.erase(str(m.id))
 			player_left.emit(str(m.id))
 		"states":
 			states.emit(m.get("list", []))
@@ -194,6 +258,73 @@ func _handle(m: Dictionary) -> void:
 			chat.emit(str(m.id), str(m.name), str(m.text))
 		"notice":
 			notice.emit(str(m.text))
+
+
+func _set_clock(st: Dictionary) -> void:
+	clock = st
+	clock_offset_ms = float(st.get("now", 0.0)) - Time.get_unix_time_from_system() * 1000.0
+	clock_changed.emit(st)
+
+
+## Horário do servidor agora (ms).
+func server_now_ms() -> float:
+	return Time.get_unix_time_from_system() * 1000.0 + clock_offset_ms
+
+
+## Segundos que faltam para a fase atual acabar (pelo relógio do servidor).
+func phase_left() -> float:
+	if clock.is_empty():
+		return 0.0
+	return maxf((float(clock.get("endsAt", 0.0)) - server_now_ms()) / 1000.0, 0.0)
+
+
+func phase_elapsed() -> float:
+	if clock.is_empty():
+		return 0.0
+	return maxf((server_now_ms() - float(clock.get("startedAt", 0.0))) / 1000.0, 0.0)
+
+
+func name_of(id: String) -> String:
+	return "Você" if id == my_id else str(names.get(id, "Colega"))
+
+
+func game_state(gid: String) -> Dictionary:
+	return games.get(gid, {})
+
+
+func mg_join(gid: String, wait := false, opts := {}) -> void:
+	var m := {"t": "mg_join", "gid": gid, "wait": wait}
+	if not opts.is_empty():
+		m["opts"] = opts
+	send(m)
+
+
+func mg_leave(gid: String) -> void:
+	send({"t": "mg_leave", "gid": gid})
+
+
+func mg_start(gid: String, opts := {}) -> void:
+	send({"t": "mg_start", "gid": gid, "opts": opts})
+
+
+func mg_opts(gid: String, opts: Dictionary) -> void:
+	send({"t": "mg_opts", "gid": gid, "opts": opts})
+
+
+func mg_score(gid: String, score: float, final: bool) -> void:
+	send({"t": "mg_score", "gid": gid, "score": score, "final": final})
+
+
+func mg_team_result(gid: String, a: int, b: int) -> void:
+	send({"t": "mg_team_result", "gid": gid, "a": a, "b": b})
+
+
+func mg_send_relay(gid: String, d: Variant) -> void:
+	send({"t": "mg_relay", "gid": gid, "d": d})
+
+
+func send_direct(to: String, kind: String, data: Variant) -> void:
+	send({"t": "direct", "to": to, "kind": kind, "data": data})
 
 
 func send(obj: Dictionary) -> void:

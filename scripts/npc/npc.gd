@@ -162,6 +162,13 @@ func sit_on(s: Seat, run := false) -> void:
 	_pending_seat = s
 
 
+## Desiste do assento para onde estava indo (sem sentar).
+func cancel_seat() -> void:
+	if _pending_seat and _pending_seat.occupant == self:
+		_pending_seat.release()
+	_pending_seat = null
+
+
 func stand_up() -> void:
 	if sitting:
 		_leave_seat()

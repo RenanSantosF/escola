@@ -388,6 +388,9 @@ func _start_busy(action: String, target: Node) -> void:
 # ------------------------------------------------------------- sentar
 
 func sit_on(seat: Seat) -> void:
+	if mode == Mode.FREE and seat.occupant != null and seat._only_reserved():
+		(seat.occupant as NPC).cancel_seat()
+		seat.occupant = null
 	if mode != Mode.FREE or seat.occupant != null:
 		return
 	if riding:

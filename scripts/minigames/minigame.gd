@@ -17,6 +17,18 @@ var time_left := 0.0
 var running := false
 var participants: Array[NPC] = []
 var _countdown := 0.0
+## Brincadeira online (vazio = sozinho): {gid, kind, players, host, teams, opts, me, index}.
+var net: Dictionary = {}
+
+
+## Partida da turma (mesmo que só eu tenha começado: outros podem entrar).
+func is_net() -> bool:
+	return not net.is_empty()
+
+
+## Tem outros jogadores de verdade nesta partida?
+func is_multi() -> bool:
+	return not net.is_empty() and (net.get("players", []) as Array).size() > 1
 
 
 func setup(manager: Node) -> void:
