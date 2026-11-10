@@ -53,10 +53,12 @@ func _draw() -> void:
 	var c := size * 0.5
 	var active := is_down or toggled_on
 	var col := base_color.lightened(0.15) if active else base_color
-	# sombra + base + aro
-	draw_circle(c + Vector2(0, r * 0.08), r, Color(0, 0, 0, 0.25))
-	draw_circle(c, r, Color(col, 0.92 if active else 0.78))
-	draw_arc(c, r - 2.0, 0, TAU, 48, Color(1, 1, 1, 0.85), 3.0, true)
+	# sombra + base com "volume" (borda escura embaixo, brilho em cima) + aro
+	draw_circle(c + Vector2(0, r * 0.1), r, Color(0, 0, 0, 0.28))
+	draw_circle(c, r, Color(col.darkened(0.22), 0.95 if active else 0.85))
+	draw_circle(c + Vector2(0, -r * 0.05), r * 0.93, Color(col, 0.96 if active else 0.88))
+	draw_arc(c + Vector2(0, -r * 0.08), r * 0.72, PI * 1.15, PI * 1.85, 24, Color(1, 1, 1, 0.35), r * 0.12, true)
+	draw_arc(c, r - 1.5, 0, TAU, 48, Color(1, 1, 1, 0.9), 2.5, true)
 	if highlight and not active:
 		draw_arc(c, r + 4.0, 0, TAU, 48, Color(1, 1, 1, 0.6 + 0.3 * sin(Time.get_ticks_msec() * 0.008)), 3.0, true)
 	var ic := Color("1f2a44")
@@ -105,8 +107,11 @@ func _draw() -> void:
 			draw_rect(Rect2(c - Vector2(s * 0.8, s * 0.6), Vector2(s * 1.6, s * 1.2)), ic, false, r * 0.06)
 			draw_circle(c + Vector2(s * 0.2, -s * 0.1), s * 0.2, Color("e04a3a"))
 	if label != "":
-		var fs := int(clampf(r * 0.3, 13.0, 22.0))
+		var fs := int(clampf(r * 0.32, 15.0, 22.0))
 		var tw := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x
-		var tp := Vector2(c.x - tw * 0.5, size.y + fs + 2)
-		draw_string_outline(_font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 5, Color(0, 0, 0, 0.6))
-		draw_string(_font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+		var pill := Rect2(Vector2(c.x - tw * 0.5 - 10, size.y + 2), Vector2(tw + 20, fs + 10))
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.08, 0.11, 0.22, 0.72)
+		sb.set_corner_radius_all(int(pill.size.y * 0.5))
+		draw_style_box(sb, pill)
+		draw_string(_font, Vector2(c.x - tw * 0.5, size.y + fs + 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
