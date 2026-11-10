@@ -132,15 +132,22 @@ static func table_with_chairs(b: WorldBatcher, o: Vector3, r: float, top_col := 
 
 ## Banco de praça (madeira com pés de concreto), 3 lugares.
 static func bench(b: WorldBatcher, o: Vector3, r: float, length := 1.8, with_back := true) -> void:
-	for i in 3:
-		_bx(b, "wood", o, r, Vector3(0, 0.44, -0.12 + i * 0.13), Vector3(length, 0.04, 0.11), C_WOOD)
+	# assento de ripas com frestas, pés e braços de ferro fundido
+	for i in 4:
+		_bx(b, "wood", o, r, Vector3(0, 0.44, -0.16 + i * 0.1), Vector3(length, 0.035, 0.085), C_WOOD.darkened(0.04 * (i % 2)))
 	if with_back:
-		_bx(b, "wood", o, r, Vector3(0, 0.62, -0.22), Vector3(length, 0.1, 0.035), C_WOOD)
-		_bx(b, "wood", o, r, Vector3(0, 0.76, -0.24), Vector3(length, 0.1, 0.035), C_WOOD)
-	for lx: float in [-length * 0.4, length * 0.4]:
-		_bx(b, "concrete", o, r, Vector3(lx, 0.21, 0), Vector3(0.12, 0.42, 0.42), C_CONCRETE)
+		for i in 3:
+			_bx(b, "wood", o, r, Vector3(0, 0.58 + i * 0.11, -0.25 - i * 0.012), Vector3(length, 0.08, 0.03), C_WOOD.darkened(0.04 * (i % 2)))
+	var iron := Color("2d3436")
+	for lx: float in [-length * 0.45, length * 0.45]:
+		_bx(b, "metal", o, r, Vector3(lx, 0.22, -0.08), Vector3(0.05, 0.44, 0.05), iron)
+		_bx(b, "metal", o, r, Vector3(lx, 0.22, 0.14), Vector3(0.05, 0.44, 0.05), iron)
+		_bx(b, "metal", o, r, Vector3(lx, 0.42, 0.03), Vector3(0.06, 0.04, 0.42), iron)
 		if with_back:
-			_bx(b, "metal", o, r, Vector3(lx, 0.62, -0.25), Vector3(0.04, 0.4, 0.04), Color("333333"))
+			_bx(b, "metal", o, r, Vector3(lx, 0.66, -0.26), Vector3(0.05, 0.5, 0.05), iron)
+			# braço curvo
+			_bx(b, "metal", o, r, Vector3(lx, 0.62, -0.05), Vector3(0.05, 0.04, 0.4), iron)
+			_bx(b, "metal", o, r, Vector3(lx, 0.53, 0.15), Vector3(0.05, 0.18, 0.04), iron)
 	b.collider(_p(o, r, Vector3(0, 0.23, 0)), Vector3(length, 0.46, 0.45), r)
 	var n := maxi(int(length / 0.65), 1)
 	for i in n:
@@ -169,9 +176,14 @@ static func trash_bins(b: WorldBatcher, o: Vector3, r: float) -> void:
 	var cols := [Color("2e86de"), Color("e74c3c"), Color("27ae60"), Color("f1c40f")]
 	for i in 4:
 		var p := _p(o, r, Vector3(-0.6 + i * 0.4, 0.38, 0))
-		b.cylinder("plain", p, 0.17, 0.15, 0.7, cols[i], 10)
-		b.cylinder("plain", p + Vector3(0, 0.37, 0), 0.18, 0.18, 0.05, cols[i].darkened(0.2), 10)
-	_bx(b, "metal", o, r, Vector3(0, 0.5, -0.2), Vector3(1.7, 0.05, 0.05), C_METAL)
+		b.cylinder("plain", p, 0.17, 0.15, 0.7, cols[i], 12)
+		# tampa abaulada com abertura e faixa branca (símbolo de reciclagem)
+		b.cylinder("plain", p + Vector3(0, 0.37, 0), 0.185, 0.185, 0.05, cols[i].darkened(0.25), 12)
+		b.sphere("plain", p + Vector3(0, 0.4, 0), 0.17, cols[i].darkened(0.15), Vector3(1, 0.25, 1), 10, 4)
+		b.cylinder("plain", p + Vector3(0, 0.08, 0), 0.172, 0.172, 0.05, Color("f4f7fa"), 12, false)
+	_bx(b, "metal", o, r, Vector3(0, 0.5, -0.22), Vector3(1.7, 0.05, 0.05), C_METAL)
+	for lx: float in [-0.85, 0.85]:
+		_bx(b, "metal", o, r, Vector3(lx, 0.25, -0.22), Vector3(0.05, 0.5, 0.05), C_METAL)
 	b.collider(_p(o, r, Vector3(0, 0.4, 0)), Vector3(1.6, 0.8, 0.4), r)
 
 
@@ -185,10 +197,50 @@ static func water_fountain(b: WorldBatcher, o: Vector3, r: float) -> void:
 
 
 static func lamp_post(b: WorldBatcher, o: Vector3) -> void:
-	b.cylinder("metal", o + Vector3(0, 2.0, 0), 0.05, 0.08, 4.0, Color("3d4752"), 8)
-	b.box("metal", o + Vector3(0, 4.0, 0.25), Vector3(0.12, 0.08, 0.6), Color("3d4752"))
-	b.box("plain", o + Vector3(0, 3.94, 0.45), Vector3(0.22, 0.06, 0.3), Color("fff3c4"))
-	b.collider_cyl(o + Vector3(0, 1.5, 0), 0.1, 3.0)
+	var dark := Color("2f3a44")
+	b.cylinder("metal", o + Vector3(0, 0.2, 0), 0.16, 0.2, 0.4, dark, 10)
+	b.cylinder("metal", o + Vector3(0, 2.2, 0), 0.05, 0.08, 3.6, dark, 8)
+	b.cylinder("metal", o + Vector3(0, 0.55, 0), 0.1, 0.12, 0.3, dark, 8)
+	# braço curvo e luminária de vidro leitoso
+	b.box("metal", o + Vector3(0, 4.0, 0.22), Vector3(0.07, 0.07, 0.5), dark)
+	b.cylinder("metal", o + Vector3(0, 3.95, 0.48), 0.2, 0.06, 0.16, dark, 10)
+	b.sphere("plain", o + Vector3(0, 3.8, 0.48), 0.17, Color("fff6d6"), Vector3(1, 0.8, 1), 10, 6, false)
+	b.collider_cyl(o + Vector3(0, 1.5, 0), 0.12, 3.0)
+
+
+## Bicicletário com algumas bikes coloridas estacionadas.
+static func bike_rack(b: WorldBatcher, o: Vector3, r: float, count := 5) -> void:
+	var metal := Color("8a949e")
+	for i in count:
+		var lx := (i - (count - 1) * 0.5) * 0.7
+		_bx(b, "metal", o, r, Vector3(lx, 0.4, 0), Vector3(0.05, 0.05, 0.6), metal)
+		for lz: float in [-0.3, 0.3]:
+			_bx(b, "metal", o, r, Vector3(lx, 0.2, lz), Vector3(0.05, 0.4, 0.05), metal)
+		if i % 2 == 0:
+			var col: Color = [Color("e74c3c"), Color("2f8be0"), Color("2fae6a"), Color("ff7eb6")][i % 4]
+			var c := _p(o, r, Vector3(lx + 0.12, 0, 0))
+			for wz: float in [-0.5, 0.5]:
+				var wp := _p(o, r, Vector3(lx + 0.12, 0.33, wz))
+				b.cylinder_xf("plain", Transform3D(Basis(Vector3.UP, r) * Basis(Vector3.FORWARD, PI * 0.5), wp), 0.32, 0.32, 0.04, Color("222222"), 14)
+			_bx(b, "plain", o, r, Vector3(lx + 0.12, 0.55, 0), Vector3(0.05, 0.05, 0.95), col)
+			_bx(b, "plain", o, r, Vector3(lx + 0.12, 0.45, -0.18), Vector3(0.05, 0.35, 0.05), col)
+			_bx(b, "plain", o, r, Vector3(lx + 0.12, 0.72, -0.2), Vector3(0.1, 0.04, 0.22), Color("222222"))
+			_bx(b, "plain", o, r, Vector3(lx + 0.12, 0.8, 0.45), Vector3(0.45, 0.04, 0.04), Color("444444"))
+			var _c := c
+	b.collider(_p(o, r, Vector3(0, 0.4, 0)), Vector3(count * 0.7, 0.8, 1.2), r)
+
+
+## Fileira de arbustos arredondados (cerca viva baixa), sem colisão.
+static func bush_row(b: WorldBatcher, from: Vector3, to: Vector3, rng: RandomNumberGenerator) -> void:
+	var len := from.distance_to(to)
+	var n := maxi(int(len / 0.9), 1)
+	for i in n + 1:
+		var p := from.lerp(to, float(i) / n)
+		var s := rng.randf_range(0.45, 0.7)
+		var col := Color("3f8a3a").lerp(Color("5fae45"), rng.randf())
+		b.sphere("foliage", p + Vector3(0, s * 0.7, 0), s, col, Vector3(1.2, 0.95, 1.0), 7, 5)
+		if rng.randf() < 0.3:
+			b.sphere("plain", p + Vector3(rng.randf_range(-0.3, 0.3), s * 1.25, rng.randf_range(-0.2, 0.2)), 0.07, [Color("ff4d6d"), Color("ffd23f"), Color("ffffff")][rng.randi() % 3], Vector3.ONE, 5, 3, false)
 
 
 static func planter(b: WorldBatcher, o: Vector3, size: Vector2, flower_rng: RandomNumberGenerator, edge_col := Color("d8cdb8")) -> void:

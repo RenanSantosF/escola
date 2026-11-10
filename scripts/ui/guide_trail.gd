@@ -68,7 +68,6 @@ func setup(h: HUD, p: PlayerController, n: NavGraph) -> void:
 	_arrow = MeshInstance3D.new()
 	_arrow.mesh = am.build_mesh(_arrow_mat)
 	_arrow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_arrow.scale = Vector3.ONE * 1.7
 	add_child(_arrow)
 	_arrow.visible = false
 
@@ -120,8 +119,8 @@ func _process(delta: float) -> void:
 	var dir := Vector3(nxt.x - player.global_position.x, 0, nxt.z - player.global_position.z)
 	if dir.length() > 0.1:
 		_arrow.visible = true
-		_arrow.global_position = player.global_position + Vector3(0, 2.55 + sin(Time.get_ticks_msec() * 0.005) * 0.08, 0)
-		_arrow.global_basis = Basis.looking_at(-dir.normalized(), Vector3.UP).scaled(Vector3.ONE * 1.7)
+		_arrow.global_position = player.global_position + Vector3(0, 2.6 + sin(Time.get_ticks_msec() * 0.005) * 0.06, 0)
+		_arrow.global_basis = Basis.looking_at(-dir.normalized(), Vector3.UP).scaled(Vector3.ONE * 1.25)
 		_arrow_mat.albedo_color = _col
 
 

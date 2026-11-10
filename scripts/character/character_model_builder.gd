@@ -26,15 +26,16 @@ const BONES := [
 	["RightUpperLeg", "Hips", Vector3(-0.095, -0.03, 0)],
 	["RightLowerLeg", "RightUpperLeg", Vector3(0, -0.39, 0)],
 	["RightFoot", "RightLowerLeg", Vector3(0, -0.37, 0)],
-	["LeftEye", "Head", Vector3(0.052, 0.14, 0.137)],
-	["RightEye", "Head", Vector3(-0.052, 0.14, 0.137)],
-	["LeftBrow", "Head", Vector3(0.055, 0.197, 0.137)],
-	["RightBrow", "Head", Vector3(-0.055, 0.197, 0.137)],
-	["Mouth", "Head", Vector3(0, 0.072, 0.139)],
+	["LeftEye", "Head", Vector3(0.072, 0.155, 0.172)],
+	["RightEye", "Head", Vector3(-0.072, 0.155, 0.172)],
+	["LeftBrow", "Head", Vector3(0.074, 0.232, 0.168)],
+	["RightBrow", "Head", Vector3(-0.074, 0.232, 0.168)],
+	["Mouth", "Head", Vector3(0, 0.083, 0.176)],
 ]
 
-const HEAD_C := Vector3(0, 0.14, 0)  # centro da cabeça, relativo ao osso Head
-const HEAD_R := 0.155
+## Estilo "chibi" infantil: cabeça grande e redonda, olhos grandes.
+const HEAD_C := Vector3(0, 0.17, 0)  # centro da cabeça, relativo ao osso Head
+const HEAD_R := 0.2
 
 static var _material: StandardMaterial3D
 
@@ -50,11 +51,11 @@ static func get_material() -> StandardMaterial3D:
 		_material.vertex_color_use_as_albedo = true
 		_material.roughness = 0.72
 		# luz "enrolada": sombra suave e arredondada, visual de desenho animado
-		_material.diffuse_mode = BaseMaterial3D.DIFFUSE_LAMBERT_WRAP
+		_material.diffuse_mode = BaseMaterial3D.DIFFUSE_BURLEY
 		_material.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
 		_material.rim_enabled = true
-		_material.rim = 0.4
-		_material.rim_tint = 0.75
+		_material.rim = 0.18
+		_material.rim_tint = 0.6
 	return _material
 
 
@@ -164,77 +165,71 @@ func _make_mesh() -> ArrayMesh:
 	var trim := a.shirt_trim
 	var pants := a.pants_color
 
-	# Pelve / bermuda
-	_capsule("Hips", pants, Vector3(0, 0.03, 0), 0.145, 0.30, Vector3(1.06 * bw, 1, 0.72))
-	_cyl("Hips", Color("3b2a1e"), Vector3(0, 0.13, 0), 0.153 * bw, 0.153 * bw, 0.035, Vector3.ZERO, 14)
-	_box("Hips", Color("d4af37"), Vector3(0, 0.13, 0.108), Vector3(0.04, 0.03, 0.012))
-	# Barriga e peito (camiseta)
-	_capsule("Spine", shirt, Vector3(0, 0.08, 0), 0.148, 0.36, Vector3(1.0 * bw, 1, 0.7))
-	_capsule("Chest", shirt, Vector3(0, 0.11, 0), 0.165, 0.34, Vector3(1.05 * bw, 1, 0.72))
-	# Gola polo
-	_cyl("Chest", trim, Vector3(0, 0.255, 0.0), 0.072, 0.085, 0.035, Vector3.ZERO, 12)
-	for sx: float in [1.0, -1.0]:
-		_box("Chest", trim, Vector3(0.045 * sx, 0.235, 0.085), Vector3(0.06, 0.012, 0.05), Vector3(-35, 0, 18 * sx))
-	_box("Chest", shirt.darkened(0.08), Vector3(0, 0.17, 0.118), Vector3(0.012, 0.09, 0.008))
+	# Bermuda/calça: quadril arredondado com cós
+	_capsule("Hips", pants, Vector3(0, -0.025, 0), 0.16, 0.29, Vector3(1.06 * bw, 1, 0.84), Vector3.ZERO, 18)
+	# Camiseta: tronco em gota (barriguinha de criança)
+	_capsule("Spine", shirt, Vector3(0, 0.06, 0), 0.172, 0.38, Vector3(1.07 * bw, 1, 0.86), Vector3.ZERO, 18)
+	_capsule("Chest", shirt, Vector3(0, 0.1, 0), 0.172, 0.36, Vector3(1.08 * bw, 1, 0.82), Vector3.ZERO, 18)
+	# barra da camiseta e gola
+	_cyl("Spine", shirt.darkened(0.12), Vector3(0, -0.085, 0), 0.172 * bw, 0.176 * bw, 0.022, Vector3.ZERO, 18)
+	_cyl("Chest", trim, Vector3(0, 0.262, 0.0), 0.078, 0.1, 0.04, Vector3.ZERO, 16)
 	if a.shirt_logo:
-		_box("Chest", trim, Vector3(0.075, 0.13, 0.118), Vector3(0.055, 0.055, 0.012))
-		_box("Chest", Color("f2c230"), Vector3(0.075, 0.13, 0.124), Vector3(0.03, 0.03, 0.006))
-	# cintura arredondada (une bermuda e camiseta sem "degrau")
-	_sphere("Spine", shirt, Vector3(0, -0.02, 0), 0.15, Vector3(1.0 * bw, 0.6, 0.72))
-	# Pescoço
-	_cyl("Neck", skin.darkened(0.04), Vector3(0, 0.02, 0), 0.052, 0.058, 0.12, Vector3.ZERO, 14)
+		# brasão redondo no peito
+		_sphere("Chest", trim, Vector3(0.085, 0.13, 0.126), 0.036, Vector3(1, 1, 0.3), Vector3(0, 28, 0), 12, 6)
+		_sphere("Chest", Color("ffd23f"), Vector3(0.087, 0.13, 0.133), 0.02, Vector3(1, 1, 0.3), Vector3(0, 28, 0), 10, 5)
+	# Pescoço curtinho
+	_cyl("Neck", skin.darkened(0.06), Vector3(0, 0.015, 0), 0.058, 0.064, 0.1, Vector3.ZERO, 14)
 
 	_make_head()
 
-	# Braços
+	# Braços: manga bufante, braço roliço e mão de luva
 	for side: String in ["Left", "Right"]:
 		var sx := 1.0 if side == "Left" else -1.0
-		# ombro arredondado e manga
-		_sphere(side + "UpperArm", shirt, Vector3(0.0, 0.0, 0), 0.07, Vector3(bw, 0.95, 0.95))
-		_capsule(side + "UpperArm", shirt, Vector3(0.0, -0.06, 0), 0.064, 0.2, Vector3(bw, 1, 1))
-		# cotovelo (esconde a emenda do braço ao dobrar)
-		_sphere(side + "LowerArm", skin, Vector3.ZERO, 0.045, Vector3.ONE, Vector3.ZERO, 10, 7)
-		_cyl(side + "UpperArm", trim, Vector3(0, -0.15, 0), 0.064, 0.064, 0.028)
-		_capsule(side + "UpperArm", skin, Vector3(0, -0.15, 0), 0.046, 0.21)
-		_capsule(side + "LowerArm", skin, Vector3(0, -0.11, 0), 0.043, 0.25)
-		# palma + 4 dedos + polegar
-		_sphere(side + "Hand", skin, Vector3(0, -0.045, 0.005), 0.042, Vector3(0.7, 1.0, 1.0))
-		for f in 4:
-			var fz := -0.018 + f * 0.013
-			_capsule(side + "Hand", skin.darkened(0.02 * (f % 2)), Vector3(0.0, -0.09, fz + 0.005), 0.0085, 0.05 - absf(f - 1.5) * 0.006, Vector3.ONE, Vector3(8, 0, 0), 6)
-		_capsule(side + "Hand", skin.darkened(0.03), Vector3(0.012 * sx, -0.04, 0.035), 0.009, 0.045, Vector3.ONE, Vector3(-35, 0, 25 * sx), 6)
+		_sphere(side + "UpperArm", shirt, Vector3(0, 0.0, 0), 0.082, Vector3(bw, 0.95, 0.95), Vector3.ZERO, 14, 9)
+		_capsule(side + "UpperArm", shirt, Vector3(0, -0.055, 0), 0.074, 0.2, Vector3(bw, 1, 1))
+		_cyl(side + "UpperArm", trim, Vector3(0, -0.135, 0), 0.077, 0.077, 0.03, Vector3.ZERO, 14)
+		_capsule(side + "UpperArm", skin, Vector3(0, -0.17, 0), 0.052, 0.2)
+		_sphere(side + "LowerArm", skin, Vector3.ZERO, 0.052, Vector3.ONE, Vector3.ZERO, 10, 7)
+		_capsule(side + "LowerArm", skin, Vector3(0, -0.11, 0), 0.049, 0.26)
+		_sphere(side + "Hand", skin, Vector3(0, -0.05, 0.004), 0.058, Vector3(0.78, 1.05, 1.0), Vector3.ZERO, 12, 8)
+		_sphere(side + "Hand", skin, Vector3(0.012 * sx, -0.035, 0.045), 0.024, Vector3(0.9, 1.2, 1.0), Vector3(-30, 0, 0), 8, 6)
 
-	# Pernas
+	# Pernas roliças, meia e tênis grandão
 	for side: String in ["Left", "Right"]:
 		var up_leg: String = side + "UpperLeg"
 		var low_leg: String = side + "LowerLeg"
 		var foot: String = side + "Foot"
-		_capsule(up_leg, pants, Vector3(0, -0.17, 0), 0.08 * bw, 0.40)
-		# joelho
-		_sphere(low_leg, pants if a.long_pants else skin, Vector3.ZERO, 0.058 if a.long_pants else 0.055, Vector3.ONE, Vector3.ZERO, 10, 7)
 		if a.long_pants:
-			_capsule(low_leg, pants, Vector3(0, -0.16, 0), 0.066, 0.42)
-			_cyl(low_leg, pants.darkened(0.1), Vector3(0, -0.34, 0), 0.07, 0.072, 0.04)
+			_capsule(up_leg, pants, Vector3(0, -0.18, 0), 0.094 * bw, 0.44)
+			_sphere(low_leg, pants, Vector3.ZERO, 0.08, Vector3.ONE, Vector3.ZERO, 10, 7)
+			_capsule(low_leg, pants, Vector3(0, -0.16, 0), 0.078, 0.42)
+			_cyl(low_leg, pants.darkened(0.14), Vector3(0, -0.335, 0), 0.084, 0.086, 0.035, Vector3.ZERO, 14)
 		else:
-			_cyl(up_leg, pants.darkened(0.08), Vector3(0, -0.33, 0), 0.08 * bw, 0.08 * bw, 0.03)
-			_capsule(low_leg, skin, Vector3(0, -0.15, 0), 0.054, 0.38)
-			_cyl(low_leg, a.sock_color, Vector3(0, -0.3, 0), 0.058, 0.056, 0.12)
-		# Tênis
-		_capsule(foot, a.shoe_color, Vector3(0, -0.025, 0.045), 0.058, 0.25, Vector3(1, 0.85, 1), Vector3(90, 0, 0))
-		_box(foot, a.shoe_sole, Vector3(0, -0.062, 0.045), Vector3(0.11, 0.026, 0.25))
-		_box(foot, a.shoe_color.darkened(0.25), Vector3(0, 0.012, 0.085), Vector3(0.05, 0.012, 0.08), Vector3(-20, 0, 0))
-		for l in 3:
-			_box(foot, Color("fdfdfd") if a.shoe_color.get_luminance() < 0.7 else Color("2d3436"), Vector3(0, 0.016 + l * 0.008, 0.06 + l * 0.022), Vector3(0.056, 0.007, 0.008), Vector3(-20, 0, 0))
-		_box(foot, a.shoe_color.lerp(Color.WHITE, 0.4), Vector3(0.056, -0.03, 0.03), Vector3(0.006, 0.03, 0.12))
+			_capsule(up_leg, pants, Vector3(0, -0.12, 0), 0.1 * bw, 0.34)
+			_cyl(up_leg, pants.darkened(0.14), Vector3(0, -0.275, 0), 0.104 * bw, 0.106 * bw, 0.03, Vector3.ZERO, 14)
+			_capsule(up_leg, skin, Vector3(0, -0.27, 0), 0.07, 0.26)
+			_sphere(low_leg, skin, Vector3.ZERO, 0.068, Vector3.ONE, Vector3.ZERO, 10, 7)
+			_capsule(low_leg, skin, Vector3(0, -0.15, 0), 0.062, 0.38)
+			_cyl(low_leg, a.sock_color, Vector3(0, -0.29, 0), 0.068, 0.066, 0.14, Vector3.ZERO, 14)
+			_cyl(low_leg, a.sock_color.darkened(0.12), Vector3(0, -0.225, 0), 0.07, 0.07, 0.018, Vector3.ZERO, 14)
+		# tênis: corpo, biqueira branca, sola e faixa lateral
+		_capsule(foot, a.shoe_color, Vector3(0, -0.018, 0.05), 0.072, 0.29, Vector3(1.05, 0.82, 1), Vector3(90, 0, 0))
+		_sphere(foot, Color("f7f7f4"), Vector3(0, -0.028, 0.15), 0.066, Vector3(1.05, 0.72, 0.85), Vector3.ZERO, 12, 7)
+		_capsule(foot, a.shoe_sole, Vector3(0, -0.062, 0.05), 0.05, 0.3, Vector3(1.55, 0.42, 1), Vector3(90, 0, 0), 12)
+		_sphere(foot, a.shoe_color.lerp(Color.WHITE, 0.55), Vector3(0, 0.03, 0.05), 0.04, Vector3(0.9, 0.5, 1.4), Vector3.ZERO, 8, 5)
+		_cyl(foot, a.shoe_color.darkened(0.2), Vector3(0, 0.045, -0.03), 0.07, 0.066, 0.03, Vector3.ZERO, 12)
 
 	if a.backpack:
 		var bp := a.backpack_color
-		_capsule("Chest", bp, Vector3(0, 0.08, -0.19), 0.14, 0.4, Vector3(1.05, 1, 0.5))
-		_capsule("Chest", bp.darkened(0.2), Vector3(0, -0.01, -0.255), 0.07, 0.17, Vector3(1.4, 1, 0.45), Vector3(0, 0, 90))
-		_box("Chest", Color("eeeeee"), Vector3(0, 0.07, -0.287), Vector3(0.12, 0.012, 0.006))
+		_capsule("Chest", bp, Vector3(0, 0.07, -0.2), 0.15, 0.42, Vector3(1.05, 1, 0.56), Vector3.ZERO, 16)
+		_capsule("Chest", bp.darkened(0.18), Vector3(0, -0.02, -0.275), 0.075, 0.2, Vector3(1.4, 1, 0.5), Vector3(0, 0, 90), 12)
+		_sphere("Chest", Color("f4f4f0"), Vector3(0, 0.15, -0.283), 0.022, Vector3(1.6, 0.6, 0.4), Vector3.ZERO, 8, 5)
+		_capsule("Chest", bp.darkened(0.28), Vector3(0, 0.3, -0.2), 0.016, 0.1, Vector3.ONE, Vector3(0, 0, 90), 6)
+		# alças finas acompanhando o corpo
+		var strap := bp.darkened(0.3)
 		for sx: float in [1.0, -1.0]:
-			_box("Chest", bp.darkened(0.35), Vector3(0.1 * sx, 0.2, -0.02), Vector3(0.035, 0.05, 0.27), Vector3(25, 0, 0))
-			_box("Chest", bp.darkened(0.35), Vector3(0.11 * sx, 0.07, 0.12), Vector3(0.035, 0.3, 0.012), Vector3(-6, 0, 0))
+			_capsule("Chest", strap, Vector3(0.108 * sx, 0.1, 0.118), 0.016, 0.3, Vector3(1.0, 1, 0.4), Vector3(-6, 0, 0), 6)
+			_capsule("Chest", strap, Vector3(0.108 * sx, 0.24, 0.0), 0.016, 0.26, Vector3(1.0, 1, 0.4), Vector3(96, 0, 0), 6)
 
 	_shade_depth()
 	return md.build_mesh(get_material())
@@ -243,14 +238,13 @@ func _make_mesh() -> ArrayMesh:
 ## Profundidade "pintada" nas cores: um pouco mais escuro perto dos pés e
 ## embaixo das partes (queixo, axila), mais claro no alto. Custo zero no jogo.
 func _shade_depth() -> void:
-	var top := 1.55 * app.height_scale
+	var top := 1.85 * app.height_scale
 	for i in md.v.size():
 		var p := md.v[i]
 		var nn := md.n[i]
 		var h := clampf(p.y / top, 0.0, 1.0)
-		var k := lerpf(0.8, 1.04, smoothstep(0.0, 0.85, h))
-		# faces viradas para baixo recebem menos luz (oclusão falsa)
-		k *= lerpf(0.86, 1.0, clampf(nn.y * 0.5 + 0.5, 0.0, 1.0) * 1.25)
+		var k := lerpf(0.84, 1.0, smoothstep(0.0, 0.75, h))
+		var _unused := nn
 		var col := md.c[i]
 		md.c[i] = Color(col.r * k, col.g * k, col.b * k, col.a)
 
@@ -259,121 +253,131 @@ func _make_head() -> void:
 	var a := app
 	var skin := a.skin
 	var c := HEAD_C
-	# Crânio levemente oval
-	_sphere("Head", skin, c, HEAD_R, Vector3(0.98, 1.03, 1.0), Vector3.ZERO, 16, 12)
-	# Bochecha/queixo suave + maçãs do rosto
-	_sphere("Head", skin, c + Vector3(0, -0.06, 0.035), 0.11, Vector3(1.0, 0.8, 1.0), Vector3.ZERO, 14, 10)
-	_sphere("Head", skin, c + Vector3(0, -0.105, 0.065), 0.05, Vector3(1.3, 0.8, 0.9), Vector3.ZERO, 10, 7)
-	for sx2: float in [1.0, -1.0]:
-		_sphere("Head", skin, c + Vector3(0.075 * sx2, -0.03, 0.095), 0.045, Vector3(1.0, 0.8, 0.7), Vector3.ZERO, 10, 7)
-	# Orelhas
+	var R := HEAD_R
+	# cabeça grande e redonda, levemente achatada
+	_sphere("Head", skin, c, R, Vector3(1.0, 0.94, 0.96), Vector3.ZERO, 22, 15)
+	# orelhas
 	for sx: float in [1.0, -1.0]:
-		_sphere("Head", skin.darkened(0.06), c + Vector3(0.148 * sx, -0.005, 0.0), 0.036, Vector3(0.45, 1.0, 0.75))
-		# Bochechas rosadas
-		_sphere("Head", skin.lerp(Color("ff8f8f"), 0.35), c + Vector3(0.082 * sx, -0.045, 0.118), 0.024, Vector3(1.0, 0.7, 0.35), Vector3.ZERO, 8, 5)
-	# Nariz
-	_sphere("Head", skin.darkened(0.05), c + Vector3(0, -0.022, 0.152), 0.022, Vector3(1.0, 0.95, 0.85), Vector3.ZERO, 10, 7)
-	_capsule("Head", skin.darkened(0.03), c + Vector3(0, 0.005, 0.146), 0.012, 0.05, Vector3(1, 1, 0.8), Vector3(-12, 0, 0), 8)
-	# Olhos (osso próprio para piscar)
+		_sphere("Head", skin.darkened(0.05), c + Vector3(0.196 * sx, -0.025, 0.0), 0.04, Vector3(0.5, 1.0, 0.8), Vector3.ZERO, 10, 7)
+		_sphere("Head", skin.darkened(0.14), c + Vector3(0.208 * sx, -0.025, 0.006), 0.02, Vector3(0.4, 1.0, 0.8), Vector3.ZERO, 8, 5)
+		# bochechas coradas (discos chatos colados no rosto)
+		_sphere("Head", skin.lerp(Color("ff7b8a"), 0.42), c + Vector3(0.118 * sx, -0.062, 0.145), 0.034, Vector3(1.0, 0.72, 0.22), Vector3(0, 38 * sx, 0), 10, 5)
+	# narizinho
+	_sphere("Head", skin.darkened(0.07), c + Vector3(0, -0.048, 0.19), 0.016, Vector3(1.1, 0.85, 0.8), Vector3.ZERO, 8, 6)
+	# olhos grandes de desenho: contorno claro, íris escura e dois brilhos
+	var iris := a.eye_color.lerp(Color("1a120d"), 0.35)
 	for side: String in ["Left", "Right"]:
-		# esclera branca, íris colorida, pupila e brilho
-		_sphere(side + "Eye", Color("fbfbf8"), Vector3(0, 0, -0.004), 0.031, Vector3(1.0, 1.2, 0.42), Vector3.ZERO, 12, 8)
-		_sphere(side + "Eye", a.eye_color.lightened(0.15), Vector3(0, -0.002, 0.007), 0.019, Vector3(1.0, 1.2, 0.4), Vector3.ZERO, 10, 7)
-		_sphere(side + "Eye", Color("15100c"), Vector3(0, -0.002, 0.010), 0.0105, Vector3(1.0, 1.15, 0.4), Vector3.ZERO, 8, 5)
-		_sphere(side + "Eye", Color.WHITE, Vector3(0.007, 0.009, 0.013), 0.0055, Vector3.ONE, Vector3.ZERO, 6, 4)
 		var sx := 1.0 if side == "Left" else -1.0
-		# pálpebra de cima (dá um olhar mais vivo) e cílios
-		_cap(side + "Eye", skin.darkened(0.04), Vector3(0, 0.004, -0.006), 0.034, Vector3(0, 1, 0.55), 62, Vector3(1.0, 1.15, 0.5))
-		_capsule(side + "Eye", Color("1a1410"), Vector3(0.002 * sx, 0.026, 0.006), 0.0045, 0.05, Vector3.ONE, Vector3(0, 0, 90 - 10 * sx), 6)
-		# sobrancelha arqueada (3 pedacinhos)
-		var bc := a.hair_color.darkened(0.15)
-		_capsule(side + "Brow", bc, Vector3(-0.012 * sx, -0.002, 0), 0.0065, 0.03, Vector3.ONE, Vector3(0, 0, 90 + 18 * sx), 6)
-		_capsule(side + "Brow", bc, Vector3(0.014 * sx, 0.002, -0.001), 0.006, 0.028, Vector3.ONE, Vector3(0, 0, 90 - 12 * sx), 6)
-	# Boca: sorriso curvo (arco de pontinhos) + lábio inferior
-	var lip := Color("8a2f3a")
-	for k in 7:
-		var t := (k - 3) / 3.0
-		_sphere("Mouth", lip, Vector3(t * 0.026, absf(t) * absf(t) * 0.009, -0.002 - absf(t) * 0.003), 0.0062, Vector3(1.4, 0.9, 0.7), Vector3.ZERO, 6, 4)
-	_sphere("Mouth", skin.lerp(Color("e07a7a"), 0.35), Vector3(0, -0.011, -0.006), 0.012, Vector3(1.6, 0.55, 0.6), Vector3.ZERO, 8, 5)
+		_sphere(side + "Eye", Color("fdfdfb"), Vector3(0, 0, -0.006), 0.041, Vector3(0.9, 1.16, 0.34), Vector3(0, 10 * sx, 0), 14, 9)
+		_sphere(side + "Eye", iris, Vector3(-0.002 * sx, -0.002, 0.004), 0.033, Vector3(0.88, 1.16, 0.34), Vector3(0, 10 * sx, 0), 14, 9)
+		_sphere(side + "Eye", Color("0d0906"), Vector3(-0.002 * sx, -0.004, 0.009), 0.02, Vector3(0.9, 1.15, 0.3), Vector3(0, 10 * sx, 0), 10, 7)
+		_sphere(side + "Eye", Color.WHITE, Vector3(0.011, 0.016, 0.014), 0.0105, Vector3(1, 1, 0.5), Vector3.ZERO, 8, 5)
+		_sphere(side + "Eye", Color.WHITE, Vector3(-0.011, -0.014, 0.014), 0.0055, Vector3(1, 1, 0.5), Vector3.ZERO, 6, 4)
+		# sobrancelha curta e arqueada
+		_capsule(side + "Brow", a.hair_color.darkened(0.12), Vector3.ZERO, 0.0075, 0.058, Vector3(1, 1, 0.7), Vector3(0, 12 * sx, 90 - 9 * sx), 6)
+	# sorriso (arco de pontinhos)
+	var lip := Color("8f2f3d")
+	for k in 9:
+		var t := (k - 4) / 4.0
+		_sphere("Mouth", lip, Vector3(t * 0.04, t * t * 0.016, -absf(t) * 0.012), 0.0068, Vector3(1.3, 0.95, 0.7), Vector3.ZERO, 6, 4)
 
 	_make_hair()
 
 	if a.glasses:
 		var fr := Color("1c1c1c")
 		for sx: float in [1.0, -1.0]:
-			var e := c + Vector3(0.052 * sx, 0.0, 0.158)
-			_box("Head", fr, e + Vector3(0, 0.03, 0), Vector3(0.07, 0.01, 0.01))
-			_box("Head", fr, e + Vector3(0, -0.03, 0), Vector3(0.07, 0.01, 0.01))
-			_box("Head", fr, e + Vector3(0.035, 0, 0), Vector3(0.01, 0.07, 0.01))
-			_box("Head", fr, e + Vector3(-0.035, 0, 0), Vector3(0.01, 0.07, 0.01))
-			_box("Head", fr, c + Vector3(0.14 * sx, 0.0, 0.07), Vector3(0.01, 0.01, 0.16))
-		_box("Head", fr, c + Vector3(0, 0.01, 0.16), Vector3(0.035, 0.008, 0.01))
+			var e := c + Vector3(0.072 * sx, -0.015, 0.2)
+			for k in 12:
+				var ang := k * TAU / 12.0
+				_box("Head", fr, e + Vector3(cos(ang) * 0.05, sin(ang) * 0.052, -absf(cos(ang)) * 0.006), Vector3(0.028, 0.009, 0.009), Vector3(0, 0, rad_to_deg(ang) + 90))
+			_box("Head", fr, c + Vector3(0.165 * sx, -0.012, 0.1), Vector3(0.009, 0.009, 0.2), Vector3(0, -12 * sx, 0))
+		_box("Head", fr, c + Vector3(0, -0.012, 0.203), Vector3(0.046, 0.009, 0.009))
 
 	if a.cap:
 		var cc := a.cap_color
-		_cap("Head", cc, c + Vector3(0, 0.012, -0.005), HEAD_R + 0.02, Vector3(0, 1, -0.15), 82)
-		_box("Head", cc.darkened(0.1), c + Vector3(0, 0.07, 0.18), Vector3(0.2, 0.014, 0.13), Vector3(12, 0, 0))
-		_sphere("Head", cc.darkened(0.2), c + Vector3(0, HEAD_R + 0.03, -0.01), 0.016)
+		_cap("Head", cc, c + Vector3(0, 0.014, -0.006), R + 0.024, Vector3(0, 1, -0.15), 80, Vector3(1.0, 0.95, 0.97))
+		# aba arredondada
+		_sphere("Head", cc.darkened(0.12), c + Vector3(0, 0.07, 0.235), 0.13, Vector3(1.0, 0.1, 0.85), Vector3(12, 0, 0), 14, 6)
+		_sphere("Head", cc.darkened(0.22), c + Vector3(0, R * 0.95 + 0.03, -0.012), 0.02)
 
 
 func _make_hair() -> void:
 	var a := app
 	var hc := a.hair_color
 	var c := HEAD_C
+	var R := HEAD_R
+	var sc := Vector3(1.0, 0.95, 0.97)
 	var style := a.hair_style
-	if a.cap and style in ["curto", "espetado", "raspado", "franja", "cacheado"]:
+	if a.cap and style in ["curto", "espetado", "raspado", "franja", "cacheado", "black_power"]:
 		style = "raspado"
+	var base := c + Vector3(0, 0.008, -0.01)
 	match style:
 		"raspado":
-			_cap("Head", hc.lerp(a.skin, 0.25), c + Vector3(0, 0.004, -0.004), HEAD_R + 0.006, Vector3(0, 1, -0.6), 90)
+			_cap("Head", hc.lerp(a.skin, 0.3), base, R + 0.006, Vector3(0, 1, -0.6), 90, sc)
 		"curto":
-			_cap("Head", hc, c + Vector3(0, 0.008, -0.008), HEAD_R + 0.018, Vector3(0, 1, -0.6), 92)
-			# costeletas arredondadas
+			_cap("Head", hc, base, R + 0.02, Vector3(0, 1, -0.55), 93, sc)
+			_tufts(hc, 5, 0.0)
 			for sx: float in [1.0, -1.0]:
-				_sphere("Head", hc, c + Vector3(0.142 * sx, -0.005, 0.04), 0.028, Vector3(0.6, 1.4, 0.9), Vector3.ZERO, 8, 6)
-			# mechas da franja + volume no topo
-			for k in 4:
-				var fx := -0.06 + k * 0.04
-				_sphere("Head", hc.lightened(0.04 * (k % 2)), c + Vector3(fx, 0.1 - absf(fx) * 0.3, 0.115), 0.034, Vector3(1.2, 0.7, 0.8), Vector3(-25, 0, -fx * 200.0), 8, 6)
-			_sphere("Head", hc, c + Vector3(0, 0.13, -0.02), 0.09, Vector3(1.5, 0.55, 1.4), Vector3.ZERO, 12, 8)
+				_sphere("Head", hc, c + Vector3(0.182 * sx, 0.02, 0.05), 0.04, Vector3(0.55, 1.5, 0.9), Vector3.ZERO, 8, 6)
 		"franja":
-			_cap("Head", hc, c + Vector3(0, 0.006, -0.006), HEAD_R + 0.014, Vector3(0, 1, -0.6), 92)
-			_capsule("Head", hc, c + Vector3(0, 0.085, 0.118), 0.045, 0.27, Vector3(1, 1, 0.55), Vector3(0, 0, 90))
+			_cap("Head", hc, base, R + 0.02, Vector3(0, 1, -0.55), 93, sc)
+			# franja reta cobrindo a testa
+			_capsule("Head", hc, c + Vector3(0, 0.1, 0.158), 0.052, 0.34, Vector3(1, 0.85, 0.5), Vector3(0, 0, 90), 14)
 			for sx: float in [1.0, -1.0]:
-				_box("Head", hc, c + Vector3(0.143 * sx, -0.02, 0.04), Vector3(0.022, 0.08, 0.04))
+				_sphere("Head", hc, c + Vector3(0.18 * sx, -0.01, 0.06), 0.045, Vector3(0.55, 1.9, 0.95), Vector3.ZERO, 8, 6)
 		"espetado":
-			_cap("Head", hc, c + Vector3(0, 0.006, -0.006), HEAD_R + 0.012, Vector3(0, 1, -0.6), 90)
-			var spikes := [Vector3(0, 1, 0.35), Vector3(0.45, 0.9, 0.1), Vector3(-0.45, 0.9, 0.1), Vector3(0.2, 1, -0.4),
-				Vector3(-0.2, 1, -0.4), Vector3(0, 0.8, -0.8), Vector3(0.55, 0.6, -0.5), Vector3(-0.55, 0.6, -0.5)]
+			_cap("Head", hc, base, R + 0.016, Vector3(0, 1, -0.55), 92, sc)
+			var spikes := [Vector3(0, 1, 0.45), Vector3(0.45, 0.9, 0.2), Vector3(-0.45, 0.9, 0.2), Vector3(0.22, 1, -0.3),
+				Vector3(-0.22, 1, -0.3), Vector3(0, 0.8, -0.8), Vector3(0.6, 0.6, -0.4), Vector3(-0.6, 0.6, -0.4), Vector3(0, 0.75, 0.75)]
 			for d in spikes:
 				var dir: Vector3 = d.normalized()
-				var pos: Vector3 = c + dir * (HEAD_R + 0.03)
-				_bone("Head", hc)
+				var pos: Vector3 = c + dir * (R + 0.03)
+				_bone("Head", hc.lightened(0.05))
 				var axis := Vector3.UP.cross(dir)
 				var basis := Basis() if axis.length() < 0.001 else Basis(axis.normalized(), Vector3.UP.angle_to(dir))
-				md.add_cylinder(Transform3D(basis, bone_global["Head"] + pos), 0.0, 0.045, 0.1, 6)
+				md.add_cylinder(Transform3D(basis, bone_global["Head"] + pos), 0.0, 0.06, 0.14, 7)
 		"longo":
-			_cap("Head", hc, c + Vector3(0, 0.006, -0.006), HEAD_R + 0.016, Vector3(0, 1, -0.55), 96)
-			_capsule("Head", hc, c + Vector3(0, -0.1, -0.075), 0.11, 0.34, Vector3(1.35, 1, 0.6))
+			_cap("Head", hc, base, R + 0.022, Vector3(0, 1, -0.5), 97, sc)
+			# cortina de cabelo até os ombros
+			_capsule("Head", hc, c + Vector3(0, -0.13, -0.085), 0.14, 0.44, Vector3(1.36, 1, 0.62), Vector3.ZERO, 16)
 			for sx: float in [1.0, -1.0]:
-				_capsule("Head", hc, c + Vector3(0.13 * sx, -0.08, 0.02), 0.045, 0.28, Vector3(0.8, 1, 1))
-			_sphere("Head", hc, c + Vector3(-0.03, 0.105, 0.1), 0.065, Vector3(1.6, 0.55, 0.8), Vector3(0, 0, 14))
+				_capsule("Head", hc, c + Vector3(0.172 * sx, -0.1, 0.03), 0.055, 0.36, Vector3(0.75, 1, 1.05), Vector3(0, 0, -4 * sx), 10)
+			_tufts(hc, 4, 0.25)
 		"rabo":
-			_cap("Head", hc, c + Vector3(0, 0.006, -0.006), HEAD_R + 0.014, Vector3(0, 1, -0.6), 94)
-			_sphere("Head", hc, c + Vector3(0, 0.07, -0.165), 0.05)
-			_capsule("Head", hc, c + Vector3(0, -0.06, -0.21), 0.05, 0.26, Vector3(1, 1, 1), Vector3(-18, 0, 0))
-			_sphere("Head", a.backpack_color, c + Vector3(0, 0.06, -0.19), 0.025)
+			_cap("Head", hc, base, R + 0.02, Vector3(0, 1, -0.55), 95, sc)
+			_tufts(hc, 4, -0.2)
+			_sphere("Head", a.backpack_color.lightened(0.1), c + Vector3(0, 0.1, -0.2), 0.034, Vector3(1.2, 0.8, 0.8))
+			_sphere("Head", hc, c + Vector3(0, 0.1, -0.24), 0.06)
+			_capsule("Head", hc, c + Vector3(0, -0.04, -0.3), 0.06, 0.32, Vector3(1, 1, 1), Vector3(-20, 0, 0), 10)
+			_sphere("Head", hc, c + Vector3(0, -0.2, -0.345), 0.045, Vector3(0.9, 1.3, 0.9))
 		"cacheado":
-			_cap("Head", hc, c + Vector3(0, 0.006, -0.006), HEAD_R + 0.012, Vector3(0, 1, -0.6), 92)
+			_cap("Head", hc, base, R + 0.012, Vector3(0, 1, -0.55), 92, sc)
 			var r := RandomNumberGenerator.new()
 			r.seed = 7
-			for i in 22:
-				var d := Vector3(r.randf_range(-1, 1), r.randf_range(0.1, 1), r.randf_range(-1, 0.5))
+			var placed := 0
+			var guard := 0
+			while placed < 34 and guard < 200:
+				guard += 1
+				var d := Vector3(r.randf_range(-1, 1), r.randf_range(0.05, 1), r.randf_range(-1, 0.75))
 				var dd := d.normalized()
-				if dd.z > 0.35 and dd.y < 0.55:
+				if dd.z > 0.45 and dd.y < 0.62:
 					continue
-				_sphere("Head", hc.lightened(r.randf() * 0.08), c + dd * (HEAD_R + 0.01), 0.045, Vector3.ONE, Vector3.ZERO, 7, 5)
+				_sphere("Head", hc.lightened(r.randf() * 0.1), c + dd * (R + 0.012) * sc, 0.056, Vector3.ONE, Vector3.ZERO, 8, 5)
+				placed += 1
 		"black_power":
-			_cap("Head", hc, c + Vector3(0, 0.045, -0.035), HEAD_R + 0.065, Vector3(0, 1, -0.7), 100)
+			# bola de cabelo grande e fofa, com a linha da testa livre
+			_cap("Head", hc, c + Vector3(0, 0.035, -0.025), R + 0.075, Vector3(0, 1, -0.35), 100, Vector3(1.06, 1.0, 1.0))
+			_cap("Head", hc.lightened(0.05), c + Vector3(0, 0.03, -0.02), R + 0.045, Vector3(0, 1, 0.25), 62, Vector3(1.04, 1.0, 1.0))
 		_:
-			_cap("Head", hc, c + Vector3(0, 0.006, -0.006), HEAD_R + 0.014, Vector3(0, 1, -0.6), 92)
+			_cap("Head", hc, base, R + 0.02, Vector3(0, 1, -0.55), 93, sc)
+
+
+## Mechas arredondadas na testa. `lean` < 0 penteia para a esquerda, > 0 para a direita.
+func _tufts(hc: Color, n: int, lean: float) -> void:
+	var c := HEAD_C
+	for k in n:
+		var t := (k - (n - 1) * 0.5) / maxf((n - 1) * 0.5, 1.0)
+		var x := t * 0.105
+		var y := 0.118 - absf(t) * 0.03
+		var z := 0.158 - absf(t) * 0.035
+		_sphere("Head", hc.lightened(0.05 * (k % 2)), c + Vector3(x, y, z), 0.058, Vector3(1.05, 0.62, 0.7), Vector3(-18, 0, -t * 26.0 + lean * 40.0), 10, 6)
