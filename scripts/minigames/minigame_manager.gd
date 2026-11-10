@@ -16,6 +16,9 @@ const GAMES := {
 	"corrida": {"script": "res://scripts/minigames/race.gd", "title": "Corrida", "pos": Vector3(-43.5, 0.05, -19.2), "yaw": PI * 0.5, "color": Color("ff8a3d"), "icon": "C", "desc": "80 metros contra dois colegas. Use o botão Correr!"},
 	"corda": {"script": "res://scripts/minigames/jump_rope.gd", "title": "Pular corda", "pos": Vector3(-24, 0.05, 0.5), "yaw": 0.0, "color": Color("e84393"), "icon": "P", "desc": "Pule quando a corda passar pelo chão. Ela vai acelerando!"},
 	"pontaria": {"script": "res://scripts/minigames/aim_bin.gd", "title": "Pontaria na lixeira", "pos": Vector3(24, 0.05, -17.0), "yaw": 0.0, "color": Color("27ae60"), "icon": "L", "desc": "Segure para mirar e acerte as lixeiras de reciclagem."},
+	"basquete": {"script": "res://scripts/minigames/basketball.gd", "title": "Basquete", "pos": Vector3(ParkHill.COURT.x - 3.5, 0.05, ParkHill.COURT.y + 4.2), "yaw": PI, "color": Color("ff7a1a"), "icon": "B", "desc": "Arremesse na cesta de 3 distâncias. Segure para mirar e solte na força certa!"},
+	"esconde": {"script": "res://scripts/minigames/hide_and_seek.gd", "title": "Esconde-esconde", "pos": Vector3(-4.0, 0.05, -80.5), "yaw": 0.0, "color": Color("14b8a6"), "icon": "E", "desc": "Conte até 10 e procure 5 colegas escondidos pelo Parque do Morro."},
+	"cabo": {"script": "res://scripts/minigames/tug_of_war.gd", "title": "Cabo de guerra", "pos": Vector3(12.0, 0.05, -84.5), "yaw": 0.0, "color": Color("c0392b"), "icon": "K", "desc": "Seu time contra o outro: toque rápido e no PUXA! para ganhar."},
 	"guerra": {"script": "res://scripts/minigames/paper_war.gd", "title": "Guerra de papel", "pos": Vector3(35.5, 0.05, -2.6), "yaw": 0.0, "color": Color("9b59b6"), "icon": "W", "desc": "Segure para mirar, solte para jogar. Desvie dos círculos vermelhos!"},
 }
 ## Quem convida para o quê.
@@ -118,13 +121,17 @@ const TUTORIALS := {
 	"corrida": [["", "Seu personagem corre sozinho na raia."], ["Amarelo", "TOQUE RÁPIDO várias vezes para ganhar velocidade!"], ["Joystick", "Se precisar, ajeite para os lados."]],
 	"corda": [["", "Os colegas batem a corda. Ela vai acelerando."], ["Azul", "Pule quando a barra encher (a corda chega no chão)."], ["", "Você tem 3 vidas. Quantos pulos consegue?"]],
 	"pontaria": [["Joystick", "Gire para mirar na lixeira."], ["Amarelo", "SEGURE para mirar com a linha e SOLTE para jogar."], ["", "Acerte as lixeiras de reciclagem para fazer pontos!"]],
+	"basquete": [["Joystick", "Gire para mirar na cesta."], ["Amarelo", "SEGURE: a linha fica VERDE na força certa. SOLTE para arremessar."], ["", "3 marcas: perto e meio valem 2, a longe vale 3!"]],
+	"esconde": [["", "Você conta até 10 de olhos fechados enquanto 5 colegas se escondem."], ["Joystick", "Procure atrás das árvores, do coreto, do palco e perto do lago."], ["", "Chegue pertinho para achar. Ouviu risadinha? Tem alguém perto! Fique de olho no \"?\" do mapa."]],
+	"cabo": [["Amarelo", "TOQUE RÁPIDO para puxar a corda."], ["Amarelo", "Tocar quando a barra ENCHER (PUXA!) vale o dobro."], ["", "Puxe a fita até a marca azul do seu lado para ganhar!"]],
 	"guerra": [["Joystick", "Ande e fuja dos círculos vermelhos (onde os papéis vão cair)."], ["Amarelo", "SEGURE para mirar num colega e SOLTE para jogar a bolinha."], ["", "Quem acertar mais em 1 minuto ganha!"]],
 }
 ## Botões que somem em cada brincadeira (a tela fica só com o que usa).
 const HIDE := {
 	"amarelinha": ["run", "emote", "ride"], "aviao": ["run", "jump", "emote", "ride"], "corrida": ["run", "jump", "emote", "ride"],
 	"corda": ["run", "emote", "ride"], "pontaria": ["run", "jump", "emote", "ride"], "gude": ["run", "emote", "ride"],
-	"guerra": ["jump", "emote", "ride"], "queimada": ["emote", "ride"], "futebol": ["emote", "ride"],
+	"guerra": ["jump", "emote", "ride"], "basquete": ["run", "jump", "emote", "ride"], "esconde": ["emote", "ride"],
+	"cabo": ["run", "jump", "emote", "ride"], "queimada": ["emote", "ride"], "futebol": ["emote", "ride"],
 }
 
 var _pending_gid := ""

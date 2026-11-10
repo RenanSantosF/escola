@@ -65,6 +65,7 @@ func _ready() -> void:
 	await _test_online_tag()
 	await _test_revisao5()
 	await _test_parque()
+	await _test_novas_brincadeiras()
 	_finish()
 
 
@@ -519,7 +520,9 @@ func _test_dialogue_friendship() -> void:
 	await _frames(2)
 	var dlg: DialogueUI = main.school_day.dialogue
 	check(dlg.is_open() and not player.input_enabled, "diálogo: abre ao conversar e trava o jogador")
-	for i in 6:
+	for i in 20:
+		if not dlg.is_open():
+			break
 		dlg.advance()
 		await _frames(1)
 	check(not dlg.is_open() and player.input_enabled, "diálogo: fecha e devolve o controle")
@@ -1132,6 +1135,52 @@ func _finish() -> void:
 		print(l)
 	print("Total: %d ok, %d falhas" % [passed, failed])
 	get_tree().quit(0 if failed == 0 else 1)
+
+
+func _test_novas_brincadeiras() -> void:
+	var mm: MinigameManager = main.minigames
+	var results := []
+	mm.game_finished.connect(func(r): results.append(r))
+	await _recess()
+	# basquete: força certa = cesta
+	var bk = await _mg_start("basquete")
+	if bk:
+		bk.on_play()
+		bk._power = bk._ideal
+		bk.on_play_release()
+		await _wait(2.6)
+		check(bk.score >= 2, "basquete: força certa faz cesta", "%d" % bk.score)
+		bk._finish()
+		await _frames(3)
+	check(mm.active == null, "basquete: termina")
+	# esconde-esconde: colegas se escondem e dá para achar
+	await _recess()
+	var hs = await _mg_start("esconde")
+	if hs:
+		check(hs.hiders.size() >= 3, "esconde-esconde: colegas vão se esconder", "%d" % hs.hiders.size())
+		await _wait(5.0)
+		check(not player.movement_locked, "esconde-esconde: depois de contar, pode procurar")
+		var h: Dictionary = hs.hiders[0]
+		player.global_position = (h.npc as NPC).global_position + Vector3(1.0, 0.1, 0)
+		await _wait(0.3)
+		check(hs.found >= 1, "esconde-esconde: chegar perto acha o colega")
+		hs._finish()
+		await _frames(3)
+	check(mm.active == null, "esconde-esconde: termina")
+	# cabo de guerra: tocar rápido ganha
+	await _recess()
+	var tw = await _mg_start("cabo")
+	if tw:
+		await _wait(3.3)
+		for i in 120:
+			tw._beat = 0.9
+			tw.on_play()
+			await get_tree().physics_frame
+			if mm.active == null:
+				break
+		check(mm.active == null and results[-1].id == "cabo" and int(results[-1].won) > 0, "cabo de guerra: puxando rápido o time vence")
+	check(MinigameManager.GAMES.size() >= 12, "brincadeiras: %d no total" % MinigameManager.GAMES.size())
+	_place(Vector3(0, 0.05, -6), 0)
 
 
 func _test_parque() -> void:

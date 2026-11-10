@@ -21,6 +21,8 @@ const LAKE_DEPTH := 1.6
 const WATER_Y := -0.32
 const AMPHI := Vector2(-2, -110)
 const MESH_STEP := 1.5
+## Quadrinha de basquete (centro x, z) — chão aplainado.
+const COURT := Vector2(74, -88)
 
 
 static func _bell(d: float, r: float) -> float:
@@ -40,8 +42,9 @@ static func height(x: float, z: float) -> float:
 	# barranquinho junto da murada dos fundos e das laterais
 	var edge := minf(minf(x - AREA.position.x, AREA.end.x - x), z - AREA.position.y)
 	h += 0.6 * (1.0 - smoothstep(0.0, 5.0, edge))
-	# área plana do anfiteatro
+	# áreas planas: anfiteatro e quadrinha de basquete
 	h *= 1.0 - _bell(Vector2(x - AMPHI.x, z - AMPHI.y).length(), 16.0)
+	h *= 1.0 - _bell(Vector2(x - COURT.x, z - COURT.y).length(), 13.0)
 	# lago
 	h -= LAKE_DEPTH * _bell(Vector2(x - LAKE.x, z - LAKE.y).length(), LAKE_R)
 	# emenda suave com o pátio da escola
@@ -63,6 +66,7 @@ static func build(b: SchoolBuilder) -> void:
 	_trail(b)
 	_lake(b)
 	_amphitheater(b)
+	_court(b)
 	_dressing(b)
 	_divider(b)
 	b.add_zone("Parque do Morro", AREA, false, "", 2, Color(0.47, 0.73, 0.42))
@@ -333,6 +337,33 @@ static func _amphitheater(b: SchoolBuilder) -> void:
 	b.nav_points.append(ctr + Vector3(0, 0.05, 1.0))
 
 
+# ------------------------------------------------------------- basquete
+
+static func _court(b: SchoolBuilder) -> void:
+	var c := b.chunk("parque_basquete")
+	var ctr := Vector3(COURT.x, 0, COURT.y)
+	c.slab("concrete", ctr + Vector3(1.5, 0.03, 0), Vector3(12.0, 0.04, 9.0), Color("d9534f"))
+	c.slab("plain", ctr + Vector3(1.5, 0.052, 0), Vector3(11.6, 0.01, 8.6), Color("e86a5f"))
+	# garrafão e linhas
+	c.slab("plain", ctr + Vector3(5.0, 0.06, 0), Vector3(4.0, 0.01, 3.6), Color("2f6fd0"))
+	for k in 24:
+		var a := lerpf(PI * 0.5, PI * 1.5, k / 23.0)
+		c.slab("plain", ctr + Vector3(6.0 + cos(a) * 5.2, 0.065, sin(a) * 5.2), Vector3(0.45, 0.01, 0.08), Color.WHITE, -a)
+	# poste, tabela, aro e rede
+	var hoop := Vector3(COURT.x + 6.0, 3.05, COURT.y)
+	c.cylinder("metal", Vector3(hoop.x + 1.35, 1.75, hoop.z), 0.09, 0.11, 3.5, Color("2f5fa8"), 10)
+	c.collider_cyl(Vector3(hoop.x + 1.35, 1.75, hoop.z), 0.15, 3.5)
+	c.box("metal", Vector3(hoop.x + 0.95, 3.45, hoop.z), Vector3(0.8, 0.08, 0.08), Color("2f5fa8"))
+	c.box("paint", Vector3(hoop.x + 0.55, 3.55, hoop.z), Vector3(0.06, 1.1, 1.8), Color("f4f7fa"))
+	c.box("paint", Vector3(hoop.x + 0.52, 3.35, hoop.z), Vector3(0.02, 0.45, 0.6), Color("e04a3a"))
+	for k in 16:
+		var a := k * TAU / 16.0
+		c.box("metal", hoop + Vector3(cos(a) * 0.23, 0, sin(a) * 0.23), Vector3(0.03, 0.03, 0.1), Color("ff6a1a"), -a)
+		c.box("plain", hoop + Vector3(cos(a) * 0.18, -0.2, sin(a) * 0.18), Vector3(0.015, 0.4, 0.015), Color(1, 1, 1))
+	b.add_label("BASQUETE", Vector3(hoop.x + 0.51, 4.0, hoop.z), -PI * 0.5, 48, Color("1f2a44"), Color(1, 1, 1, 0), 0.006, 35.0)
+	b.add_zone("Quadrinha de Basquete", Rect2(COURT.x - 5, COURT.y - 5, 13, 10), false, "", 6, Color(0.85, 0.42, 0.38))
+
+
 # ------------------------------------------------------------- vida
 
 static func _dressing(b: SchoolBuilder) -> void:
@@ -358,6 +389,8 @@ static func _dressing(b: SchoolBuilder) -> void:
 			continue  # caminho do escorregador
 		if x > -32.0 and x < 52.0 and z > -97.0:
 			continue  # gramadão central livre (correr, pique-pega)
+		if Vector2(x - COURT.x, z - COURT.y).length() < 10.0:
+			continue
 		var k := rng.randi() % kinds.size()
 		b._tree(kinds[k], Vector3(x, height(x, z), z), rng.randf_range(0.85, 1.35), cols[k], c)
 		placed += 1

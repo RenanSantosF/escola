@@ -24,6 +24,9 @@ const ACHIEVEMENTS := {
 	"primeira_ocorrencia": ["Visita ilustre", "Conheça a diretoria... do jeito mais difícil."],
 	"aluno_exemplar": ["Aluno exemplar", "Passe 5 dias seguidos sem levar bronca."],
 	"tarefas_50": ["Cdf", "Acerte 50 tarefas de aula."],
+	"escorrega_10": ["Rei do escorregador", "Desça o escorregador do morro 10 vezes."],
+	"cestinha": ["Cestinha", "Faça 10 cestas numa partida de basquete."],
+	"detetive": ["Detetive", "Ache todos no esconde-esconde em menos de 1 minuto."],
 }
 
 const DAILY_POOL := [
@@ -34,6 +37,9 @@ const DAILY_POOL := [
 	{"key": "mg_gude", "target": 1, "desc": "Jogue bolinha de gude %d vez", "coins": 12},
 	{"key": "mg_aviao", "target": 1, "desc": "Lance aviõezinhos %d vez", "coins": 12},
 	{"key": "mg_corda", "target": 1, "desc": "Pule corda %d vez", "coins": 10},
+	{"key": "mg_basquete", "target": 1, "desc": "Jogue basquete %d vez", "coins": 12},
+	{"key": "mg_esconde", "target": 1, "desc": "Brinque de esconde-esconde %d vez", "coins": 15},
+	{"key": "escorregadas", "target": 2, "desc": "Desça o escorregador do morro %d vezes", "coins": 10},
 	{"key": "kicks", "target": 10, "desc": "Chute a bola %d vezes", "coins": 10},
 	{"key": "sits", "target": 3, "desc": "Sente-se em %d lugares", "coins": 8},
 	{"key": "lanches", "target": 1, "desc": "Compre %d lanche na cantina", "coins": 10},
