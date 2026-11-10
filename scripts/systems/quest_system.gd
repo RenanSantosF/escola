@@ -614,7 +614,7 @@ func _refresh_markers() -> void:
 	var givers := []
 	for qid in QUESTS.keys():
 		var g := _giver_node(QUESTS[qid].giver)
-		if g and g.active and is_available(qid) and _free_phase():
+		if g and g.active and is_available(qid) and _free_phase() and player.minigame == null:
 			if not g in givers:
 				givers.append(g)
 	for n in _bangs.keys():

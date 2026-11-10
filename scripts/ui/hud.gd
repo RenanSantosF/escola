@@ -264,9 +264,14 @@ func _build_minigame_hud() -> void:
 func set_minigame_text(text: String) -> void:
 	_mg_panel.visible = text != ""
 	_mg_label.text = text
+	# brincando: o placar ocupa o lugar do objetivo e das moedas
+	var playing := text != ""
+	_wallet.visible = not playing and not minimap.full
+	_refresh_card()
 	var vs := get_viewport_rect().size
+	_mg_label.add_theme_font_size_override("font_size", 22)
 	_mg_panel.reset_size()
-	_mg_panel.position = Vector2((vs.x - _mg_panel.size.x) * 0.5, 96)
+	_mg_panel.position = Vector2((vs.x - _mg_panel.size.x) * 0.5, 16)
 
 
 ## Barra de força (0..1); valor negativo esconde.
@@ -317,7 +322,7 @@ func _expand_card() -> void:
 
 func _refresh_card() -> void:
 	var has := _objective.text != "" or _mission_row.visible
-	_obj_card.visible = has and controls.visible
+	_obj_card.visible = has and controls.visible and not (_mg_panel and _mg_panel.visible)
 	if not has:
 		return
 	var compact := _card_t <= 0.0
@@ -596,7 +601,7 @@ func _process(delta: float) -> void:
 		_card_t -= delta
 		if was and _card_t <= 0.0:
 			_refresh_card()
-		if _obj_card.visible != ((_objective.text != "" or _mission_row.visible) and controls.visible):
+		if _obj_card.visible != ((_objective.text != "" or _mission_row.visible) and controls.visible and not _mg_panel.visible):
 			_refresh_card()
 		_cancel_btn.visible = mission_cancel_check.is_valid() and bool(mission_cancel_check.call())
 		if _cancel_confirm > 0.0:

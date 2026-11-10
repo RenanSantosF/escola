@@ -192,14 +192,22 @@ func start(gid: String) -> bool:
 	g.setup(self)
 	g.finished.connect(_on_finished)
 	active = g
+	_show_stations(false)
 	g.begin()
 	game_started.emit(gid)
 	return true
 
 
+## Durante a brincadeira as placas somem (não tampam a câmera nem poluem).
+func _show_stations(on: bool) -> void:
+	for gid in stations.keys():
+		(stations[gid] as Node3D).visible = on
+
+
 func _on_finished(result: Dictionary) -> void:
 	var g := active
 	active = null
+	_show_stations(true)
 	if g:
 		g.queue_free()
 	Telemetry.track("minigame", {"id": str(result.get("id", "")), "won": int(result.get("won", 0)) > 0})

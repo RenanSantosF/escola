@@ -47,9 +47,9 @@ func _setup_environment() -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_color = Color("b9d3ee")
+	env.ambient_light_color = Color("c4d9ee")
 	env.ambient_light_sky_contribution = 0.55
-	env.ambient_light_energy = 0.75
+	env.ambient_light_energy = 0.8
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 0.95
@@ -387,9 +387,10 @@ func _update_indoor_light() -> void:
 	if _light_tween:
 		_light_tween.kill()
 	_light_tween = create_tween().set_parallel(true)
-	_light_tween.tween_property(env, "ambient_light_energy", 1.5 if inside else 0.75, 0.5)
-	_light_tween.tween_property(env, "ambient_light_color", Color("fff1dc") if inside else Color("b9d3ee"), 0.5)
-	_light_tween.tween_property(env, "ambient_light_sky_contribution", 0.15 if inside else 0.55, 0.5)
+	# diferença suave: dentro só um pouco mais quente e claro (sem "pulo" de luz)
+	_light_tween.tween_property(env, "ambient_light_energy", 1.0 if inside else 0.8, 1.2)
+	_light_tween.tween_property(env, "ambient_light_color", Color("f2ead9") if inside else Color("c4d9ee"), 1.2)
+	_light_tween.tween_property(env, "ambient_light_sky_contribution", 0.4 if inside else 0.55, 1.2)
 
 
 func _set_interiors_visible(id: String, vis: bool) -> void:

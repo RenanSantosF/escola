@@ -69,6 +69,9 @@ func can_play() -> bool:
 
 ## Botão "Pique-pega!" do chat.
 func invite() -> void:
+	if player.minigame != null:
+		GameManager.show_toast("Termine a brincadeira antes de chamar o pique-pega.")
+		return
 	if not NetworkManager.is_online():
 		GameManager.show_toast("Conectando ao online...")
 		return
@@ -88,7 +91,7 @@ func _on_event(ev: Dictionary) -> void:
 		"invite":
 			if str(ev.get("from", "")) == NetworkManager.my_id:
 				hud.show_banner("Pique-pega chamado!", "Esperando a turma no pátio central (árvore grande)")
-			else:
+			elif player.minigame == null and can_play():
 				_show_invite(str(ev.get("fromName", "Alguém")))
 		"start":
 			_invite_box.visible = false

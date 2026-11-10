@@ -58,9 +58,7 @@ func _ready() -> void:
 	btn_jump.pressed.connect(_on_jump)
 	btn_interact.pressed.connect(_on_interact)
 	btn_run.pressed.connect(_on_run)
-	btn_run.released.connect(func():
-		if player and player.forced_dir == Vector3.ZERO:
-			player.run_active = false)
+	btn_run.released.connect(_on_run_release)
 	btn_pause.pressed.connect(pause_pressed.emit)
 	btn_emote.pressed.connect(emote_pressed.emit)
 	btn_bag.pressed.connect(bag_pressed.emit)
@@ -91,9 +89,23 @@ func _on_interact() -> void:
 		player.request_interact()
 
 
+var _run_press_ms := 0
+var _run_was_on := false
+
+
+## Correr: TOQUE liga/desliga; SEGURAR corre enquanto o dedo estiver no botão.
 func _on_run() -> void:
 	if player:
+		_run_press_ms = Time.get_ticks_msec()
+		_run_was_on = player.run_active
 		player.run_active = true
+
+
+func _on_run_release() -> void:
+	if player == null or player.forced_dir != Vector3.ZERO:
+		return
+	var tap := Time.get_ticks_msec() - _run_press_ms < 280
+	player.run_active = (not _run_was_on) if tap else false
 
 
 func _on_setting_changed(key: String) -> void:
@@ -317,7 +329,8 @@ func _release_all() -> void:
 
 
 func _process(_delta: float) -> void:
-	pass
+	if player and btn_run.toggled_on != player.run_active:
+		btn_run.toggled_on = player.run_active
 
 
 func _draw() -> void:

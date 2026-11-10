@@ -75,12 +75,14 @@ func setup(p: PlayerController, w: Node3D, ui_parent: Node, hud: HUD) -> void:
 	_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui_parent.add_child(_badge)
+	_badge.visible = false  # o código da sala aparece no chat; tela limpa
 	_refresh_badge()
 
 
 func _refresh_badge() -> void:
 	if _badge == null:
 		return
+	_badge.visible = false
 	if NetworkManager.is_online():
 		_badge.text = "  Online · Sala %s · %d jogador%s  " % [NetworkManager.room_code, NetworkManager.players_in_room, "" if NetworkManager.players_in_room == 1 else "es"]
 	else:
@@ -180,6 +182,11 @@ func _process(delta: float) -> void:
 		vis.animator.speed = lerpf(vis.animator.speed, sp, 1.0 - exp(-8.0 * delta))
 		vis.animator.ride_mode = 2 if r.anim == "bike" else (1 if r.anim == "ride" else 0)
 	_watch_connection(delta)
+	# brincando: chat e pique-pega somem (não faz sentido no meio do futebol)
+	if chat_panel and player:
+		var busy := player.minigame != null
+		if chat_panel.visible == busy:
+			chat_panel.visible = not busy
 	if not NetworkManager.is_online() or player == null:
 		return
 	_send_t += delta
