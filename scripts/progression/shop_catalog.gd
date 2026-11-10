@@ -6,7 +6,7 @@ extends RefCounted
 const CATEGORIES := [
 	["skin", "Skins"], ["pacote", "Pacotes"], ["camiseta", "Camisetas"], ["calca", "Calças"], ["calcado", "Tênis"], ["mochila", "Mochilas"],
 	["bone", "Bonés"], ["penteado", "Penteados"], ["acessorio", "Acessórios"], ["decoracao", "Decoração"],
-	["gude", "Bolinhas de gude"], ["figurinha", "Figurinhas"], ["veiculo", "Skate e bike"],
+	["gude", "Bolinhas de gude"], ["figurinha", "Figurinhas"], ["veiculo", "Skate e bike"], ["emote", "Emojis"],
 ]
 
 ## Raridade: cor do cartão e da faixa.
@@ -135,10 +135,33 @@ const ITEMS_BASE := [
 	{"id": "tin_verde", "cat": "penteado", "name": "Cor: verde", "price": 160, "lvl": 5, "look": {"hair_color": "3aa45b"}},
 ]
 
-static var ITEMS: Array = SKINS + BUNDLES + ITEMS_BASE
+## Emojis (reações): só "Acenar" vem de graça; os outros se compram.
+const EMOTES := [
+	{"id": "emo_wave", "cat": "emote", "name": "Acenar", "price": 0, "lvl": 1, "emote": "wave", "desc": "Dá tchau para a turma."},
+	{"id": "emo_clap", "cat": "emote", "name": "Palmas", "price": 60, "lvl": 1, "emote": "clap", "desc": "Aplausos para o colega."},
+	{"id": "emo_raise_hand", "cat": "emote", "name": "Levantar a mão", "price": 50, "lvl": 1, "emote": "raise_hand", "desc": "Eu sei! Eu sei!"},
+	{"id": "emo_celebrate", "cat": "emote", "name": "Comemorar", "price": 90, "lvl": 2, "emote": "celebrate", "rarity": "raro", "desc": "Pula de alegria com confete."},
+	{"id": "emo_sad", "cat": "emote", "name": "Ficar triste", "price": 50, "lvl": 1, "emote": "sad", "desc": "Ah, não..."},
+	{"id": "emo_stretch", "cat": "emote", "name": "Espreguiçar", "price": 70, "lvl": 2, "emote": "stretch", "desc": "Que soninho na aula..."},
+	{"id": "emo_scratch", "cat": "emote", "name": "Coçar a cabeça", "price": 70, "lvl": 3, "emote": "scratch_head", "desc": "Hmm, pensando..."},
+	{"id": "emo_look", "cat": "emote", "name": "Olhar em volta", "price": 60, "lvl": 3, "emote": "look_around", "desc": "Cadê todo mundo?"},
+]
+
+static var ITEMS: Array = SKINS + BUNDLES + ITEMS_BASE + EMOTES
+
+
+## Emojis que o jogador tem: [[nome, emote], ...].
+static func owned_emotes() -> Array:
+	var inv: Dictionary = SaveManager.section("inventory")
+	var owned: Array = inv.get("owned", [])
+	var out: Array = []
+	for e in EMOTES:
+		if e.id == "emo_wave" or e.id in owned:
+			out.append([e.name, e.emote])
+	return out
 
 const DEFAULT_OWNED := ["skin_nenhuma", "cam_uniforme", "cal_bermuda", "ten_branco", "moc_vermelha", "moc_nenhuma", "bon_nenhum",
-	"pen_curto", "tin_castanho", "ace_sem_oculos"]
+	"pen_curto", "tin_castanho", "ace_sem_oculos", "emo_wave"]
 
 
 static func by_cat(cat: String) -> Array:

@@ -19,9 +19,8 @@ var _rope_mat: StandardMaterial3D
 
 
 func begin() -> void:
-	for n in npcs.classmates:
-		if n.activity != "minigame" and turners.size() < 2:
-			turners.append(n)
+	for n in students(2, CENTER):
+		turners.append(n)
 	take_npcs(turners)
 	player.force_stand()
 	player.global_position = CENTER

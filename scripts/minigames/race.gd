@@ -33,16 +33,8 @@ func begin() -> void:
 		super.begin()
 		hud.set_minigame_text("Corrida com a turma! Prepare o botão Correr")
 		return
-	var prefer := ["bia", "rafa", "lucas"]
-	for nid in prefer:
-		for n in npcs.npcs:
-			if n.data.get("id", "") == nid and n.activity != "minigame" and rivals.size() < 2:
-				rivals.append(n)
-	for n in npcs.classmates:
-		if rivals.size() >= 2:
-			break
-		if not n in rivals and n.activity != "minigame":
-			rivals.append(n)
+	for n in students(2, Vector3(START_X, 0.05, -24.0), ["bia", "rafa", "lucas"]):
+		rivals.append(n)
 	take_npcs(rivals)
 	player.force_stand()
 	player.global_position = Vector3(START_X, 0.05, LANES[0])

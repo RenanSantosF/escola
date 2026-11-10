@@ -42,14 +42,9 @@ var _mat: StandardMaterial3D
 
 
 func begin() -> void:
-	for n in npcs.npcs:
-		if n.data.get("id", "") == "julia":
-			opponent = n
-	if opponent == null:
-		for n in npcs.classmates:
-			if n.activity != "minigame":
-				opponent = n
-				break
+	var opp: Array[NPC] = students(1, Vector3(-43.6, 0.05, -12.0), ["julia"])
+	if not opp.is_empty():
+		opponent = opp[0]
 	take_npcs([opponent])
 	# quem já brincava no círculo dá lugar à partida
 	for n in npcs.npcs:

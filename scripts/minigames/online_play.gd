@@ -10,13 +10,12 @@ extends Node
 ## Mostra a espera (com "Começar agora" para quem chamou), a fila, o placar
 ## final e um botão "Entrar" quando alguém está brincando perto de você.
 
-## Fora da lista (queimada, esconde-esconde): por enquanto são jogos contra os
-## colegas-bot; jogar "junto" cada um com sua partida não faria sentido.
 const KINDS := {
 	"aviao": "round", "pontaria": "round", "basquete": "round", "gude": "round", "guerra": "round",
 	"corrida": "round",
 	"amarelinha": "turn", "corda": "turn",
-	"futebol": "team", "cabo": "team",
+	"futebol": "team", "cabo": "team", "queimada": "team",
+	"esconde": "hide",
 }
 ## Placar em que MENOR é melhor (tempo da corrida).
 const LOWER_BETTER := ["corrida"]
@@ -117,7 +116,7 @@ func request(gid: String) -> bool:
 		_reset(false)
 	var st := NetworkManager.game_state(gid)
 	var fresh := st.is_empty() or str(st.get("state", "")) in ["results", "none"]
-	var wait := fresh and _friends_near(gid)
+	var wait: bool = fresh and (_friends_near(gid) or KINDS.get(gid, "") == "hide")
 	my_gid = gid
 	_local_started = false
 	_local_done = false
@@ -211,7 +210,11 @@ func _on_event(ev: Dictionary) -> void:
 			GameManager.show_toast("Começou %s aqui perto! Toque em Entrar." % mgr.GAMES.get(gid, {}).get("title", gid))
 		return
 	match kind:
+		"need_players":
+			GameManager.show_toast("Precisa de pelo menos %d jogadores. Chame a turma!" % int(ev.get("min", 2)))
 		"results":
+			if mgr.active and mgr.active.has_method("on_net_event"):
+				mgr.active.on_net_event(ev)
 			_show_results(gid, ev)
 			if _local_started and mgr.active and not mgr.active.net.is_empty() and not _local_done:
 				mgr.active.end_game(0, "O tempo da brincadeira acabou", 3, 6)
@@ -244,7 +247,7 @@ func on_local_finished(result: Dictionary) -> void:
 		return
 	_local_done = true
 	var score: float = float(result.get("time", result.get("score", result.get("won", 0))))
-	if KINDS.get(my_gid, "") != "team":
+	if not KINDS.get(my_gid, "") in ["team", "hide"]:
 		NetworkManager.mg_score(my_gid, score, true)
 	var g := NetworkManager.game_state(my_gid)
 	if not g.is_empty() and str(g.get("state", "")) == "playing":
@@ -319,6 +322,8 @@ func _show_lobby(g: Dictionary) -> void:
 		lines.append("Time laranja: " + (_names(b) if not b.is_empty() else "(bots)"))
 	else:
 		lines.append("Jogando: " + _names(players))
+	if str(g.get("kind", "")) == "hide" and players.size() < 2:
+		lines.append("Precisa de pelo menos 2 jogadores")
 	var buttons: Array = []
 	if str(g.get("host", "")) == NetworkManager.my_id:
 		buttons.append(["Começar agora", func(): NetworkManager.mg_start(gid, g.get("opts", {}))])

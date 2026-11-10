@@ -124,6 +124,7 @@ func leave() -> void:
 	disconnect_from_server()
 	room_code = ""
 	clock = {}
+	_local_clock = false
 	desks = {}
 	my_desk = -1
 	games.clear()
@@ -156,6 +157,7 @@ func disconnect_from_server() -> void:
 
 
 func _process(delta: float) -> void:
+	_tick_local_clock()
 	if _ws == null:
 		return
 	_ws.poll()
@@ -222,6 +224,12 @@ func _handle(m: Dictionary) -> void:
 			if m.get("clock") is Dictionary:
 				clock = m.clock
 				clock_offset_ms = float(m.clock.get("now", 0.0)) - Time.get_unix_time_from_system() * 1000.0
+				_local_clock = false
+			elif clock.is_empty() or not _local_clock:
+				# servidor antigo sem relógio: o jogo marca as fases nos mesmos tempos
+				_local_clock = true
+				clock_offset_ms = 0.0
+				clock = _local_phase(0, 1, server_now_ms())
 			online_changed.emit(true)
 			welcomed.emit(m)
 			desks_changed.emit(desks)
@@ -285,7 +293,30 @@ func _handle(m: Dictionary) -> void:
 			notice.emit(str(m.text))
 
 
+## Mesmas durações do servidor (server/src/clock.js).
+const PHASE_IDS := ["arrival", "class1", "recess", "return", "class2", "end"]
+const PHASE_SECS := [75.0, 240.0, 480.0, 60.0, 180.0, 45.0]
+var _local_clock := false
+
+
+func _local_phase(i: int, day: int, start_ms: float) -> Dictionary:
+	return {"phase": PHASE_IDS[i], "index": i, "day": day, "startedAt": start_ms,
+		"endsAt": start_ms + PHASE_SECS[i] * 1000.0, "now": start_ms, "seed": 1, "left": int(PHASE_SECS[i])}
+
+
+func _tick_local_clock() -> void:
+	if not _local_clock or clock.is_empty() or not is_online():
+		return
+	if server_now_ms() < float(clock.endsAt):
+		return
+	var i := (int(clock.index) + 1) % PHASE_IDS.size()
+	var day := int(clock.day) + (1 if i == 0 else 0)
+	clock = _local_phase(i, day, float(clock.endsAt))
+	clock_changed.emit(clock)
+
+
 func _set_clock(st: Dictionary) -> void:
+	_local_clock = false
 	clock = st
 	clock_offset_ms = float(st.get("now", 0.0)) - Time.get_unix_time_from_system() * 1000.0
 	clock_changed.emit(st)

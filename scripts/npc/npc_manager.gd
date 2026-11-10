@@ -27,6 +27,13 @@ const MIN_OTHER_BOTS := 2
 ## Colegas-bot mínimos na turma (os que dão missões). Cada jogador real que
 ## entra tira um bot (no futuro, com a sala cheia, quase não haverá bots).
 const MIN_CLASS_BOTS := 3
+## Alunos-bot andando pela escola. No jogo: NÃO (os alunos são só jogadores
+## de verdade). Os testes antigos ligam para continuar valendo.
+static var STUDENT_BOTS := false
+## Colegas de treino: aparecem só dentro de uma brincadeira (jogando sozinho)
+## e somem quando ela acaba.
+const PRACTICE_BOTS := 12
+var practice: Array[NPC] = []
 const BOTS_PER_PLAYER := 3
 var online_players := 1
 var classmates: Array[NPC] = []
@@ -79,7 +86,19 @@ func setup(w: SchoolWorld, graph: NavGraph) -> void:
 	for b in get_tree().get_nodes_in_group("ball"):
 		if (b as KickBall).kind == "football" and COURT.grow(4).has_point(Vector2(b.global_position.x, b.global_position.z)):
 			football = b
-	_spawn_all(COUNTS[q][0], COUNTS[q][1])
+	if STUDENT_BOTS:
+		_spawn_all(COUNTS[q][0], COUNTS[q][1])
+	else:
+		_spawn_all(0, 0)
+	for i in PRACTICE_BOTS:
+		var e := NPCRoster.generic_student(300 + i)
+		e["role"] = "student"
+		var pb := _make(e)
+		pb.activity = "practice"
+		pb.add_to_group("practice")
+		pb.set_active(false)
+		pb.teleport(Vector3(0, -50, 0))
+		practice.append(pb)
 
 
 func _pick_player_desk() -> void:
@@ -231,6 +250,49 @@ func _unbench(n: NPC) -> void:
 				n.sit_on(d)
 		_:
 			n.teleport(Vector3(rng.randf_range(-6, 6), 0.05, 60), PI)
+
+
+## Alunos para uma brincadeira: os que estão andando por aí (se houver) e,
+## faltando, colegas de treino que aparecem perto de "near".
+func students_for_game(count: int, near: Vector3, prefer: Array = []) -> Array[NPC]:
+	var out: Array[NPC] = []
+	for id in prefer:
+		for n in npcs:
+			if out.size() < count and n.data.get("id", "") == id and n.active and n.role == "student" and n.activity != "minigame" and not n.talking_to_player and not n in practice:
+				out.append(n)
+	var roam: Array[NPC] = []
+	for n in npcs:
+		if n.role == "student" and n.active and n.activity != "minigame" and not n.talking_to_player and not n in practice and not n in out:
+			roam.append(n)
+	roam.sort_custom(func(a, b): return a.global_position.distance_squared_to(near) < b.global_position.distance_squared_to(near))
+	for n in roam:
+		if out.size() >= count:
+			break
+		out.append(n)
+	var k := 0
+	for pb in practice:
+		if out.size() >= count:
+			break
+		if pb.active:
+			continue
+		pb.set_active(true)
+		pb.activity = "practice_ready"
+		var ang := TAU * float(k) / 8.0
+		pb.teleport(near + Vector3(cos(ang) * 3.0, 0.05, sin(ang) * 3.0), 0.0)
+		k += 1
+		out.append(pb)
+	return out
+
+
+## Fim da brincadeira: o colega de treino some.
+func release_practice(n: NPC) -> void:
+	if n in practice:
+		if n.sitting or n.seat:
+			n.force_unseat()
+		n.stop()
+		n.activity = "practice"
+		n.set_active(false)
+		n.teleport(Vector3(0, -50, 0))
 
 
 func _make(entry: Dictionary) -> NPC:

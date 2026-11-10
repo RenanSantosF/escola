@@ -37,15 +37,16 @@ var _room_lbl: Label
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	position = Vector2(16, 244)
+	# botões embaixo do painel do local (não ficam por cima dele)
+	position = Vector2(16, 282)
 	size = Vector2(520, 460)
-	_toggle = _pill("Chat", Color("2f8be0"), func(): set_open(not _open))
+	_toggle = _pill("Chat", Color("2f6fd0"), func(): set_open(not _open), 104)
 	_toggle.position = Vector2.ZERO
 	add_child(_toggle)
-	_tag_btn = _pill("Pique-pega", Color("ff4d6d"), func():
+	_tag_btn = _pill("Pique-pega", Color("d6455d"), func():
 		AudioManager.play_ui("ui_click")
-		tag_pressed.emit())
-	_tag_btn.position = Vector2(150, 0)
+		tag_pressed.emit(), 150)
+	_tag_btn.position = Vector2(112, 0)
 	add_child(_tag_btn)
 	_box = PanelContainer.new()
 	var sb := UITheme.box(BG, 20, Color(1, 1, 1, 0.18), 2, 0)
@@ -54,7 +55,8 @@ func _ready() -> void:
 	sb.content_margin_top = 10
 	sb.content_margin_bottom = 12
 	_box.add_theme_stylebox_override("panel", sb)
-	_box.position = Vector2(0, 64)
+	# aberto: ocupa o canto de cima (por cima do minimapa, só enquanto aberto)
+	_box.position = Vector2(0, -264)
 	_box.custom_minimum_size = Vector2(520, 0)
 	_box.visible = false
 	add_child(_box)
@@ -69,6 +71,8 @@ func _ready() -> void:
 	_tab_near = _tab_button("Perto de mim", "near")
 	head.add_child(_tab_all)
 	head.add_child(_tab_near)
+	var close := _chip("Fechar", func(): set_open(false), Color(1, 1, 1, 0.18))
+	head.add_child(close)
 	_room_lbl = Label.new()
 	_room_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_room_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -107,29 +111,39 @@ func _ready() -> void:
 	_phrases.add_theme_constant_override("h_separation", 6)
 	_phrases.add_theme_constant_override("v_separation", 6)
 	v.add_child(_phrases)
-	var rx := HBoxContainer.new()
-	rx.add_theme_constant_override("separation", 6)
-	v.add_child(rx)
-	for r in REACTIONS:
+	_rx = HBoxContainer.new()
+	_rx.add_theme_constant_override("separation", 6)
+	v.add_child(_rx)
+	_fill_reactions()
+	_refresh_tabs()
+
+
+var _rx: HBoxContainer
+
+
+## Reações: só os emojis que o jogador tem.
+func _fill_reactions() -> void:
+	for c in _rx.get_children():
+		c.queue_free()
+	for r in ShopCatalog.owned_emotes().slice(0, 5):
 		var em: String = r[1]
-		rx.add_child(_chip(r[0], func():
+		_rx.add_child(_chip(r[0], func():
 			if player:
 				player.emote(em), Color("ffcf3f"), UITheme.DARK))
-	_refresh_tabs()
 
 
 func _pill(text: String, col: Color, cb: Callable, w := 136) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(w, 54)
-	b.add_theme_font_size_override("font_size", 22)
+	b.custom_minimum_size = Vector2(w, 48)
+	b.add_theme_font_size_override("font_size", 20)
 	b.add_theme_color_override("font_color", Color.WHITE)
 	b.add_theme_color_override("font_hover_color", Color.WHITE)
 	b.add_theme_color_override("font_pressed_color", Color.WHITE)
 	for st in ["normal", "hover", "focus"]:
-		b.add_theme_stylebox_override(st, UITheme.box(col, 27, col.darkened(0.35), 0, 4))
-	b.add_theme_stylebox_override("pressed", UITheme.box(col.darkened(0.15), 27, col.darkened(0.35), 0, 1))
+		b.add_theme_stylebox_override(st, UITheme.box(col, 12, col.darkened(0.35), 0, 3))
+	b.add_theme_stylebox_override("pressed", UITheme.box(col.darkened(0.15), 12, col.darkened(0.35), 0, 1))
 	b.pressed.connect(cb)
 	return b
 
@@ -203,6 +217,7 @@ func set_open(on: bool) -> void:
 	_open = on
 	_box.visible = on
 	if on:
+		_fill_reactions()
 		_unread = 0
 		_toggle.text = "Chat"
 	else:
@@ -260,7 +275,7 @@ func _open_menu(target: String) -> void:
 		_menu.queue_free()
 	_menu = PanelContainer.new()
 	_menu.add_theme_stylebox_override("panel", UITheme.box(Color.WHITE, 18, UITheme.DARK, 3, 3))
-	_menu.position = Vector2(530, 64)
+	_menu.position = Vector2(530, -264)
 	add_child(_menu)
 	var v := VBoxContainer.new()
 	_menu.add_child(v)

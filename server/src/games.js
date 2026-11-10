@@ -8,13 +8,16 @@
 //  turn   — VEZ: um joga de cada vez, com fila (amarelinha, pular corda).
 //           Quem chega entra no fim da fila e assiste.
 //  team   — TIME: uma partida só, simulada pelo celular do "anfitrião" (host)
-//           e repassada aos outros (futebol, cabo de guerra). Quem chega
+//           e repassada aos outros (futebol, cabo de guerra, queimada).
+//  hide   — ESCONDE-ESCONDE: o servidor decide (como o pique-pega). Um conta,
+//           os outros se escondem; chegar pertinho de quem está escondido = achou. Quem chega
 //           entra no time menor; quem sai é trocado por bot; se o anfitrião
 //           sair, outro assume de onde parou.
 //
 // Só no recreio: quando o sinal toca, tudo termina com resultado.
 
 const LOBBY_MS = 12000;
+const FIND_DIST = 2.2;
 const RESULTS_MS = 6000;
 const RELAY_MAX = 1800;
 
@@ -25,8 +28,8 @@ const CATALOG = {
   gude: { kind: 'round', max: 6, maxMs: 180000 },
   guerra: { kind: 'round', max: 8, maxMs: 120000 },
   corrida: { kind: 'round', max: 4, maxMs: 90000, lower: true },
-  queimada: { kind: 'round', max: 6, maxMs: 200000 },
-  esconde: { kind: 'round', max: 6, maxMs: 200000 },
+  queimada: { kind: 'team', max: 10, maxMs: 200000 },
+  esconde: { kind: 'hide', max: 8, maxMs: 240000, hideMs: 20000, seekMs: 120000, min: 2 },
   amarelinha: { kind: 'turn', max: 8, turnMs: 120000 },
   corda: { kind: 'turn', max: 8, turnMs: 120000 },
   futebol: { kind: 'team', max: 10, maxMs: 240000 },
@@ -55,6 +58,7 @@ class GameSession {
     this.resultsUntil = 0;
     this.hostState = null;
     this.ranking = null;
+    this.hide = null; // esconde-esconde: {seeker, phase, ends, found[]}
   }
 
   has(id) { return this.players.includes(id); }
@@ -69,6 +73,7 @@ class GameSession {
       lobbyLeft: this.state === 'lobby' ? Math.max(0, Math.ceil((this.lobbyEnds - now) / 1000)) : 0,
       turnLeft: this.kind === 'turn' && this.current ? Math.max(0, Math.ceil((this.turnStarted + CATALOG[this.gid].turnMs - now) / 1000)) : 0,
       ranking: this.ranking,
+      hide: this.hide ? { ...this.hide, found: this.hide.found.slice(), left: Math.max(0, Math.ceil((this.hide.ends - now) / 1000)) } : null,
     };
   }
 }
@@ -110,6 +115,9 @@ class GameHub {
     }
     if (s.has(id)) { this.dirty.add(gid); return { ok: true, session: s }; }
     if (s.players.length >= s.max) return { error: 'Essa brincadeira está lotada. Espere a próxima!' };
+    if (s.kind === 'hide' && s.state === 'playing' && s.hide && s.hide.phase !== 'hiding') {
+      return { error: 'O esconde-esconde já está procurando. Entre na próxima rodada!' };
+    }
     s.players.push(id);
     if (s.kind === 'team') {
       // quem chega entra no time menor (o time do anfitrião é o "a")
@@ -142,7 +150,18 @@ class GameHub {
   }
 
   _start(s, now) {
+    const c0 = CATALOG[s.gid];
+    if (c0.min && s.players.length < c0.min) {
+      // falta gente: espera mais um pouco
+      s.lobbyEnds = now + LOBBY_MS;
+      this._ev(s.gid, 'need_players', { min: c0.min });
+      return;
+    }
     s.state = 'playing';
+    if (s.kind === 'hide') {
+      const seeker = s.players[Math.floor(Math.random() * s.players.length)];
+      s.hide = { seeker, phase: 'hiding', ends: now + c0.hideMs, found: [] };
+    }
     s.startedAt = now;
     const c = CATALOG[s.gid];
     s.endsAt = now + (c.maxMs || c.turnMs * Math.max(1, s.queue.length) + 30000);
@@ -162,6 +181,13 @@ class GameHub {
   leave(gid, id, now = Date.now()) {
     const s = this.sessions.get(gid);
     if (!s || !s.has(id)) return;
+    if (s.hide && s.hide.seeker === id && s.state === 'playing') {
+      s.players = s.players.filter((p) => p !== id);
+      this._finishHide(s, now);
+      this.dirty.add(gid);
+      if (s.players.length === 0) this.sessions.delete(gid);
+      return;
+    }
     s.players = s.players.filter((p) => p !== id);
     s.queue = s.queue.filter((p) => p !== id);
     delete s.teams[id];
@@ -248,10 +274,55 @@ class GameHub {
     return { to: [s.host], session: s };
   }
 
+  _pos(id) {
+    const p = this.room.players && this.room.players.get(id);
+    return p ? p.pos : null;
+  }
+
+  _tickHide(s, now) {
+    const h = s.hide;
+    const c = CATALOG[s.gid];
+    if (h.phase === 'hiding') {
+      if (now >= h.ends) {
+        h.phase = 'seeking';
+        h.ends = now + c.seekMs;
+        this._ev(s.gid, 'seek', { seeker: h.seeker });
+      }
+      return;
+    }
+    const a = this._pos(h.seeker);
+    if (a) {
+      for (const id of s.players) {
+        if (id === h.seeker || h.found.includes(id)) continue;
+        const b = this._pos(id);
+        if (!b) continue;
+        if (Math.abs(a[1] - b[1]) < 2 && Math.hypot(a[0] - b[0], a[2] - b[2]) < FIND_DIST) {
+          h.found.push(id);
+          s.scores[id] = Math.round((now - (h.ends - c.seekMs)) / 1000);
+          this._ev(s.gid, 'found', { id, by: h.seeker });
+        }
+      }
+    }
+    const hiders = s.players.filter((p) => p !== h.seeker);
+    if (now >= h.ends || hiders.every((p) => h.found.includes(p))) this._finishHide(s, now);
+  }
+
+  _finishHide(s, now) {
+    const h = s.hide;
+    const c = CATALOG[s.gid];
+    for (const id of s.players) {
+      if (id === h.seeker) s.scores[id] = h.found.length * 10;
+      else if (!h.found.includes(id)) s.scores[id] = Math.round(c.seekMs / 1000) + 20; // ninguém achou: bônus
+    }
+    this._finish(s, now);
+  }
+
   tick(now = Date.now()) {
     for (const s of [...this.sessions.values()]) {
       if (s.state === 'lobby' && now >= s.lobbyEnds) this._start(s, now);
-      else if (s.state === 'playing') {
+      else if (s.state === 'playing' && s.kind === 'hide') {
+        this._tickHide(s, now);
+      } else if (s.state === 'playing') {
         if (s.kind === 'turn' && s.current && now - s.turnStarted > CATALOG[s.gid].turnMs) {
           s.finals.add(s.current);
           this._nextTurn(s, now);

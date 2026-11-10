@@ -55,6 +55,8 @@ func _ready() -> void:
 	await _test_round()
 	await _test_turn()
 	await _test_party()
+	await _test_dodgeball()
+	await _test_hide()
 	_done("")
 
 
@@ -141,6 +143,11 @@ func _test_basics() -> void:
 	check(npcm.desk_owner.size() == 1 and not npcm.desk_owner.has(npcm.player_desk), "carteira: a do colega é outra e eu sei de quem é")
 	var s := get_tree().get_first_node_in_group("online_session")
 	check(s != null and s.remotes.size() == 1, "vejo o colega na escola")
+	var bots := 0
+	for n in npcm.npcs:
+		if n.active and n.role == "student" and not n in npcm.practice:
+			bots += 1
+	check(bots == 0, "escola sem alunos-bot: só jogadores de verdade", str(bots))
 
 
 func _test_football() -> void:
@@ -319,3 +326,90 @@ func _test_party() -> void:
 		check(done2, "missão em grupo: concluída para mim também")
 		check(int(SaveManager.section("player").get("coins", 0)) > coins_before, "missão em grupo: ganhei a recompensa")
 		await barrier("party_end")
+
+
+
+func _test_dodgeball() -> void:
+	var mgr: MinigameManager = main.minigames
+	if role == "A":
+		_place(Vector3(-46, 0.05, -40))
+		await _secs(0.5)
+		mgr.start("queimada")
+		var ok := await _until(func(): return mgr.active != null and mgr.active.net_role == "host", 5.0)
+		check(ok, "queimada: começa e sou o anfitrião")
+		await barrier("qm_started")
+		await barrier("qm_joined")
+		var q = mgr.active
+		var got := await _until(func(): return q.humans_a.size() + q.humans_b.size() == 1, 6.0)
+		check(got, "queimada: colega entrou no time")
+		await _secs(3.5)
+		var hs: Array = q.humans_a + q.humans_b
+		if not hs.is_empty():
+			q._holder = null
+			q._grab(hs[0])
+		await barrier("qm_given")
+		await barrier("qm_thrown")
+		var thrown := await _until(func(): return q._holder == null, 3.0)
+		check(thrown, "queimada: o arremesso do colega chegou")
+		q._finish()
+		await barrier("qm_end")
+	else:
+		_place(Vector3(0, 0.05, -5))
+		await barrier("qm_started")
+		_place(Vector3(-40, 0.05, -40))
+		await _secs(0.3)
+		mgr.start("queimada")
+		var ok2 := await _until(func(): return mgr.active != null and mgr.active.net_role == "client" and not mgr.active._state.is_empty(), 6.0)
+		check(ok2, "queimada: entrei no meio e recebo o jogo")
+		await barrier("qm_joined")
+		await barrier("qm_given")
+		var q = mgr.active
+		var has := await _until(func(): return q != null and q._holder == GameManager.player, 4.0)
+		check(has, "queimada: a bola chegou na minha mão")
+		if q:
+			q._aiming = true
+			q.on_play_release()
+		await barrier("qm_thrown")
+		var ended := await _until(func(): return mgr.active == null, 6.0)
+		check(ended, "queimada: o fim vale para os dois")
+		await barrier("qm_end")
+	await _secs(1.0)
+
+
+func _test_hide() -> void:
+	var mgr: MinigameManager = main.minigames
+	events.clear()
+	_place(Vector3(-4, 0.05, -79) if role == "A" else Vector3(-2, 0.05, -79))
+	await _secs(1.0)
+	if role == "A":
+		mgr.start("esconde")
+		await _until(func(): return not NetworkManager.game_state("esconde").is_empty(), 4.0)
+		await barrier("hs_lobby")
+		await barrier("hs_in")
+		NetworkManager.mg_start("esconde")
+	else:
+		await barrier("hs_lobby")
+		mgr.start("esconde")
+		await _until(func(): return (NetworkManager.game_state("esconde").get("players", []) as Array).size() == 2, 4.0)
+		await barrier("hs_in")
+	var started := await _until(func(): return mgr.active != null and mgr.active.is_net(), 6.0)
+	check(started, "esconde: os dois começam juntos")
+	var h: Dictionary = NetworkManager.game_state("esconde").get("hide", {})
+	var seeker := str(h.get("seeker", ""))
+	check(seeker != "", "esconde: o servidor escolheu quem procura")
+	var me_seek := seeker == NetworkManager.my_id
+	if me_seek:
+		check(GameManager.player.movement_locked, "esconde: quem procura fica de olhos fechados")
+	else:
+		_place(Vector3(10, 0.05, -95))  # esconde
+	# espera a fase de procurar (20 s)
+	var seeking := await _until(func(): return str((NetworkManager.game_state("esconde").get("hide", {}) as Dictionary).get("phase", "")) == "seeking", 25.0)
+	check(seeking, "esconde: depois de contar, começa a procurar")
+	if me_seek:
+		check(not GameManager.player.movement_locked, "esconde: quem procura pode andar")
+		_place(Vector3(10.8, 0.05, -95))  # chega pertinho
+	var got := await _until(func(): return events.any(func(e): return e.get("kind") == "found"), 6.0)
+	check(got, "esconde: chegou perto = achou")
+	var ended := await _until(func(): return mgr.active == null, 6.0)
+	check(ended, "esconde: achou todo mundo, acabou para os dois")
+	await barrier("hs_end")

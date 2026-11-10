@@ -83,6 +83,11 @@ func tick(_delta: float) -> void:
 	pass
 
 
+## Alunos para a brincadeira (colegas de treino se não tiver ninguém por perto).
+func students(count: int, near: Vector3, prefer: Array = []) -> Array[NPC]:
+	return npcs.students_for_game(count, near, prefer)
+
+
 ## Reserva NPCs (o gerenciador de NPCs deixa de comandá-los).
 func take_npcs(list: Array) -> void:
 	for n in list:
@@ -161,6 +166,9 @@ func end_game(won: int, summary: String, coins: int, xp: int, extra := {}) -> vo
 ## Libera NPCs e objetos. Subclasses estendem.
 func cleanup() -> void:
 	for n in participants:
+		if is_instance_valid(n) and n in npcs.practice:
+			npcs.release_practice(n)
+			continue
 		if is_instance_valid(n) and n.activity == "minigame":
 			n.activity = "wander"
 			n.running = false

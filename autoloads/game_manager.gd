@@ -39,7 +39,8 @@ func set_state(s: int) -> void:
 	if s == state:
 		return
 	state = s
-	get_tree().paused = (s == State.PAUSED)
+	# online o mundo não para (os colegas continuam): o "menu" é só uma tela por cima
+	get_tree().paused = s == State.PAUSED and not NetworkManager.is_online()
 	state_changed.emit(s)
 
 
@@ -143,7 +144,7 @@ func add_stat(key: String, amount := 1) -> void:
 func _notification(what: int) -> void:
 	# Salva ao sair ou quando o Android coloca o app em segundo plano.
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
-		if state == State.PLAYING:
+		if state == State.PLAYING and not NetworkManager.is_online():
 			set_state(State.PAUSED)
 		SaveManager.save_game()
 	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:

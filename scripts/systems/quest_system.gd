@@ -58,10 +58,10 @@ const QUESTS := {
 		"steps": [
 			{"t": "spot", "spots": [STAGE], "prompt": "Soltar a bola na rampa", "anim": "throw", "time": 0.8, "text": "Suba no palco do pátio coberto e solte a bola", "fx": "ramp_ball"},
 			{"t": "choice", "question": "Por que a bola desceu sozinha pela rampa?", "options": ["Por causa da gravidade", "Porque estava com medo", "Por causa da música"], "answer": 0, "success": "Isso! A gravidade puxa tudo para baixo."}]},
-	"fisica_velocidade": {"giver": "lucas", "title": "Física: quem é mais rápido?", "xp": 35, "coins": 18, "min_level": 4,
-		"intro": ["Corri 100 metros em 20 segundos!", "Me ajuda a calcular minha velocidade?"],
+	"fisica_velocidade": {"giver": "professor_ef", "title": "Física: quem é mais rápido?", "xp": 35, "coins": 18, "min_level": 4,
+		"intro": ["Um aluno correu 100 metros em 20 segundos!", "Me ajuda a calcular a velocidade dele?"],
 		"steps": [
-			{"t": "choice", "question": "100 m em 20 s dá uma velocidade de...", "options": ["5 m/s", "2 m/s", "20 m/s"], "answer": 0, "success": "5 metros por segundo. Tô voando!"},
+			{"t": "choice", "question": "100 m em 20 s dá uma velocidade de...", "options": ["5 m/s", "2 m/s", "20 m/s"], "answer": 0, "success": "5 metros por segundo. Agora é a sua vez de correr!"},
 			{"t": "goto", "pos": Vector3(38, 0.05, -21), "r": 3.0, "text": "Corra até o fim da pista pintada do pátio"}]},
 	"biblioteca": {"giver": "bibliotecaria", "title": "Livros perdidos", "xp": 35, "coins": 20,
 		"intro": ["Alguns alunos esqueceram livros pelo pátio...", "Me ajuda a recolher 3 e trazer de volta?"],
@@ -79,7 +79,7 @@ const QUESTS := {
 		"steps": [
 			{"t": "collect", "item": "caderno", "count": 3, "area": Rect2(-20, 6, 26, 10), "text": "Recolha 3 bandejas nas mesas do pátio coberto", "label": "Pegar bandeja"},
 			{"t": "talk", "to": "cook", "text": "Entregue as bandejas para a Tia Rosa"}]},
-	"cacador_norte": {"giver": "mari", "title": "Caça ao tesouro: pontos cardeais", "xp": 40, "coins": 25,
+	"cacador_norte": {"giver": "inspector", "title": "Caça ao tesouro: pontos cardeais", "xp": 40, "coins": 25,
 		"intro": ["Escondi pistas pela escola!", "A primeira está no muro do lado NORTE, no mural da natureza."],
 		"steps": [
 			{"t": "goto", "pos": Vector3(0, 0.05, -72.5), "r": 3.0, "text": "Pista 1: vá ao mural no lado NORTE da escola"},
@@ -93,36 +93,36 @@ const QUESTS := {
 			{"t": "activity", "kind": "order", "text": "Coloque os fatos em ordem", "data": {"title": "Linha do tempo do Brasil", "hint": "Toque do MAIS ANTIGO para o mais recente.",
 				"items": ["Povos indígenas vivem aqui há milhares de anos", "Chegada dos portugueses (1500)", "Independência (1822)", "Fim da escravidão (1888)", "República (1889)"],
 				"success": "Linha do tempo completa! A história do Brasil começa muito antes de 1500, com os povos indígenas."}}]},
-	"musica_ensaio": {"giver": "julia", "title": "Ensaio de piano", "xp": 40, "coins": 22,
-		"intro": ["Vai ter apresentação na festa junina!", "Me ajuda a ensaiar uma música no piano da sala de música?"],
+	"musica_ensaio": {"giver": "professora_musica", "title": "Ensaio de piano", "xp": 40, "coins": 22,
+		"intro": ["Vai ter apresentação na festa junina!", "Vamos ensaiar uma música no piano da sala de música?"],
 		"steps": [
 			{"t": "spot", "spots": [MUSIC], "prompt": "Sentar ao piano", "anim": "interact", "time": 0.5, "text": "Vá à Sala de Música (Bloco B) e sente ao piano"},
 			{"t": "activity", "kind": "piano", "text": "Ouça e toque a música, trecho por trecho"},
 			{"t": "choice", "question": "No piano, as notas da DIREITA são...", "options": ["Mais agudas (finas)", "Mais graves (grossas)", "Iguais às da esquerda"], "answer": 0, "success": "Isso! Para a direita o som fica mais agudo. Você arrasou no ensaio!", "fx": "confetti"}]},
-	"ingles_etiquetas": {"giver": "pedro", "title": "Etiquetas em inglês", "xp": 30, "coins": 18,
+	"ingles_etiquetas": {"giver": "teacher", "title": "Etiquetas em inglês", "xp": 30, "coins": 18,
 		"intro": ["Quero colar etiquetas em inglês pela escola.", "Mas eu não sei as palavras... Me ajuda?"],
 		"steps": [
-			{"t": "choice", "question": "Como se diz ESCOLA em inglês?", "options": ["School", "House", "Door"], "answer": 0, "success": "School! Vou colar no portão."},
+			{"t": "choice", "question": "Como se diz ESCOLA em inglês?", "options": ["School", "House", "Door"], "answer": 0, "success": "School! Cole lá no portão."},
 			{"t": "goto", "pos": Vector3(0, 0.05, 72), "r": 3.0, "text": "Cole a etiqueta 'School' no portão de entrada"},
 			{"t": "quiz", "subject": "Inglês", "text": "Mais uma de inglês!"}]},
-	"geografia_mapa": {"giver": "bia", "title": "Geografia: capitais", "xp": 30, "coins": 18, "min_level": 3,
-		"intro": ["Aposto que você não sabe todas as capitais!", "Duvido acertar duas seguidas."],
-		"steps": [{"t": "quiz", "subject": "Geografia", "text": "Pergunta 1 da Bia"}, {"t": "quiz", "subject": "Geografia", "text": "Pergunta 2 da Bia"}]},
-	"aquecimento": {"giver": "rafa", "title": "Aquecimento na quadra", "xp": 30, "coins": 15,
+	"geografia_mapa": {"giver": "bibliotecaria", "title": "Geografia: capitais", "xp": 30, "coins": 18, "min_level": 3,
+		"intro": ["Chegou um atlas novo na biblioteca!", "Vamos ver se você acerta duas capitais seguidas?"],
+		"steps": [{"t": "quiz", "subject": "Geografia", "text": "Pergunta 1 do atlas"}, {"t": "quiz", "subject": "Geografia", "text": "Pergunta 2 do atlas"}]},
+	"aquecimento": {"giver": "professor_ef", "title": "Aquecimento na quadra", "xp": 30, "coins": 15,
 		"intro": ["Bora aquecer antes do jogo?", "Toca nos quatro cantos da quadra correndo!"],
 		"steps": [
 			{"t": "goto", "pos": Vector3(21, 0.05, -40), "r": 2.0, "text": "Canto 1 da quadra"},
 			{"t": "goto", "pos": Vector3(59, 0.05, -40), "r": 2.0, "text": "Canto 2 da quadra"},
 			{"t": "goto", "pos": Vector3(59, 0.05, -58), "r": 2.0, "text": "Canto 3 da quadra"},
 			{"t": "goto", "pos": Vector3(21, 0.05, -58), "r": 2.0, "text": "Canto 4 da quadra"}]},
-	"lanche_gui": {"giver": "gui", "title": "Lanche pro Gui", "xp": 25, "coins": 10,
-		"intro": ["Esqueci meu dinheiro do lanche...", "Pode ir na cantina e pedir um pão de queijo pra mim?"],
-		"steps": [{"t": "talk", "to": "cook", "text": "Peça um pão de queijo para a Tia Rosa"}, {"t": "talk", "to": "gui", "text": "Leve o pão de queijo para o Gui"}]},
-	"ana_livro": {"giver": "ana", "title": "Leitura com a Ana", "xp": 30, "coins": 15,
-		"intro": ["Eu adoro a biblioteca...", "Me acompanha até lá? Tenho vergonha de ir sozinha."],
-		"steps": [{"t": "goto", "pos": Vector3(-48, 0.05, 42), "r": 3.0, "text": "Vá com a Ana até a Biblioteca"}, {"t": "quiz", "subject": "Português", "text": "A Ana quer saber o que você aprendeu"}]},
+	"lanche_gui": {"giver": "jardineiro", "title": "Lanche pro Seu Zé", "xp": 25, "coins": 10,
+		"intro": ["Trabalhei a manhã toda na horta...", "Pode pedir um pão de queijo na cantina pra mim?"],
+		"steps": [{"t": "talk", "to": "cook", "text": "Peça um pão de queijo para a Tia Rosa"}, {"t": "talk", "to": "jardineiro", "text": "Leve o pão de queijo para o Seu Zé"}]},
+	"ana_livro": {"giver": "teacher", "title": "Devolver o livro", "xp": 30, "coins": 15,
+		"intro": ["Esqueci de devolver um livro na biblioteca...", "Leva lá pra mim? A Dona Lúcia vai te perguntar sobre ele!"],
+		"steps": [{"t": "goto", "pos": Vector3(-48, 0.05, 42), "r": 3.0, "text": "Leve o livro até a Biblioteca"}, {"t": "quiz", "subject": "Português", "text": "A Dona Lúcia quer saber o que você leu"}]},
 }
-const GIVER_TEXT := {"jardineiro": "Seu Zé", "bibliotecaria": "Dona Lúcia"}
+const GIVER_TEXT := {"jardineiro": "Seu Zé", "bibliotecaria": "Dona Lúcia", "professor_ef": "Prof. Marcos", "professora_musica": "Prof.ª Clara"}
 
 var npcs: NPCManager
 var player: PlayerController
@@ -142,6 +142,8 @@ var _tree_spot := Vector3.ZERO
 var _quiz_tries := 0
 var gardener: NPC
 var librarian: NPC
+var coach: NPC  # professor de Ed. Física (na quadra)
+var music_teacher: NPC  # professora de música (na sala de música)
 
 
 func setup(m: NPCManager, p: PlayerController, h: HUD, d: SchoolDay, w: SchoolWorld) -> void:
@@ -158,6 +160,14 @@ func setup(m: NPCManager, p: PlayerController, h: HUD, d: SchoolDay, w: SchoolWo
 		"look": {"hair_style": "rabo", "hair_color": "5d4037", "shirt_color": "f06292", "shirt_trim": "c2185b", "shirt_logo": false,
 			"long_pants": true, "pants_color": "37474f", "backpack": false, "glasses": true, "height_scale": 1.17}},
 		Vector3(-42.2, 0.05, 40.6), PI)
+	coach = _staff({"id": "professor_ef", "name": "Prof. Marcos", "role": "coach", "seed": 912,
+		"look": {"hair_style": "curto", "hair_color": "2b1d14", "shirt_color": "1f6fd6", "shirt_trim": "ffffff", "shirt_logo": true,
+			"long_pants": true, "pants_color": "1c2b4a", "backpack": false, "cap": true, "cap_color": "1f6fd6", "height_scale": 1.22, "build": 1.05}},
+		Vector3(45.5, 0.05, -36.4), PI)
+	music_teacher = _staff({"id": "professora_musica", "name": "Prof.ª Clara", "role": "music", "seed": 913,
+		"look": {"hair_style": "longo", "hair_color": "5b2a12", "shirt_color": "8e44ad", "shirt_trim": "f1c40f", "shirt_logo": false,
+			"long_pants": true, "pants_color": "2c2c3a", "backpack": false, "height_scale": 1.18}},
+		Vector3(74.5, 0.05, 14.0), -PI * 0.5)
 	_marker = _make_marker()
 	w.add_child(_marker)
 	_garden_root = Node3D.new()
@@ -210,6 +220,8 @@ func _giver_node(giver: String) -> NPC:
 		"inspector": return npcs.inspector
 		"jardineiro": return gardener
 		"bibliotecaria": return librarian
+		"professor_ef": return coach
+		"professora_musica": return music_teacher
 	for n in npcs.npcs:
 		if n.data.get("id", "") == giver:
 			return n
@@ -762,7 +774,7 @@ func _process(delta: float) -> void:
 	if _refresh_t <= 0.0:
 		_refresh_t = 0.5
 		_refresh_markers()
-		for n in [gardener, librarian]:
+		for n in [gardener, librarian, coach, music_teacher]:
 			if n and not n.moving and n.visual.animator.upper_action == "" and randf() < 0.1:
 				n.visual.play("talk")
 	_update_party_ui(delta)
@@ -774,7 +786,9 @@ func _process(delta: float) -> void:
 			var epos: Vector3 = ep
 			hud.set_mission_point(epos + Vector3(0, 1.0, 0))
 			_marker.visible = player.global_position.distance_to(epos) > 1.5
+			_marker.get_child(0).visible = false
 			_marker.global_position = epos + Vector3(0, 2.6, 0)
+			_marker.get_node("Ring").global_position = epos + Vector3(0, 0.04, 0)
 		else:
 			hud.set_mission_point(null)
 			_marker.visible = false
@@ -790,6 +804,7 @@ func _process(delta: float) -> void:
 		return
 	var pos: Vector3 = tp
 	_marker.visible = player.global_position.distance_to(pos) > 1.0
+	_marker.get_child(0).visible = false  # só o anel no chão (sem gota flutuante)
 	_marker.global_position = pos + Vector3(0, 2.2 + sin(Time.get_ticks_msec() * 0.004) * 0.12, 0)
 	_marker.get_node("Ring").global_position = pos + Vector3(0, 0.04, 0)
 	_marker.rotate_y(delta * 2.0)
@@ -821,10 +836,14 @@ func _setup_party_ui() -> void:
 		GameManager.show_toast("O jogo vai te levar até a próxima missão." if guide_on else "Guia de missões desligado."))
 	UITheme.pin_top_right(_guide_btn, 250, 232, 236, 50)
 	_invite_btn = _small_button("Chamar para a missão", func():
-		if _invite_target != "":
-			NetworkManager.send_direct(_invite_target, "party_invite", {"q": active_id, "title": QUESTS[active_id].title})
-			GameManager.show_toast("Convite enviado para %s!" % NetworkManager.name_of(_invite_target))
-			_invite_btn.visible = false)
+		if _invite_target == "":
+			return
+		if active_id == "":
+			_offer_mission_to(_invite_target)
+			return
+		NetworkManager.send_direct(_invite_target, "party_invite", {"q": active_id, "title": QUESTS[active_id].title})
+		GameManager.show_toast("Convite enviado para %s!" % NetworkManager.name_of(_invite_target))
+		_invite_btn.visible = false)
 	UITheme.pin_top_right(_invite_btn, 250, 290, 236, 50)
 	NetworkManager.direct.connect(_on_direct)
 
@@ -883,7 +902,8 @@ func _update_party_ui(delta: float) -> void:
 	_guide_btn.visible = free_now and active_id == "" and _free_phase()
 	# chamar colega que está pertinho para a missão
 	_invite_target = ""
-	if NetworkManager.is_online() and active_id != "" and party_role != "member" and free_now:
+	var can_offer := active_id == "" and _free_phase() and party_role == ""
+	if NetworkManager.is_online() and (active_id != "" or can_offer) and party_role != "member" and free_now:
 		var s := get_tree().get_first_node_in_group("online_session")
 		if s:
 			var bd := 8.0
@@ -896,7 +916,7 @@ func _update_party_ui(delta: float) -> void:
 					_invite_target = id
 	_invite_btn.visible = _invite_target != ""
 	if _invite_target != "":
-		_invite_btn.text = "Chamar %s" % NetworkManager.name_of(_invite_target)
+		_invite_btn.text = ("Chamar %s" if active_id != "" else "Missão com %s") % NetworkManager.name_of(_invite_target)
 
 
 ## Guia: aponta para quem oferece a missão sugerida.
@@ -909,6 +929,30 @@ func _guide_target() -> Variant:
 	var g: NPC = sg.giver
 	hud.set_mission("Sugestão: fale com %s — %s" % [g.display_name, QUESTS[sg.qid].title])
 	return g.global_position
+
+
+## Sem missão: escolhe uma das disponíveis e convida o colega para fazerem juntos.
+func _offer_mission_to(id: String) -> void:
+	var opts: Array = []
+	for qid in QUESTS.keys():
+		if is_available(qid) and opts.size() < 3:
+			opts.append(qid)
+	if opts.is_empty():
+		GameManager.show_toast("Não tem missão disponível agora.")
+		return
+	var titles: Array = opts.map(func(q): return QUESTS[q].title)
+	titles.append("Agora não")
+	player.input_enabled = false
+	hud.controls.visible = false
+	day.dialogue.open("Missão com %s" % NetworkManager.name_of(id), ["Qual missão vocês querem fazer juntos?"], titles)
+	day.dialogue.finished.connect(func(choice: int):
+		player.input_enabled = true
+		hud.controls.visible = true
+		if choice < 0 or choice >= opts.size() or active_id != "":
+			return
+		start(opts[choice])
+		NetworkManager.send_direct(id, "party_invite", {"q": opts[choice], "title": QUESTS[opts[choice]].title})
+		GameManager.show_toast("Convite enviado para %s!" % NetworkManager.name_of(id)), CONNECT_ONE_SHOT)
 
 
 # ---------------------------------------------------------------- grupo: mensagens

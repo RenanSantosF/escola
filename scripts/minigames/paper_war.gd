@@ -26,9 +26,8 @@ var _target_ring: MeshInstance3D
 
 
 func begin() -> void:
-	for n in npcs.classmates:
-		if n.activity != "minigame" and foes.size() < 4:
-			foes.append(n)
+	for n in students(4, Vector3(35.5, 0.05, -6.0)):
+		foes.append(n)
 	take_npcs(foes)
 	_root = Node3D.new()
 	world.add_child(_root)

@@ -6,7 +6,7 @@ extends Control
 signal pressed
 signal released
 
-enum Icon { RUN, INTERACT, JUMP, PLAY, PAUSE, EMOTE, MAP, BAG, RIDE }
+enum Icon { RUN, INTERACT, JUMP, PLAY, PAUSE, EMOTE, MAP, BAG, RIDE, WALK, MENU }
 
 @export var icon: Icon = Icon.INTERACT
 @export var base_color := Color("ffcf3f")
@@ -84,6 +84,14 @@ func _draw() -> void:
 				var a := -PI * 0.5 + k * TAU / 5.0
 				pts.append(c + Vector2(cos(a), sin(a)) * s * 0.32)
 			draw_colored_polygon(pts, ic)
+		Icon.WALK:
+			# andar devagar: uma setinha só (tocar de novo volta a andar)
+			var o2 := c + Vector2(s * 0.1, 0)
+			draw_polyline(PackedVector2Array([o2 + Vector2(-s * 0.35, -s * 0.6), o2 + Vector2(s * 0.3, 0), o2 + Vector2(-s * 0.35, s * 0.6)]), ic, r * 0.13, true)
+		Icon.MENU:
+			for k in 3:
+				var yy := -s * 0.5 + k * s * 0.5
+				draw_line(c + Vector2(-s * 0.6, yy), c + Vector2(s * 0.6, yy), ic, r * 0.11, true)
 		Icon.PAUSE:
 			draw_rect(Rect2(c + Vector2(-s * 0.5, -s * 0.6), Vector2(s * 0.32, s * 1.2)), ic)
 			draw_rect(Rect2(c + Vector2(s * 0.18, -s * 0.6), Vector2(s * 0.32, s * 1.2)), ic)

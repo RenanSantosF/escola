@@ -153,15 +153,12 @@ func _start_match() -> void:
 	var t: Dictionary = SaveManager.section("stats").get("torneio", {"wins": 0, "round": 0})
 	var captain: String = CAPTAINS[int(t.get("round", 0)) % CAPTAINS.size()]
 	_rival = "Time do %s" % GameManager.npc_display_name(captain) if captain != "bia" else "Time da Bia"
-	var pool: Array[NPC] = []
-	for n in npcs.npcs:
-		if n.role == "student" and n.active and n.activity != "minigame":
-			pool.append(n)
-	pool.sort_custom(func(a, b): return a.global_position.distance_squared_to(Vector3(40, 0, -49)) < b.global_position.distance_squared_to(Vector3(40, 0, -49)))
 	if net_role == "host":
 		_collect_humans()
 	var mates := maxi(side_size - 1 - humans_a.size(), 0) if fill_bots else 0
 	var rivals := maxi(side_size - humans_b.size(), 0) if fill_bots else (0 if not humans_b.is_empty() else 1)
+	# quem está por perto ou colegas de treino (goleiros sempre bots: +2)
+	var pool: Array[NPC] = students(mates + rivals + 2, Vector3(40, 0.05, -49), ["lucas", captain])
 	var lucas := _pick(pool, "lucas")
 	var cap := _pick(pool, captain)
 	if lucas and mates > 0 and team_a.size() < mates:
@@ -181,6 +178,8 @@ func _start_match() -> void:
 	# goleiros: sempre bots (pega quem sobrou)
 	keeper_a = pool.pop_front() if not pool.is_empty() else null
 	keeper_b = pool.pop_front() if not pool.is_empty() else null
+	for left_over in pool:
+		npcs.release_practice(left_over)
 	var all: Array = team_a + team_b
 	if keeper_a:
 		all.append(keeper_a)
@@ -1074,8 +1073,7 @@ func on_net_event(ev: Dictionary) -> void:
 
 ## Um bot entra no lugar de quem saiu.
 func _add_sub_bot(team: int) -> void:
-	for n in npcs.npcs:
-		if n.role == "student" and n.active and n.activity != "minigame" and not n.talking_to_player:
+	for n in students(1, Vector3(40, 0.05, -49)):
 			take_npcs([n])
 			n.run_speed = [3.7, 4.2, 4.7][difficulty]
 			(team_a if team == 0 else team_b).append(n)
@@ -1175,10 +1173,8 @@ func _my_score() -> Array:
 func _client_bots(list: Array, delta: float) -> void:
 	while _puppets.size() < list.size():
 		var got: NPC = null
-		for n in npcs.npcs:
-			if n.role == "student" and n.active and n.activity != "minigame" and not n.talking_to_player:
-				got = n
-				break
+		for n in students(1, Vector3(40, 0.05, -49)):
+			got = n
 		if got == null:
 			break
 		take_npcs([got])

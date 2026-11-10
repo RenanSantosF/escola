@@ -16,10 +16,10 @@ var _blind: ColorRect
 
 
 func begin() -> void:
-	var cands: Array[NPC] = []
-	for n in npcs.classmates + npcs.others:
-		if n.active and n.role == "student" and n.activity != "minigame" and not n.talking_to_player:
-			cands.append(n)
+	if is_net():
+		_net_begin()
+		return
+	var cands: Array[NPC] = students(5, Vector3(-4.0, 0.05, -78.0))
 	cands.shuffle()
 	var spots := _hide_spots()
 	spots.shuffle()
@@ -73,7 +73,7 @@ func _hide_spots() -> Array:
 
 
 func play_label() -> String:
-	return "Comemorar"
+	return ""
 
 
 func interact_label() -> String:
@@ -81,12 +81,18 @@ func interact_label() -> String:
 
 
 func on_interact() -> bool:
+	if is_net() and mgr and mgr.online_play:
+		mgr.online_play.leave()
+		return true
 	_finish()
 	return true
 
 
 func tick(delta: float) -> void:
 	if not running:
+		return
+	if is_net():
+		_net_tick(delta)
 		return
 	if _counting > 0.0:
 		var before := ceili(_counting * 2.2)
@@ -172,3 +178,112 @@ func cleanup() -> void:
 		if is_instance_valid(n):
 			n.visual.stop_action()
 	super.cleanup()
+
+
+
+# ================================================================ com a turma
+# O servidor decide quem procura, as fases e quem foi achado (chegar pertinho).
+
+var _me := ""
+var _seeker := ""
+var _phase := ""
+var _found_ids: Array = []
+var _state_ms := 0
+var _left0 := 0
+
+
+func _net_begin() -> void:
+	_me = str(net.get("me", ""))
+	player.force_stand()
+	player.global_position = BASE + Vector3(randf_range(-2, 2), 0, 2.0 + randf_range(-1, 1))
+	player.yaw = 0.0
+	time_left = TIME
+	super.begin()
+	_read_state()
+	if _seeker == _me:
+		hud.show_banner("Você procura!", "Feche os olhos e conte... sem espiar!")
+	else:
+		hud.show_banner("Esconda-se!", "%s vai procurar. Corra para um esconderijo!" % NetworkManager.name_of(_seeker))
+
+
+func _read_state() -> void:
+	var g := NetworkManager.game_state("esconde")
+	var h: Variant = g.get("hide")
+	if not (h is Dictionary):
+		return
+	var phase := str(h.get("phase", ""))
+	var found: Array = h.get("found", [])
+	if phase != _phase or found.size() != _found_ids.size() or _seeker == "":
+		_state_ms = Time.get_ticks_msec()
+		_left0 = int(h.get("left", 0))
+	_seeker = str(h.get("seeker", ""))
+	if phase != _phase:
+		_on_phase(phase)
+	for id in found:
+		if not id in _found_ids:
+			_found_ids.append(id)
+			_on_found(str(id))
+	_phase = phase
+
+
+func _on_phase(phase: String) -> void:
+	var seeker := _seeker == _me
+	if phase == "hiding" and seeker:
+		player.movement_locked = true
+		if _blind == null:
+			_blind = ColorRect.new()
+			_blind.color = Color(0.05, 0.07, 0.15, 0.9)
+			_blind.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			_blind.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			hud.add_child(_blind)
+	elif phase == "seeking":
+		player.movement_locked = false
+		if is_instance_valid(_blind):
+			var tw := create_tween()
+			tw.tween_property(_blind, "color:a", 0.0, 0.4)
+			tw.tween_callback(_blind.queue_free)
+		AudioManager.play_ui("whistle", -6.0)
+		hud.show_banner("Lá vou eu!" if seeker else "Shhh! Fique escondido!", "Procure a turma pelo parque" if seeker else "%s está procurando" % NetworkManager.name_of(_seeker))
+
+
+func _on_found(id: String) -> void:
+	AudioManager.play_ui("ui_confirm", -2.0)
+	if id == _me:
+		hud.show_banner("Te acharam!", "%s te achou. Espere na base." % NetworkManager.name_of(_seeker))
+		player.global_position = BASE + Vector3(randf_range(-3, 3), 0, randf_range(-1, 1))
+		player.velocity = Vector3.ZERO
+	elif _seeker == _me:
+		GameManager.show_toast("Achou %s!" % NetworkManager.name_of(id))
+	else:
+		GameManager.show_toast("%s foi achado!" % NetworkManager.name_of(id))
+
+
+func _net_tick(_delta: float) -> void:
+	_read_state()
+	var left := maxi(_left0 - int((Time.get_ticks_msec() - _state_ms) / 1000), 0)
+	var hiders := (net.get("players", []) as Array).size() - 1
+	match _phase:
+		"hiding":
+			hud.set_minigame_text(("Contando... %d" if _seeker == _me else "Esconda-se! %d s") % left)
+		"seeking":
+			if _seeker == _me:
+				hud.set_minigame_text("Procurando  ·  achou %d de %d  ·  %d:%02d  ·  chegue pertinho!" % [_found_ids.size(), maxi(hiders, 0), left / 60, left % 60])
+			elif _me in _found_ids:
+				hud.set_minigame_text("Você foi achado  ·  torça pelos outros  ·  %d:%02d" % [left / 60, left % 60])
+			else:
+				hud.set_minigame_text("Escondido  ·  %d:%02d  ·  não deixe %s chegar perto!" % [left / 60, left % 60, NetworkManager.name_of(_seeker)])
+		_:
+			hud.set_minigame_text("Esconde-esconde · esperando a turma...")
+
+
+## Fim (o servidor mandou o placar).
+func on_net_event(ev: Dictionary) -> void:
+	if str(ev.get("kind", "")) != "results" or not running:
+		return
+	var won := 0
+	if _seeker == _me:
+		won = 1 if _found_ids.size() * 2 >= maxi((net.get("players", []) as Array).size() - 1, 1) else -1
+	else:
+		won = -1 if _me in _found_ids else 1
+	var summary := ("Você achou %d" % _found_ids.size()) if _seeker == _me else ("Te acharam!" if won < 0 else "Ninguém te achou!")
+	end_game(won, "Esconde-esconde: " + summary, 6 + _found_ids.size() * 4 if _seeker == _me else (16 if won > 0 else 6), 14 if won > 0 else 8)

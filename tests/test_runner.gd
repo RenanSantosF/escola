@@ -12,6 +12,8 @@ var _log: Array[String] = []
 
 
 func _ready() -> void:
+	NPCManager.STUDENT_BOTS = true  # os testes antigos contam com alunos-bot andando
+	SchoolDay.SPECIAL_ROOMS = false  # e com as duas aulas na Sala 5
 	SaveManager.reset()
 	_test_save_system()
 	_test_settings()
@@ -76,6 +78,7 @@ func _ready() -> void:
 	await _test_relogio_servidor()
 	await _test_guia_missao()
 	await _test_mapa_toque()
+	await _test_sala_materia()
 	_finish()
 
 
@@ -1293,7 +1296,7 @@ func _test_revisao5() -> void:
 	main.hud.set_game_point(Vector3(20, 1.05, -10))
 	for i in 5:
 		await _frames(2)
-	check(trail._mm.multimesh.visible_instance_count > 3 and trail._arrow.visible, "missão: trilha de setas e seta na cabeça", "%d" % trail._mm.multimesh.visible_instance_count)
+	check(trail._mm.multimesh.visible_instance_count > 3 and not trail._arrow.visible, "missão: trilha de setas no chão (sem seta grande na cabeça)", "%d" % trail._mm.multimesh.visible_instance_count)
 	main.hud.set_game_point(null)
 	# cancelar missão
 	await _recess()
@@ -1335,7 +1338,8 @@ func _test_online_tag() -> void:
 	var names := {"eu": "Eu", "amigo": "Amigo"}
 	nm._handle({"t": "tag", "state": "playing", "host": "amigo", "players": ["eu", "amigo"], "it": "eu", "left": 100, "names": names})
 	await _frames(2)
-	check(main.school_day.hold_recess and sess.tag._marker.visible and sess.tag._marker.get_parent() == player, "pique-pega: marcador no pegador e recreio esperando")
+	check(sess.tag._marker.visible and sess.tag._marker.get_parent() == player, "pique-pega: marcador no pegador")
+	check(main.school_day.synced and not main.school_day.hold_recess, "online: o recreio segue o relógio (não espera um jogador)")
 	nm._handle({"t": "tag", "state": "playing", "host": "amigo", "players": ["eu", "amigo"], "it": "amigo", "left": 90, "names": names})
 	await _frames(2)
 	check(sess.tag._marker.get_parent() == sess.remotes["amigo"].root, "pique-pega: marcador passa para o colega")
@@ -1769,3 +1773,35 @@ func _test_mapa_toque() -> void:
 			print("DBG   texto: ", (c as Label).text.left(60))
 	check(mm.full, "mapa: abre com um toque (com o chat online na tela)", "por cima: %s" % [str(hit.get_path()) if hit else "nada"])
 	mm.open_full(false)
+
+
+
+func _test_sala_materia() -> void:
+	var sd: SchoolDay = main.school_day
+	SchoolDay.SPECIAL_ROOMS = true
+	NetworkManager.my_id = "eu"
+	NetworkManager.room = "sala-materia"
+	sd._subjects = ["Matemática", "Ciências"]
+	sd.apply_clock(_fake_clock("class2", 9, 150.0))
+	await _wait(0.5)
+	sd._subjects = ["Matemática", "Ciências"]
+	sd._begin_class(1)
+	await _wait(0.3)
+	check(sd.class_room == "Laboratório de Ciências", "aula 2: Ciências é no laboratório", sd.class_room)
+	var rp := sd.room_point(sd.class_room)
+	check(main.npcs.teacher.global_position.distance_to(rp) < 3.0, "aula 2: a professora vai para o laboratório")
+	_place(rp, 0)
+	await _wait(2.0)
+	check(sd._task_active or sd.classroom_ui.visible, "aula 2: dentro do laboratório a tarefa aparece (sem carteira)")
+	var no_find := true
+	for t in sd.lesson:
+		if t.type == "find":
+			no_find = false
+	check(no_find, "aula 2: na sala da matéria não tem 'buscar na sala'")
+	sd.classroom_ui.hide_panel()
+	sd._task_active = false
+	sd.unsync()
+	NetworkManager.room = ""
+	NetworkManager.my_id = ""
+	NetworkManager.clock = {}
+	SchoolDay.SPECIAL_ROOMS = false

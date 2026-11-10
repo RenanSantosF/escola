@@ -443,6 +443,10 @@ func _update_preview() -> void:
 		_action.text = "Equipado" if progression.is_equipped(_selected) else "Equipar"
 		_action.disabled = progression.is_equipped(_selected) or not (item.has("look") or item.has("vehicle"))
 		_info.text = item.name + ("\n(fica na sua carteira da sala)" if item.cat == "decoracao" else "") + ("\n" + str(item.desc) if item.has("desc") else "")
+		if item.cat == "emote":
+			_action.text = "Já é seu"
+			_action.disabled = true
+			_info.text += "\nUse no botão de emoji (carinha) da tela."
 	else:
 		var price := ShopCatalog.price_of(item)
 		var off := ShopCatalog.discount_of(item.id)

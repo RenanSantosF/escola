@@ -65,6 +65,16 @@ var _class_done := false
 ## Sentou na carteira de outra pessoa: segundos desde que sentou (-1 = não).
 var _wrong_seat_t := -1.0
 var _wrong_seat_warned := 0
+## A 2ª aula do dia é na sala da matéria (aproveita a escola inteira).
+## Os testes antigos desligam (aula sempre na Sala 5).
+static var SPECIAL_ROOMS := true
+const SUBJECT_ROOMS := {
+	"Ciências": "Laboratório de Ciências", "Física": "Laboratório de Física", "Química": "Laboratório de Química",
+	"Música": "Sala de Música", "Artes": "Sala de Artes", "Inglês": "Sala de Idiomas",
+	"Geografia": "Biblioteca", "História": "Biblioteca", "Matemática": "Sala de Informática", "Português": "Sala de Leitura",
+}
+## Sala da aula de agora (Sala 5 ou a sala da matéria).
+var class_room := NPCManager.CLASS_ROOM
 const WRONG_SEAT_WARN2 := 8.0
 const WRONG_SEAT_LIMIT := 18.0
 
@@ -219,13 +229,17 @@ func _join_synced(p: int) -> void:
 			_waiting_seat = true
 		Phase.CLASS_1, Phase.CLASS_2:
 			# chegou com a aula começada: aparece na porta da sala, sem bronca
-			_place(info.get("door_out", GATE) + Vector3(0, 0, 0.6), PI)
 			npcs.begin_arrival()
 			_begin_class(0 if p == Phase.CLASS_1 else 1)
+			if _special_room():
+				_place(room_point(class_room) + Vector3(0, 0, 1.5), PI)
+			else:
+				_place(info.get("door_out", GATE) + Vector3(0, 0, 0.6), PI)
 			_out_of_class = -45.0
 			_waiting_seat = true
-			hud.show_banner("A aula já começou!", "Sente na sua carteira (a da estrela).")
-			_set_objective("Sente na sua carteira", npcs.player_desk)
+			hud.show_banner("A aula já começou!", "Sente na sua carteira (a da estrela)." if not _special_room() else "A aula de hoje é aqui no(a) %s." % class_room)
+			if not _special_room():
+				_set_objective("Sente na sua carteira", npcs.player_desk)
 		Phase.RECESS:
 			_place(Vector3(randf_range(-4, 4), 0.05, randf_range(-4, 2)), PI)
 			_start_recess()
@@ -261,10 +275,10 @@ func _goto_phase(p: int) -> void:
 			ring_bell()
 			_drop_lesson()
 			_begin_class(0 if p == Phase.CLASS_1 else 1)
-			if not _player_at_desk():
+			if not _player_in_class():
 				_waiting_seat = true
-				GameManager.show_toast("A aula começou! Corra para a sua carteira!")
-				_set_objective("A aula começou! Vá para a %s" % NPCManager.CLASS_ROOM, npcs.player_desk)
+				GameManager.show_toast("A aula começou! Corra para a sala!")
+				_set_objective("A aula começou! Vá para a %s" % class_room, _class_target())
 		Phase.RECESS:
 			_drop_lesson()
 			_start_recess()
@@ -338,6 +352,12 @@ func _begin_class(n: int) -> void:
 	var subj: String = _subjects[n] if n < _subjects.size() else ""
 	lesson = _gen.make_lesson(LESSON_SIZE[n], true, subj)
 	_class_done = false
+	class_room = room_for_class(n)
+	if _special_room():
+		# na sala da matéria não tem "buscar coisa na sala de aula"
+		for i in lesson.size():
+			if lesson[i].type == "find":
+				lesson[i] = _gen.make("quiz", subj)
 	if synced and NetworkManager.desks.size() > 1:
 		var hid := helper_id()
 		if hid != NetworkManager.my_id:
@@ -355,14 +375,20 @@ func _begin_class(n: int) -> void:
 	lesson_results = []
 	extra_tasks = 0
 	_set_objective("Faça as tarefas da aula", null)
-	npcs.teacher.say("Bom dia, turma! Vamos começar." if n == 0 else "Bem-vindos de volta! Mais um pouquinho.", 3.0)
+	if _special_room():
+		var rp := room_point(class_room)
+		npcs.teacher.teleport(rp + Vector3(0, 0, -1.5), 0.0)
+		npcs.teacher.activity = "teach"
+		if not _player_in_class():
+			_set_objective("Aula de %s no(a) %s" % [subj, class_room], rp)
+	npcs.teacher.say("Bom dia, turma! Vamos começar." if n == 0 else "Bem-vindos! Hoje a aula é aqui no(a) %s." % class_room if _special_room() else "Bem-vindos de volta! Mais um pouquinho.", 3.0)
 	get_tree().create_timer(2.0).timeout.connect(_present_task)
 
 
 func _present_task() -> void:
 	if phase != Phase.CLASS_1 and phase != Phase.CLASS_2:
 		return
-	if not _player_at_desk():
+	if not _player_in_class():
 		_waiting_seat = true
 		return
 	var task: Dictionary = lesson[lesson_index]
@@ -450,7 +476,11 @@ func _start_return() -> void:
 	_set_phase(Phase.RETURN)
 	hud.show_banner("Fim do recreio", "Hora de voltar para a sala!")
 	npcs.begin_return()
-	_set_objective("Volte para a %s e sente na sua carteira" % NPCManager.CLASS_ROOM, npcs.player_desk)
+	var next_room := room_for_class(1)
+	if next_room != NPCManager.CLASS_ROOM:
+		_set_objective("Próxima aula: %s no(a) %s" % [_subjects[1], next_room], room_point(next_room))
+	else:
+		_set_objective("Volte para a %s e sente na sua carteira" % NPCManager.CLASS_ROOM, npcs.player_desk)
 	_waiting_seat = true
 
 
@@ -509,6 +539,45 @@ func ring_bell() -> void:
 
 # =================================================================== jogador
 
+func room_for_class(n: int) -> String:
+	if n == 0 or not SPECIAL_ROOMS or _subjects.size() < 2:
+		return NPCManager.CLASS_ROOM
+	var r: String = SUBJECT_ROOMS.get(_subjects[1], NPCManager.CLASS_ROOM)
+	return r if not _room_zone(r).is_empty() else NPCManager.CLASS_ROOM
+
+
+func _room_zone(room_name: String) -> Dictionary:
+	for z in world.builder.zones:
+		if str(z.name) == room_name:
+			return z
+	return {}
+
+
+## Ponto no meio da sala (na altura do andar dela).
+func room_point(room_name: String) -> Vector3:
+	var z := _room_zone(room_name)
+	if z.is_empty():
+		return npcs.player_desk.global_position if npcs.player_desk else Vector3.ZERO
+	var c: Vector2 = (z.rect as Rect2).get_center()
+	return Vector3(c.x, float(z.get("y0", -0.5)) + 0.55, c.y)
+
+
+func _special_room() -> bool:
+	return class_room != NPCManager.CLASS_ROOM
+
+
+## Está no lugar da aula? (Sala 5: sentado na carteira; outra sala: dentro dela)
+func _player_in_class() -> bool:
+	if _special_room():
+		return str(world.zone_at(player.global_position).get("name", "")) == class_room
+	return _player_at_desk()
+
+
+## Destino do objetivo: a carteira (Sala 5) ou o meio da sala da matéria.
+func _class_target() -> Variant:
+	return room_point(class_room) if _special_room() else npcs.player_desk
+
+
 func _player_at_desk() -> bool:
 	return player.mode == PlayerController.Mode.SITTING and player.current_seat == npcs.player_desk
 
@@ -551,6 +620,8 @@ func _on_player_stood() -> void:
 	_wrong_seat_t = -1.0
 	if player.camera_rig:
 		player.camera_rig.distance = 4.6
+	if _special_room():
+		return  # na sala da matéria pode ficar em pé
 	if (phase == Phase.CLASS_1 or phase == Phase.CLASS_2) and _find_task.is_empty() and not _class_done:
 		_set_objective("Volte para a sua carteira", npcs.player_desk)
 		if not _task_active:
@@ -722,6 +793,11 @@ func _process(delta: float) -> void:
 				if _find_timer > 75.0:
 					npcs.teacher.say("Tudo bem, depois eu procuro.", 2.4)
 					_finish_find(false)
+			elif _special_room() and _waiting_seat and _player_in_class() and not _task_active and not _class_done and lesson_index < lesson.size():
+				# chegou na sala da matéria: a tarefa aparece
+				_waiting_seat = false
+				_set_objective("Faça as tarefas da aula", null)
+				get_tree().create_timer(0.6).timeout.connect(_present_task)
 			elif _waiting_for_return_after_find and _player_at_desk():
 				_waiting_for_return_after_find = false
 				_set_objective("Faça as tarefas da aula", null)
@@ -729,10 +805,10 @@ func _process(delta: float) -> void:
 					_end_class()
 				else:
 					get_tree().create_timer(1.0).timeout.connect(_present_task)
-			elif not _player_at_desk() and not _task_active and _find_task.is_empty() and not _class_done:
+			elif not _player_in_class() and not _task_active and _find_task.is_empty() and not _class_done:
 				# saiu da sala durante a aula = matando aula
 				var zn: String = world.zone_at(player.global_position).get("name", "")
-				if zn != NPCManager.CLASS_ROOM:
+				if zn != class_room:
 					_out_of_class += delta
 					if _out_of_class > 4.0 and discipline and not discipline.truant:
 						discipline.start_search()
@@ -755,7 +831,9 @@ func _process(delta: float) -> void:
 ## Prazo para sentar: contagem na tela; acabou o tempo, a aula começa sem
 ## o aluno (e quem ficar fora da sala é procurado por matar aula).
 func _update_deadline() -> void:
-	if not (phase == Phase.ARRIVAL or phase == Phase.RETURN) or not _waiting_seat or _player_at_desk():
+	var next_room := room_for_class(1) if phase == Phase.RETURN else NPCManager.CLASS_ROOM
+	var there := _player_at_desk() if next_room == NPCManager.CLASS_ROOM else str(world.zone_at(player.global_position).get("name", "")) == next_room
+	if not (phase == Phase.ARRIVAL or phase == Phase.RETURN) or not _waiting_seat or there:
 		_deadline_shown = -1
 		return
 	var limit := ARRIVAL_LIMIT if phase == Phase.ARRIVAL else RETURN_LIMIT
@@ -764,7 +842,10 @@ func _update_deadline() -> void:
 		left = int(ceil(NetworkManager.phase_left()))
 	if left != _deadline_shown:
 		_deadline_shown = left
-		hud.set_objective("Vá para a %s e sente na carteira · %d:%02d" % [NPCManager.CLASS_ROOM, maxi(left, 0) / 60, maxi(left, 0) % 60])
+		if next_room == NPCManager.CLASS_ROOM:
+			hud.set_objective("Vá para a %s e sente na carteira · %d:%02d" % [next_room, maxi(left, 0) / 60, maxi(left, 0) % 60])
+		else:
+			hud.set_objective("Próxima aula no(a) %s · %d:%02d" % [next_room, maxi(left, 0) / 60, maxi(left, 0) % 60])
 		if left == 20:
 			GameManager.show_toast("Faltam 20 segundos para a aula começar!")
 	if left <= 0 and synced:
@@ -774,7 +855,7 @@ func _update_deadline() -> void:
 		GameManager.show_toast("A aula começou sem você! Corra para a sala!")
 		npcs.teacher.say("Vamos começar. Quem não chegou, perdeu o começo!", 3.0)
 		_begin_class(0 if phase == Phase.ARRIVAL else 1)
-		_set_objective("A aula começou! Vá para a %s" % NPCManager.CLASS_ROOM, npcs.player_desk)
+		_set_objective("A aula começou! Vá para a %s" % class_room, _class_target())
 
 
 func _set_objective(text: String, target: Variant) -> void:
@@ -794,7 +875,8 @@ func _update_marker(delta: float) -> void:
 		return
 	var pos: Vector3 = tgt if tgt is Vector3 else (tgt as Node3D).global_position
 	var top := 1.25 if tgt is Seat else 2.3
-	_marker.visible = player.global_position.distance_to(pos) > 1.2
+	# sem marcador flutuante: a trilha no chão já mostra o caminho
+	_marker.visible = false
 	_marker.global_position = pos + Vector3(0, top + sin(Time.get_ticks_msec() * 0.004) * 0.12, 0)
 	_marker.rotate_y(delta * 2.0)
 	hud.set_objective_point(pos + Vector3(0, 1.0, 0))

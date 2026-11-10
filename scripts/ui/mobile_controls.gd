@@ -39,12 +39,13 @@ var _pinch_dist := -1.0
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	btn_play = _make_button(TouchButton.Icon.PLAY, Color("ffcf3f"), "Comemorar")
-	btn_jump = _make_button(TouchButton.Icon.JUMP, Color("8fd3ff"), "Pular")
+	# botões só com ícone (sem texto embaixo): menos poluição na tela
+	btn_play = _make_button(TouchButton.Icon.PLAY, Color("ffcf3f"), "")
+	btn_jump = _make_button(TouchButton.Icon.JUMP, Color("8fd3ff"), "")
 	btn_interact = _make_button(TouchButton.Icon.INTERACT, Color("9be37a"), "")
-	btn_run = _make_button(TouchButton.Icon.RUN, Color("ff9f6b"), "Correr")
+	btn_run = _make_button(TouchButton.Icon.RUN, Color("ff9f6b"), "")
 	btn_run.toggle = false  # corre só enquanto segura
-	btn_pause = _make_button(TouchButton.Icon.PAUSE, Color("ffffff"), "")
+	btn_pause = _make_button(TouchButton.Icon.MENU, Color("ffffff"), "")
 	btn_emote = _make_button(TouchButton.Icon.EMOTE, Color("ffffff"), "")
 	btn_bag = _make_button(TouchButton.Icon.BAG, Color("ffffff"), "")
 	btn_ride = _make_button(TouchButton.Icon.RIDE, Color("c7a6ff"), "Montar")
@@ -199,6 +200,8 @@ func _on_context_changed(interact_label: String, play_label: String) -> void:
 	btn_interact.modulate.a = 1.0 if interact_label != "" else 0.55
 	btn_play.label = play_label
 	btn_play.highlight = play_label in ["Chutar", "Arremessar"]
+	# o botão amarelo só aparece quando tem uma ação de verdade
+	btn_play.visible = play_label != ""
 
 
 # ------------------------------------------------------------------ entrada
@@ -344,6 +347,8 @@ func _release_all() -> void:
 func _process(_delta: float) -> void:
 	if player and btn_run.toggled_on != player.run_active:
 		btn_run.toggled_on = player.run_active
+		# correndo: o botão mostra "andar" (tocar de novo volta a andar)
+		btn_run.icon = TouchButton.Icon.WALK if player.run_active else TouchButton.Icon.RUN
 
 
 func _draw() -> void:

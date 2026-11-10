@@ -43,10 +43,7 @@ func begin() -> void:
 		bots_a = maxi(4 - _humans.a, 0) if fill else 0
 		bots_b = maxi(4 - _humans.b, 0) if fill else (0 if _humans.b > 0 else 2)
 		NetworkManager.mg_relay.connect(_on_relay)
-	var cands: Array[NPC] = []
-	for n in npcs.classmates + npcs.others:
-		if n.active and n.role == "student" and n.activity != "minigame" and not n.talking_to_player:
-			cands.append(n)
+	var cands: Array[NPC] = students(bots_a + bots_b, CENTER + Vector3(0, 0, 4))
 	for n in cands:
 		if team_a.size() < bots_a:
 			team_a.append(n)

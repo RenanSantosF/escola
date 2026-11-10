@@ -324,8 +324,6 @@ func request_play() -> void:
 		_start_busy("kick", nearby_ball)
 	elif _shove_target():
 		_shove(_shove_target())
-	else:
-		emote("celebrate")
 
 
 ## NPC bem à frente (para empurrar).
@@ -662,8 +660,6 @@ func _emit_context(force := false) -> void:
 		pl = "Chutar"
 	elif _shove_target():
 		pl = "Empurrar"
-	else:
-		pl = "Comemorar"
 	if minigame:
 		var mil: String = minigame.interact_label()
 		var mpl: String = minigame.play_label()

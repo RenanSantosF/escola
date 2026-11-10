@@ -111,7 +111,10 @@ func _ready() -> void:
 	add_child(_fade)
 
 	controls.pause_pressed.connect(open_pause)
-	controls.emote_pressed.connect(func(): _emote_panel.visible = not _emote_panel.visible)
+	controls.emote_pressed.connect(func():
+		if not _emote_panel.visible:
+			_fill_emotes()
+		_emote_panel.visible = not _emote_panel.visible)
 	GameManager.zone_changed.connect(_on_zone_changed)
 	GameManager.toast.connect(show_toast)
 	GameManager.state_changed.connect(_on_state_changed)
@@ -155,7 +158,7 @@ func _on_map_full(is_full: bool) -> void:
 	_map_dim.visible = is_full
 	# mapa aberto: some o resto da tela para não poluir
 	controls.visible = not is_full
-	_wallet.visible = not is_full
+	_wallet.visible = false  # moedas e nível ficam na mochila
 	_zone_panel.visible = not is_full
 	_refresh_card()
 	_layout()
@@ -235,6 +238,7 @@ func _build_status() -> void:
 	_wallet.add_theme_stylebox_override("normal", wsb)
 	_wallet.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_wallet)
+	_wallet.visible = false
 	GameManager.rewards_changed.connect(func(_x, _c, _l): _update_wallet())
 	_update_wallet()
 	# Faixa grande (sinal, recreio, dia)
@@ -275,7 +279,7 @@ func set_minigame_text(text: String) -> void:
 	_mg_label.text = text
 	# brincando: o placar ocupa o lugar do objetivo e das moedas
 	var playing := text != ""
-	_wallet.visible = not playing and not minimap.full
+	_wallet.visible = false
 	_refresh_card()
 	var vs := get_viewport_rect().size
 	_mg_label.add_theme_font_size_override("font_size", 22)
@@ -507,18 +511,35 @@ func show_day_summary(s: Dictionary, on_next: Callable) -> void:
 func _build_emote_panel() -> void:
 	_emote_panel = PanelContainer.new()
 	_emote_panel.visible = false
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
-	_emote_panel.add_child(v)
-	var emotes := [["Acenar", "wave"], ["Comemorar", "celebrate"], ["Ficar triste", "sad"], ["Espreguiçar", "stretch"], ["Coçar a cabeça", "scratch_head"], ["Olhar em volta", "look_around"]]
-	for e in emotes:
+	_emote_box = VBoxContainer.new()
+	_emote_box.add_theme_constant_override("separation", 8)
+	_emote_panel.add_child(_emote_box)
+	_fill_emotes()
+
+
+var _emote_box: VBoxContainer
+
+
+## Só os emojis que o jogador tem (o resto se compra na mochila).
+func _fill_emotes() -> void:
+	for c in _emote_box.get_children():
+		c.queue_free()
+	for e in ShopCatalog.owned_emotes():
+		var em: String = e[1]
 		var b := UITheme.make_button(e[0], func():
 			_emote_panel.visible = false
 			if player:
-				player.emote(e[1]), 250)
+				player.emote(em), 250)
 		b.custom_minimum_size = Vector2(250, 54)
 		b.add_theme_font_size_override("font_size", 22)
-		v.add_child(b)
+		_emote_box.add_child(b)
+	var more := Label.new()
+	more.text = "Mais emojis na mochila"
+	more.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	more.add_theme_font_size_override("font_size", 17)
+	_emote_box.add_child(more)
+	if _emote_panel.is_inside_tree():
+		_emote_panel.reset_size()
 	add_child(_emote_panel)
 	_emote_panel.reset_size()
 	controls.blockers.append(_emote_panel)
@@ -541,7 +562,7 @@ func _build_pause() -> void:
 	_pause_box = VBoxContainer.new()
 	_pause_box.add_theme_constant_override("separation", 16)
 	panel.add_child(_pause_box)
-	_pause_box.add_child(UITheme.title_label("Pausa", 44))
+	_pause_box.add_child(UITheme.title_label("Menu", 44))
 	_pause_box.add_child(UITheme.make_button("Continuar", close_pause))
 	_pause_box.add_child(UITheme.make_button("Configurações", _open_settings))
 	_pause_box.add_child(UITheme.make_button("Menu principal", func():

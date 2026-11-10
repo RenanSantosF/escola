@@ -68,6 +68,8 @@ func setup(p: PlayerController, w: SchoolWorld, m: NPCManager, day: SchoolDay, m
 		inv["decor"] = []
 	if not "skin_nenhuma" in inv.owned:
 		inv.owned.append("skin_nenhuma")
+	if not "emo_wave" in inv.owned:
+		inv.owned.append("emo_wave")
 	day.phase_changed.connect(func(ph):
 		if ph == SchoolDay.Phase.ARRIVAL:
 			ensure_daily(day.day))

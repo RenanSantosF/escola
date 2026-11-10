@@ -177,6 +177,37 @@ test('brincadeiras: rodada com quem chega depois, vez com fila e time com troca 
   hub.tick(t + 3000 + 7000);
   assert.ok(!hub.sessions.get('futebol'));
 });
+test('esconde-esconde: um conta, os outros se escondem, chegar perto acha; precisa de 2', () => {
+  const { GameHub } = require('../src/games');
+  const pos = { a: [0, 0, 0], b: [20, 0, 0], c: [-20, 0, 0] };
+  const room = { phase: 'recess', players: new Map(Object.entries(pos).map(([id, p]) => [id, { pos: p }])) };
+  const hub = new GameHub(room);
+  const t = 1000;
+  hub.join('esconde', 'a', { wait: false }, t);
+  hub.tick(t);
+  assert.equal(hub.sessions.get('esconde').state, 'lobby', 'sozinho não começa');
+  assert.ok(hub.takeEvents().some((e) => e.kind === 'need_players'));
+  hub.join('esconde', 'b', {}, t + 100);
+  hub.join('esconde', 'c', {}, t + 200);
+  hub.tick(t + 20000);
+  const s = hub.sessions.get('esconde');
+  assert.equal(s.state, 'playing');
+  const seeker = s.hide.seeker;
+  assert.equal(s.hide.phase, 'hiding');
+  hub.tick(t + 20000 + 21000);
+  assert.equal(s.hide.phase, 'seeking');
+  assert.ok(hub.join('esconde', 'd', {}, t + 41500).error, 'procurando: novo jogador espera a próxima');
+  const hiders = ['a', 'b', 'c'].filter((x) => x !== seeker);
+  // o procurador chega pertinho do primeiro escondido
+  room.players.get(seeker).pos = [room.players.get(hiders[0]).pos[0] + 1, 0, 0];
+  hub.tick(t + 50000);
+  assert.deepEqual(s.hide.found, [hiders[0]]);
+  room.players.get(seeker).pos = [room.players.get(hiders[1]).pos[0] - 1, 0, 0];
+  hub.tick(t + 60000);
+  assert.equal(s.state, 'results', 'achou todo mundo: acabou');
+  assert.equal(s.scores[seeker], 20);
+});
+
 test('estatísticas: sessões, idades e compras', () => {
   const { Analytics } = require('../src/analytics');
   const a = new Analytics({ dataDir: '' });
