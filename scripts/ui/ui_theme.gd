@@ -112,6 +112,18 @@ static func title_label(text: String, size := 40, col := DARK) -> Label:
 	return l
 
 
+## Prende um controle no canto superior direito (x = distância da borda direita).
+static func pin_top_right(c: Control, from_right: float, top: float, w: float, h: float) -> void:
+	c.anchor_left = 1.0
+	c.anchor_right = 1.0
+	c.anchor_top = 0.0
+	c.anchor_bottom = 0.0
+	c.offset_left = -from_right
+	c.offset_right = -from_right + w
+	c.offset_top = top
+	c.offset_bottom = top + h
+
+
 static func make_button(text: String, cb: Callable, min_w := 320) -> Button:
 	var b := Button.new()
 	b.text = text

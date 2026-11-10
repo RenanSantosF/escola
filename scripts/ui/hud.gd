@@ -336,8 +336,29 @@ func _layout_card() -> void:
 	var vs := get_viewport_rect().size
 	var w := minf(vs.x - 640.0, 760.0)
 	_obj_card.custom_minimum_size = Vector2(w, 0)
+	# largura fixa nos textos: assim a quebra de linha calcula a altura certa
+	# na hora (sem isso o cartão podia ficar com a altura da tela inteira)
+	_objective.custom_minimum_size = Vector2(w - 40.0, 0)
+	_mission.custom_minimum_size = Vector2(w - 40.0 - (130.0 if _cancel_btn.visible else 0.0), 0)
+	_obj_card.size = Vector2(w, 0)
 	_obj_card.reset_size()
 	_obj_card.position = Vector2((vs.x - _obj_card.size.x) * 0.5, 16)
+	# textos que quebram linha só sabem a altura certa depois do layout:
+	# encolhe de novo no próximo quadro (senão o cartão fica gigante)
+	if not _card_relayout_pending:
+		_card_relayout_pending = true
+		_relayout_card_later.call_deferred()
+
+
+var _card_relayout_pending := false
+
+
+func _relayout_card_later() -> void:
+	_card_relayout_pending = false
+	if not is_instance_valid(_obj_card):
+		return
+	_obj_card.size = Vector2(_obj_card.custom_minimum_size.x, 0)
+	_obj_card.reset_size()
 
 
 func _on_cancel_pressed() -> void:
@@ -603,7 +624,10 @@ func _process(delta: float) -> void:
 			_refresh_card()
 		if _obj_card.visible != ((_objective.text != "" or _mission_row.visible) and controls.visible and not _mg_panel.visible):
 			_refresh_card()
-		_cancel_btn.visible = mission_cancel_check.is_valid() and bool(mission_cancel_check.call())
+		var cv := mission_cancel_check.is_valid() and bool(mission_cancel_check.call())
+		if cv != _cancel_btn.visible:
+			_cancel_btn.visible = cv
+			_layout_card()
 		if _cancel_confirm > 0.0:
 			_cancel_confirm -= delta
 			if _cancel_confirm <= 0.0:

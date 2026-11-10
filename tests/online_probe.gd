@@ -7,6 +7,7 @@ extends Node
 var url := "ws://127.0.0.1:8131"
 var got_welcome := false
 var got_chat := ""
+var chats: Array = []
 var got_notice := ""
 
 
@@ -16,7 +17,9 @@ func _ready() -> void:
 			url = a.substr(6)
 	Settings.set_value("server_url", url, false)
 	NetworkManager.welcomed.connect(func(_m): got_welcome = true)
-	NetworkManager.chat.connect(func(_id, _n, t): got_chat = t)
+	NetworkManager.chat.connect(func(_id, _n, t):
+		got_chat = t
+		chats.append(t))
 	NetworkManager.notice.connect(func(t): got_notice = t)
 	NetworkManager.connect_to_server()
 	var other := WebSocketPeer.new()
@@ -33,7 +36,8 @@ func _ready() -> void:
 	print("welcome=", got_welcome, " url=", NetworkManager.server_url())
 	NetworkManager.send_state(Vector3(1, 0, 2), 0.5, "idle")
 	NetworkManager.send_quick(0)
-	NetworkManager.send_chat("oi tudo bem")  # menor de 13: deve vir aviso
+	NetworkManager.send_chat("oi tudo bem")  # chat digitado liberado (com filtro)
+	NetworkManager.send_chat("seu idiota")  # palavrão: bloqueado com aviso
 	var saw_state := false
 	for i in 120:
 		await get_tree().process_frame
@@ -43,6 +47,6 @@ func _ready() -> void:
 			if m is Dictionary and m.get("t") == "states":
 				saw_state = true
 	print("chat=", got_chat, " notice=", got_notice, " other_saw_state=", saw_state)
-	var ok := got_welcome and got_chat == "Oi! Tudo bem?" and got_notice != "" and saw_state
+	var ok := got_welcome and "Oi! Tudo bem?" in chats and "oi tudo bem" in chats and got_notice != "" and saw_state and not chats.any(func(c): return "idiota" in c)
 	print("ONLINE_PROBE ", "OK" if ok else "FALHOU")
 	get_tree().quit(0 if ok else 1)

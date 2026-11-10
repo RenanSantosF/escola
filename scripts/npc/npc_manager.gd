@@ -141,11 +141,21 @@ func apply_desks(map: Dictionary, my_id: String) -> void:
 	var total := _class_roster.size()
 	var want := clampi(total - (humans - 1), mini(MIN_CLASS_BOTS, total), total)
 	want = mini(want, seats.size() - humans)
-	for i in total:
-		var n := _class_roster[i]
-		if i < want and n in benched:
+	# fica quem está numa missão ativa; saem primeiro os do fim da lista
+	var keep_ids: Array = day.quests.protected_npc_ids() if day and day.quests else []
+	var stay: Array[NPC] = []
+	for n in _class_roster:
+		if str(n.data.get("id", "")) in keep_ids:
+			stay.append(n)
+	for n in _class_roster:
+		if stay.size() >= want:
+			break
+		if not n in stay:
+			stay.append(n)
+	for n in _class_roster:
+		if n in stay and n in benched:
 			_unbench(n)
-		elif i >= want and n in classmates:
+		elif not n in stay and n in classmates:
 			_bench(n)
 	# cada bot numa carteira livre (nunca na de um jogador)
 	var used := {}

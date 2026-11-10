@@ -60,7 +60,7 @@ func setup(m: MinigameManager) -> void:
 	_panel = PanelContainer.new()
 	_panel.add_theme_stylebox_override("panel", UITheme.box(Color(0.08, 0.11, 0.22, 0.9), 22, Color(1, 1, 1, 0.25), 2, 0))
 	_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_panel.position = Vector2(-270, 96)
+	_panel.position = Vector2(-270, 128)
 	_panel.custom_minimum_size = Vector2(540, 0)
 	_panel.visible = false
 	_panel_box = VBoxContainer.new()
@@ -76,17 +76,16 @@ func setup(m: MinigameManager) -> void:
 	_chip.add_theme_color_override("font_color", Color.WHITE)
 	_chip.add_theme_color_override("font_hover_color", Color.WHITE)
 	_chip.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_chip.position = Vector2(-230, 92)
+	_chip.position = Vector2(-230, 124)
 	_chip.custom_minimum_size = Vector2(460, 56)
 	_chip.visible = false
 	_chip.pressed.connect(_on_chip)
 	hud.add_child(_chip)
 	_leave_btn = UITheme.make_button("Sair da partida", leave, 220)
 	_leave_btn.custom_minimum_size = Vector2(220, 50)
-	_leave_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_leave_btn.position = Vector2(-240, 168)
 	_leave_btn.visible = false
 	hud.add_child(_leave_btn)
+	UITheme.pin_top_right(_leave_btn, 240, 168, 220, 50)
 	if hud.controls:
 		hud.controls.blockers.append(_panel)
 		hud.controls.blockers.append(_chip)

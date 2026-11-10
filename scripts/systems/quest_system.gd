@@ -166,6 +166,7 @@ func setup(m: NPCManager, p: PlayerController, h: HUD, d: SchoolDay, w: SchoolWo
 	player.picked_up.connect(_on_picked)
 	d.day_finished.connect(func(_s): _rebuild_garden())
 	_setup_party_ui()
+	d.phase_changed.connect(_on_day_phase)
 
 
 func _staff(entry: Dictionary, pos: Vector3, yaw: float) -> NPC:
@@ -302,6 +303,35 @@ func offer(qid: String, npc: NPC) -> void:
 			start(qid)
 		else:
 			npc.say("Tudo bem, fica pra depois!", 2.0), CONNECT_ONE_SHOT)
+
+
+## O sinal tocou: atividade/pergunta de missão aberta fecha (volta no recreio).
+func _on_day_phase(p: int) -> void:
+	var st := _step()
+	if active_id == "" or st.is_empty():
+		return
+	var interactive: bool = st.get("t", "") in ["activity", "choice", "quiz"]
+	if p == SchoolDay.Phase.RECESS:
+		if interactive and hud.find_children("*", "QuestActivity", true, false).is_empty() and not day.dialogue.is_open():
+			_begin_step()
+		return
+	if interactive:
+		for a in hud.find_children("*", "QuestActivity", true, false):
+			a.queue_free()
+		player.input_enabled = true
+		hud.controls.visible = true
+		hud.set_mission("Missão: %s — continua no recreio" % QUESTS[active_id].title)
+
+
+## Quem participa da missão ativa não pode sair da turma (dar lugar a jogador).
+func protected_npc_ids() -> Array:
+	if active_id == "":
+		return []
+	var out := [str(QUESTS[active_id].giver)]
+	for st in QUESTS[active_id].steps:
+		if st.get("t", "") == "talk":
+			out.append(str(st.to))
+	return out
 
 
 func start(qid: String) -> void:
@@ -789,13 +819,13 @@ func _setup_party_ui() -> void:
 		guide_on = not guide_on
 		_guide_btn.text = "Guia ligado ✓" if guide_on else "Me guie: missão"
 		GameManager.show_toast("O jogo vai te levar até a próxima missão." if guide_on else "Guia de missões desligado."))
-	_guide_btn.position = Vector2(-250, 230)
+	UITheme.pin_top_right(_guide_btn, 250, 232, 236, 50)
 	_invite_btn = _small_button("Chamar para a missão", func():
 		if _invite_target != "":
 			NetworkManager.send_direct(_invite_target, "party_invite", {"q": active_id, "title": QUESTS[active_id].title})
 			GameManager.show_toast("Convite enviado para %s!" % NetworkManager.name_of(_invite_target))
 			_invite_btn.visible = false)
-	_invite_btn.position = Vector2(-250, 290)
+	UITheme.pin_top_right(_invite_btn, 250, 290, 236, 50)
 	NetworkManager.direct.connect(_on_direct)
 
 
@@ -809,7 +839,6 @@ func _small_button(text: String, cb: Callable) -> Button:
 		b.add_theme_stylebox_override(st, UITheme.box(Color("5ec8ff"), 22, Color("2f8bc0"), 0, 3))
 	b.add_theme_stylebox_override("pressed", UITheme.box(Color("3fb0ea"), 22, Color("2f8bc0"), 0, 1))
 	b.add_theme_color_override("font_color", UITheme.DARK)
-	b.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	b.pressed.connect(func():
 		AudioManager.play_ui("ui_click")
 		cb.call())
