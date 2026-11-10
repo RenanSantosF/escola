@@ -19,8 +19,8 @@ func _ready() -> void:
 	SaveManager.section("player")["coins"] = 4321
 	SaveManager.save_game()
 	AccountManager.upload_progress()
-	for i in 600:
-		await get_tree().process_frame
+	for i in 80:
+		await get_tree().create_timer(0.1).timeout
 		if not AccountManager.is_uploading():
 			break
 	var code := ""

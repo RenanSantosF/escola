@@ -99,12 +99,20 @@ func login(nick: String, password: String) -> Dictionary:
 		if int(r.get("status", 0)) == 401 and not r.has("error"):
 			r["error"] = "Nome ou senha errados."
 		return r
+	# compara com o save DESTE aparelho antes de gravar qualquer coisa
+	var local_at := SaveManager.saved_at()
+	var same_account := str(_sec().get("id", "")) == str((r.get("account", {}) as Dictionary).get("id", "-"))
 	_store(r)
 	var acc: Dictionary = r.get("account", {})
 	var prog: Variant = acc.get("progress")
 	r["imported"] = false
-	if prog is Dictionary and not (prog as Dictionary).is_empty() and int(acc.get("progressAt", 0)) > SaveManager.saved_at():
+	# outra conta neste celular, ou a nuvem é mais nova: usa o progresso da nuvem
+	if prog is Dictionary and not (prog as Dictionary).is_empty() and (not same_account or int(acc.get("progressAt", 0)) > local_at):
 		SaveManager.import_progress(prog, int(acc.get("progressAt", 0)))
+		r["imported"] = true
+	elif not same_account:
+		# conta sem progresso num celular que tinha OUTRA conta: começa do zero
+		SaveManager.import_progress(SaveManager.default_data(), 0)
 		r["imported"] = true
 	else:
 		SaveManager.save_game()
