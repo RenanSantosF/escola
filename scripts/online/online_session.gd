@@ -102,6 +102,7 @@ func _exit_tree() -> void:
 
 func _on_welcome(m: Dictionary) -> void:
 	chat_panel.setup_phrases(NetworkManager.quick_phrases, NetworkManager.free_chat)
+	chat_panel.set_room(str(m.get("code", "")))
 	chat_panel.add_line("", "Você entrou na sala %s como %s." % [m.get("code", ""), m.name], true)
 	if bool(m.get("private", false)):
 		chat_panel.add_line("", "Código para os amigos: %s" % m.get("code", ""), true)

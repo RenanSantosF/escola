@@ -212,6 +212,10 @@ func _read_move_input() -> Vector2:
 	var v := Vector2.ZERO
 	if controls and controls.has_method("get_move_vector"):
 		v = controls.get_move_vector()
+	# digitando no chat: as teclas não andam com o personagem
+	var focus := get_viewport().gui_get_focus_owner()
+	if focus is LineEdit or focus is TextEdit:
+		return v.limit_length(1.0)
 	var kb := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	if kb.length() > v.length():
 		v = kb
