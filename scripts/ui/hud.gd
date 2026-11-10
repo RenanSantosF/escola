@@ -52,7 +52,7 @@ func _ready() -> void:
 	_zone_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var zv := VBoxContainer.new()
 	zv.add_theme_constant_override("separation", -4)
-	_zone_label = UITheme.title_label("Escola", 26, Color.WHITE)
+	_zone_label = UITheme.title_label("Escola", 24, Color.WHITE)
 	_zone_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_sub_label = Label.new()
 	_sub_label.text = "Dia 1 · Manhã"
@@ -67,7 +67,11 @@ func _ready() -> void:
 	_map_dim.color = Color(0, 0, 0, 0.45)
 	_map_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_map_dim.visible = false
-	_map_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_map_dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	# tocar fora do mapa fecha
+	_map_dim.gui_input.connect(func(e):
+		if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
+			minimap.open_full(false))
 	add_child(_map_dim)
 
 	minimap = Minimap.new()
@@ -75,6 +79,7 @@ func _ready() -> void:
 	add_child(minimap)
 	minimap.toggled_full.connect(_on_map_full)
 	controls.blockers.append(minimap)
+	controls.blockers.append(_map_dim)
 
 	_toast = UITheme.title_label("", 30, Color.WHITE)
 	_toast.add_theme_constant_override("outline_size", 10)
@@ -120,57 +125,105 @@ func bind(p: PlayerController, cam: CameraController, world: Node) -> void:
 
 func _layout() -> void:
 	var vs := get_viewport_rect().size
-	minimap.size = Vector2(200, 150) if not minimap.full else Vector2(minf(vs.x - 120, vs.y * 1.25), vs.y - 120)
+	minimap.size = Vector2(230, 172) if not minimap.full else Vector2(minf(vs.x - 80, (vs.y - 40) * 1.2), vs.y - 40)
 	if minimap.full:
 		minimap.position = (vs - minimap.size) * 0.5
 	else:
-		minimap.position = Vector2(20, 104)
+		minimap.position = Vector2(20, 18)
 	_fps.position = Vector2(vs.x * 0.5 - 30, vs.y - 34)
 	_toast.size = Vector2(840, 50)
-	_toast.position = Vector2((vs.x - 840.0) * 0.5, 100)
+	_toast.position = Vector2((vs.x - 840.0) * 0.5, vs.y * 0.62)
 	_emote_panel.position = Vector2(vs.x - _emote_panel.size.x - 20, 120)
 	if _objective:
-		_objective.size = Vector2(vs.x - 600, 34)
-		_objective.position = Vector2(300, 60)
-		_mission.size = Vector2(vs.x - 600, 28)
-		_mission.position = Vector2(300, 90)
-		_wallet.size = Vector2(420, 30)
-		_wallet.position = Vector2(vs.x - 300 - 420, 32)
+		_layout_card()
+		# moedas/nível embaixo dos botões redondos do canto direito
+		_wallet.reset_size()
+		_wallet.position = Vector2(vs.x - 20 - _wallet.size.x, 96)
+		_zone_panel.position = Vector2(20, minimap.position.y + minimap.size.y + 8) if not minimap.full else Vector2(-999, -999)
 
 
 func _on_map_full(is_full: bool) -> void:
 	_map_dim.visible = is_full
+	# mapa aberto: some o resto da tela para não poluir
+	controls.visible = not is_full
+	_wallet.visible = not is_full
+	_zone_panel.visible = not is_full
+	_refresh_card()
 	_layout()
 
 
+var _obj_card: PanelContainer
+var _mission_row: HBoxContainer
+var _cancel_btn: Button
+var _card_t := 0.0
+var _cancel_confirm := 0.0
+## main.gd preenche: se há missão cancelável e como cancelar.
+var mission_cancel_check: Callable
+var mission_cancel: Callable
+
+
 func _build_status() -> void:
-	# Objetivo atual (topo central)
+	# Cartão do objetivo/missão (topo central): grande ao mudar, discreto depois
+	_obj_card = PanelContainer.new()
+	var sb := UITheme.box(Color(0.1, 0.13, 0.25, 0.82), 20, Color(1, 1, 1, 0.25), 2, 0)
+	sb.content_margin_left = 18
+	sb.content_margin_right = 18
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	_obj_card.add_theme_stylebox_override("panel", sb)
+	_obj_card.mouse_filter = Control.MOUSE_FILTER_STOP
+	_obj_card.gui_input.connect(func(e):
+		if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
+			_expand_card())
+	add_child(_obj_card)
+	var cv := VBoxContainer.new()
+	cv.add_theme_constant_override("separation", 2)
+	_obj_card.add_child(cv)
 	_objective = Label.new()
 	_objective.add_theme_font_override("font", UITheme.bold_font())
-	_objective.add_theme_font_size_override("font_size", 22)
+	_objective.add_theme_font_size_override("font_size", 26)
 	_objective.add_theme_color_override("font_color", Color.WHITE)
-	_objective.add_theme_constant_override("outline_size", 8)
-	_objective.add_theme_color_override("font_outline_color", Color(0.1, 0.12, 0.25, 0.85))
 	_objective.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_objective.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_objective.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_objective)
+	cv.add_child(_objective)
+	_mission_row = HBoxContainer.new()
+	_mission_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_mission_row.add_theme_constant_override("separation", 12)
+	_mission_row.visible = false
+	cv.add_child(_mission_row)
 	_mission = Label.new()
-	_mission.add_theme_font_size_override("font_size", 19)
-	_mission.add_theme_color_override("font_color", Color("ffe08a"))
-	_mission.add_theme_constant_override("outline_size", 7)
-	_mission.add_theme_color_override("font_outline_color", Color(0.1, 0.12, 0.25, 0.85))
+	_mission.add_theme_font_override("font", UITheme.bold_font())
+	_mission.add_theme_font_size_override("font_size", 23)
+	_mission.add_theme_color_override("font_color", Color("8fdcff"))
 	_mission.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_mission.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_mission.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mission.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_mission.visible = false
-	add_child(_mission)
+	_mission_row.add_child(_mission)
+	_cancel_btn = Button.new()
+	_cancel_btn.text = "Cancelar"
+	_cancel_btn.focus_mode = Control.FOCUS_NONE
+	_cancel_btn.add_theme_font_size_override("font_size", 18)
+	for st in ["normal", "hover", "pressed", "focus"]:
+		_cancel_btn.add_theme_stylebox_override(st, UITheme.box(Color("e04a3a"), 12, Color.WHITE, 2, 2))
+	_cancel_btn.add_theme_color_override("font_color", Color.WHITE)
+	_cancel_btn.custom_minimum_size = Vector2(118, 40)
+	_cancel_btn.pressed.connect(_on_cancel_pressed)
+	_mission_row.add_child(_cancel_btn)
+	controls.blockers.append(_obj_card)
 	# Moedas e nível
 	_wallet = Label.new()
 	_wallet.add_theme_font_override("font", UITheme.bold_font())
-	_wallet.add_theme_font_size_override("font_size", 22)
+	_wallet.add_theme_font_size_override("font_size", 24)
 	_wallet.add_theme_color_override("font_color", Color("ffe08a"))
 	_wallet.add_theme_constant_override("outline_size", 8)
 	_wallet.add_theme_color_override("font_outline_color", Color(0.1, 0.12, 0.25, 0.85))
-	_wallet.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_wallet.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var wsb := UITheme.box(Color(0.1, 0.13, 0.25, 0.75), 17, Color("ffcf3f"), 2, 0)
+	wsb.content_margin_left = 12
+	wsb.content_margin_right = 12
+	_wallet.add_theme_stylebox_override("normal", wsb)
 	_wallet.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_wallet)
 	GameManager.rewards_changed.connect(func(_x, _c, _l): _update_wallet())
@@ -228,8 +281,7 @@ func set_meter(value: float) -> void:
 func _update_wallet() -> void:
 	var p: Dictionary = SaveManager.section("player")
 	var lv := int(p.get("level", 1))
-	_wallet.text = "Nível %d  ·  %d XP/%d   🪙 %d" % [lv, int(p.get("xp", 0)), GameManager.xp_for_level(lv), int(p.get("coins", 0))]
-	_wallet.text = _wallet.text.replace("🪙", "Moedas:")
+	_wallet.text = "Nível %d   ·   %d moedas" % [lv, int(p.get("coins", 0))]
 
 
 func show_banner(title: String, subtitle := "") -> void:
@@ -251,8 +303,47 @@ func show_banner(title: String, subtitle := "") -> void:
 
 
 func set_mission(text: String) -> void:
+	if text == _mission.text:
+		return
 	_mission.text = text
-	_mission.visible = text != ""
+	_mission_row.visible = text != ""
+	_expand_card()
+
+
+func _expand_card() -> void:
+	_card_t = 7.0
+	_refresh_card()
+
+
+func _refresh_card() -> void:
+	var has := _objective.text != "" or _mission_row.visible
+	_obj_card.visible = has and controls.visible
+	if not has:
+		return
+	var compact := _card_t <= 0.0
+	_obj_card.modulate.a = 0.6 if compact else 1.0
+	_objective.add_theme_font_size_override("font_size", 20 if compact else 26)
+	_mission.add_theme_font_size_override("font_size", 18 if compact else 23)
+	_layout_card()
+
+
+func _layout_card() -> void:
+	var vs := get_viewport_rect().size
+	var w := minf(vs.x - 640.0, 760.0)
+	_obj_card.custom_minimum_size = Vector2(w, 0)
+	_obj_card.reset_size()
+	_obj_card.position = Vector2((vs.x - _obj_card.size.x) * 0.5, 16)
+
+
+func _on_cancel_pressed() -> void:
+	if _cancel_confirm <= 0.0:
+		_cancel_confirm = 3.0
+		_cancel_btn.text = "Certeza?"
+		return
+	_cancel_confirm = 0.0
+	_cancel_btn.text = "Cancelar"
+	if mission_cancel.is_valid():
+		mission_cancel.call()
 
 
 ## Escurece (1) ou clareia (0) a tela; retorna o tween para aguardar.
@@ -266,8 +357,11 @@ func fade(to: float, time := 0.45) -> Tween:
 
 
 func set_objective(text: String) -> void:
+	var changed := text != _objective.text
 	_objective.text = text
 	_objective.visible = text != ""
+	if changed:
+		_expand_card()
 
 
 func set_objective_point(p: Variant) -> void:
@@ -469,10 +563,15 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_zone_changed(zone_name: String, _indoor: bool) -> void:
 	_zone_label.text = zone_name
-	var tw := create_tween()
-	_zone_panel.pivot_offset = _zone_panel.size * 0.5
-	tw.tween_property(_zone_panel, "scale", Vector2(1.08, 1.08), 0.1)
-	tw.tween_property(_zone_panel, "scale", Vector2.ONE, 0.15)
+	if _zone_tween:
+		_zone_tween.kill()
+	_zone_panel.modulate.a = 1.0
+	_zone_tween = create_tween()
+	_zone_tween.tween_interval(4.0)
+	_zone_tween.tween_property(_zone_panel, "modulate:a", 0.0, 0.6)
+
+
+var _zone_tween: Tween
 
 
 func set_day_text(t: String) -> void:
@@ -489,9 +588,21 @@ func show_toast(message: String) -> void:
 	_toast_tween.tween_property(_toast, "modulate:a", 0.0, 0.5)
 
 
-func _process(_delta: float) -> void:
-	if _objective_point != null or _mission_point != null:
+func _process(delta: float) -> void:
+	if _objective_point != null or _mission_point != null or _game_point != null:
 		queue_redraw()
+	if _obj_card:
+		var was := _card_t > 0.0
+		_card_t -= delta
+		if was and _card_t <= 0.0:
+			_refresh_card()
+		if _obj_card.visible != ((_objective.text != "" or _mission_row.visible) and controls.visible):
+			_refresh_card()
+		_cancel_btn.visible = mission_cancel_check.is_valid() and bool(mission_cancel_check.call())
+		if _cancel_confirm > 0.0:
+			_cancel_confirm -= delta
+			if _cancel_confirm <= 0.0:
+				_cancel_btn.text = "Cancelar"
 	_fps.visible = bool(Settings.get_value("show_fps"))
 	if _fps.visible:
 		_fps.text = "%d FPS" % Engine.get_frames_per_second()

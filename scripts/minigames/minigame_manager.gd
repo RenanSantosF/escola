@@ -108,6 +108,40 @@ func _build_sign(st: Node3D, g: Dictionary) -> void:
 		st.add_child(lb)
 
 
+## Tutorial de primeira vez: [botão, explicação]
+const TUTORIALS := {
+	"futebol": [["Joystick", "Corra pelo campo com o analógico."], ["Amarelo", "Perto da bola, toque para CHUTAR (a mira ajuda)."], ["Verde", "Toque para PASSAR a bola para um colega."], ["", "Faça mais gols que o outro time!"]],
+	"queimada": [["Verde", "Chegue perto da bola e toque para PEGAR."], ["Amarelo", "SEGURE para mirar (aparece a linha) e SOLTE para jogar."], ["", "Acertou um adversário? Ele vai para o cemitério!"], ["Joystick", "Fuja das bolas do outro time."]],
+	"gude": [["Joystick", "Gire para mirar nas bolinhas do círculo."], ["Amarelo", "SEGURE para dar força e SOLTE para jogar."], ["", "Tire as bolinhas do círculo e elas viram suas!"]],
+	"amarelinha": [["Amarelo", "SEGURE e SOLTE quando o círculo ficar VERDE: a pedrinha cai na casa certa."], ["Azul", "Toque em Pular para ir de casa em casa (não precisa ter pressa)."], ["", "Pule a casa da pedrinha, vá até o céu e volte pegando ela!"]],
+	"aviao": [["Amarelo", "Toque quando a barra estiver no MEIO para dobrar bem (3 vezes)."], ["Joystick", "Mire para os lados e para cima (a linha mostra o voo)."], ["Amarelo", "SEGURE para dar força e SOLTE para lançar."], ["Joystick", "No ar, faça curvas para passar nas argolas!"]],
+	"corrida": [["", "Seu personagem corre sozinho na raia."], ["Amarelo", "TOQUE RÁPIDO várias vezes para ganhar velocidade!"], ["Joystick", "Se precisar, ajeite para os lados."]],
+	"corda": [["", "Os colegas batem a corda. Ela vai acelerando."], ["Azul", "Pule quando a barra encher (a corda chega no chão)."], ["", "Você tem 3 vidas. Quantos pulos consegue?"]],
+	"pontaria": [["Joystick", "Gire para mirar na lixeira."], ["Amarelo", "SEGURE para mirar com a linha e SOLTE para jogar."], ["", "Acerte as lixeiras de reciclagem para fazer pontos!"]],
+	"guerra": [["Joystick", "Ande e fuja dos círculos vermelhos (onde os papéis vão cair)."], ["Amarelo", "SEGURE para mirar num colega e SOLTE para jogar a bolinha."], ["", "Quem acertar mais em 1 minuto ganha!"]],
+}
+## Botões que somem em cada brincadeira (a tela fica só com o que usa).
+const HIDE := {
+	"amarelinha": ["run", "emote", "ride"], "aviao": ["run", "jump", "emote", "ride"], "corrida": ["run", "jump", "emote", "ride"],
+	"corda": ["run", "emote", "ride"], "pontaria": ["run", "jump", "emote", "ride"], "gude": ["run", "emote", "ride"],
+	"guerra": ["jump", "emote", "ride"], "queimada": ["emote", "ride"], "futebol": ["emote", "ride"],
+}
+
+var _pending_gid := ""
+
+
+static func _is_test() -> bool:
+	return " ".join(OS.get_cmdline_args()).contains("res://tests/")
+
+
+func show_tutorial(gid: String, on_done: Callable) -> void:
+	var g: Dictionary = GAMES.get(gid, {})
+	var ov := TutorialOverlay.new()
+	hud.get_parent().add_child(ov)  # por cima de tudo (até da mochila)
+	ov.setup(str(g.get("title", gid)), g.get("color", UITheme.YELLOW), TUTORIALS.get(gid, []))
+	ov.done.connect(on_done)
+
+
 func is_recess() -> bool:
 	return day.phase == SchoolDay.Phase.RECESS
 
@@ -122,7 +156,7 @@ func _on_phase(_p: int) -> void:
 func can_start() -> bool:
 	if discipline and discipline.restricted:
 		return false
-	return active == null and is_recess() and player.mode != PlayerController.Mode.SITTING
+	return active == null and _pending_gid == "" and is_recess() and player.mode != PlayerController.Mode.SITTING
 
 
 func start(gid: String) -> bool:
@@ -131,6 +165,18 @@ func start(gid: String) -> bool:
 		return false
 	if not can_start() or not GAMES.has(gid):
 		return false
+	# primeira vez: explica antes de começar
+	if not TutorialOverlay.seen(gid) and not _is_test() and TUTORIALS.has(gid):
+		_pending_gid = gid
+		player.input_enabled = false
+		hud.controls.visible = false
+		show_tutorial(gid, func():
+			TutorialOverlay.mark_seen(gid)
+			_pending_gid = ""
+			player.input_enabled = true
+			hud.controls.visible = true
+			start(gid))
+		return true
 	var script: GDScript = load(GAMES[gid].script)
 	var g: Minigame = script.new()
 	g.id = gid

@@ -24,6 +24,22 @@ Testes do servidor: `cd server && npm install && npm test`.
 Teste ponta a ponta local: `cd server && PORT=8131 node src/server.js` e
 `godot --headless --path . res://tests/online_probe.tscn -- --url=ws://127.0.0.1:8131`.
 
+## Contas (o jogo agora é só online)
+
+- **Criar conta:** idade → apelido escolhido de uma lista gerada pelo servidor (nunca
+  texto livre) → **código secreto** de recuperação (4 palavras + número, ex.:
+  `BOLA SOL LUA RIO 47`) para anotar com um adulto. Sem e-mail, senha, telefone ou nome.
+- **Outro celular:** "Já tenho conta" → digitar o código → o progresso volta inteiro
+  (moedas, itens, skins, nível, amizades...). O token do aparelho antigo deixa de valer.
+- **Progresso na nuvem:** enviado a cada salvamento (no máximo a cada 20 s) e ao sair;
+  ao abrir o jogo, se a nuvem tiver progresso mais novo, ele é baixado.
+- **Apagar conta (LGPD):** Configurações → Minha conta → Apagar minha conta.
+- Rotas: `GET /api/account/names`, `POST /api/account/register`, `POST /api/account/recover`
+  (limite de 8 tentativas a cada 10 min por IP), `GET /api/account/me`, `PUT /api/progress`,
+  `DELETE /api/account`. Token e código guardados só como hash no banco.
+- Sem internet não dá para jogar: o jogo avisa "Reconectando..." e, depois de 25 s,
+  oferece "Tentar de novo" ou "Voltar ao menu".
+
 ## Jogar online (no jogo)
 
 Menu principal → **Jogar online**:

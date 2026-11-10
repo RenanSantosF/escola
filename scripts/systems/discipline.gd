@@ -235,8 +235,10 @@ func _cutscene(kind: String, n: int) -> void:
 	if n >= 2:
 		_parent = _make_parent()
 		_parent.teleport(desk + Vector3(1.6, 0.03, -1.4), -PI * 0.75)
-	var cam_xf := Transform3D(Basis(), desk + Vector3(-2.6, 2.2, -2.6)).looking_at(desk + Vector3(0.2, 0.9, -0.6), Vector3.UP)
-	player.camera_rig.set_override(cam_xf)
+	# câmera normal atrás do aluno (dá para girar durante a conversa)
+	player.camera_rig.yaw = player.yaw + PI
+	player.camera_rig.pitch = -16.0
+	player.camera_rig.snap_to_target()
 	await get_tree().create_timer(0.6).timeout
 	hud.fade(0.0)
 	dir.visual.play("talk")
@@ -246,7 +248,6 @@ func _cutscene(kind: String, n: int) -> void:
 	dir.visual.stop_upper()
 	_apply_consequence(n)
 	await hud.fade(1.0).finished
-	player.camera_rig.set_override(null)
 	player.force_stand()
 	player.global_position = Vector3(0, 0.05, 31)
 	player.yaw = 0.0
@@ -424,40 +425,81 @@ func _apply_consequence(n: int) -> void:
 			hud.set_mission("Sente no banco do hall por 45 s")
 
 
+const CLEANUP_COUNT := 5
+var _cleanup_items: Array = []
+var _cleanup_bin: Node = null
+
+
 func _start_cleanup_task() -> void:
 	restricted = true
 	restriction_text = "Ajude a Dona Cida antes de brincar"
-	_cleanup_left = 5
-	hud.set_mission("Recolha 5 bolinhas de papel do pátio (pegue e solte-as na lixeira) — faltam 5")
-	# espalha bolinhas pelo pátio
+	_cleanup_left = CLEANUP_COUNT
+	hud.set_mission("Recolha %d bolinhas de papel do pátio (setas amarelas)" % CLEANUP_COUNT)
+	# espalha bolinhas só em pontos alcançáveis do pátio
 	var r := RandomNumberGenerator.new()
 	r.randomize()
-	for i in 6:
+	for i in CLEANUP_COUNT:
 		var item := PickupItem.create_paper_ball()
-		item.position = Vector3(r.randf_range(-20, 20), 0.3, r.randf_range(-20, 2))
+		item.position = npcs.nav.random_point(r, Rect2(-24, -22, 48, 22)) + Vector3(0, 0.15, 0)
 		item.add_to_group("cleanup")
 		world.get_node("Dynamic").add_child(item)
+		item.mark_as_goal()
+		_cleanup_items.append(item)
 	set_process(true)
+
+
+## Alvo atual da tarefa de limpeza (para a seta/minimapa).
+func cleanup_target() -> Variant:
+	if _cleanup_bin and is_instance_valid(_cleanup_bin):
+		return (_cleanup_bin as Node3D).global_position
+	var best: Variant = null
+	for it in _cleanup_items:
+		if is_instance_valid(it) and (best == null or (it as Node3D).global_position.distance_to(player.global_position) < (best as Vector3).distance_to(player.global_position)):
+			best = (it as Node3D).global_position
+	return best
 
 
 ## Chamado pelo jogador ao pegar um objeto.
 func on_player_picked(item: Node) -> void:
 	if _cleanup_left > 0 and item.is_in_group("cleanup"):
-		item.remove_from_group("cleanup")
+		# vai direto para o saquinho: não precisa segurar um por vez
+		_cleanup_items.erase(item)
+		player.held_item = null
+		item.queue_free()
 		_cleanup_left -= 1
 		AudioManager.play_ui("pickup")
 		if _cleanup_left <= 0:
-			npcs.inspector.say("Muito bem! Obrigada pela ajuda.", 2.5)
-			change_reputation(5)
-			_lift_restriction("A Dona Cida agradeceu! Pode brincar.")
+			hud.set_mission("Agora jogue os papéis na lixeira azul (seta amarela)")
+			GameManager.show_toast("Todos recolhidos! Agora é só jogar na lixeira.")
+			var s := QuestSpot.new()
+			s.prompt = "Jogar no lixo"
+			s.position = QuestSystem.BINS
+			s.hold_time = 0.6
+			s.anim = "throw"
+			s.done.connect(func(_sp):
+				if is_instance_valid(_cleanup_bin):
+					_cleanup_bin.queue_free()
+				_cleanup_bin = null
+				npcs.inspector.say("Muito bem! Obrigada pela ajuda.", 2.5)
+				change_reputation(5)
+				_lift_restriction("A Dona Cida agradeceu! Pode brincar."))
+			world.add_child(s)
+			_cleanup_bin = s
 		else:
-			hud.set_mission("Recolha bolinhas de papel do pátio — faltam %d" % _cleanup_left)
+			hud.set_mission("Recolha as bolinhas de papel do pátio — faltam %d" % _cleanup_left)
 
 
 func _lift_restriction(msg: String) -> void:
 	restricted = false
 	restriction_text = ""
 	_cleanup_left = 0
+	for it in _cleanup_items:
+		if is_instance_valid(it):
+			it.queue_free()
+	_cleanup_items.clear()
+	if is_instance_valid(_cleanup_bin):
+		_cleanup_bin.queue_free()
+	_cleanup_bin = null
 	hud.set_mission("")
 	GameManager.show_toast(msg)
 
@@ -476,6 +518,6 @@ func _on_day_finished(_s: Dictionary) -> void:
 		d["clean_days"] = 0
 	_clean_day = true
 	strikes_today = 0.0
-	if _bench_t >= 0.0 or _cleanup_left > 0:
+	if _bench_t >= 0.0 or restricted:
 		_bench_t = -1.0
 		_lift_restriction("Um novo dia, uma nova chance!")

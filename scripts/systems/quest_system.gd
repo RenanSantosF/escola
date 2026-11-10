@@ -352,9 +352,10 @@ func _begin_step() -> void:
 				var it: PickupItem = PickupItem.create_paper_ball() if st.item == "paper_ball" else PickupItem.create_item(st.item)
 				if st.has("label"):
 					it.prompt = st.label
-				it.position = pos
+				it.position = pos - Vector3(0, 0.15, 0)
 				it.add_to_group("quest_item")
 				world.get_node("Dynamic").add_child(it)
+				it.mark_as_goal()
 				_spawned.append(it)
 		"quiz":
 			_ask_quiz(st.subject)
@@ -590,6 +591,11 @@ func _target_pos() -> Variant:
 
 ## Destino das missões rápidas de evento (recado, objeto perdido).
 func _event_target() -> Variant:
+	# castigo da Dona Cida (papéis + lixeira)
+	if day and day.discipline and day.discipline.restricted:
+		var ct: Variant = day.discipline.cleanup_target()
+		if ct != null:
+			return ct
 	if day == null or day.events == null or day.events.mission.is_empty():
 		return null
 	var m: Dictionary = day.events.mission

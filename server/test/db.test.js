@@ -74,3 +74,23 @@ test('banco: token guardado só como hash', { skip }, async () => {
   assert.match(r.rows[0].token_hash, /^[a-f0-9]{64}$/);
   await db.close();
 });
+
+test('banco: conta registrada e progresso voltam depois do deploy; recuperação no banco', { skip }, async () => {
+  let srv = await start();
+  let base = 'http://127.0.0.1:' + srv.server.address().port;
+  const { names } = await (await fetch(base + '/api/account/names')).json();
+  const reg = await (await fetch(base + '/api/account/register', { method: 'POST', body: JSON.stringify({ name: names[1], age: 11 }) })).json();
+  await fetch(base + '/api/progress', { method: 'PUT', headers: { 'x-token': reg.token }, body: JSON.stringify({ save: { player: { coins: 777, level: 5 } }, savedAt: Date.now() }) });
+  await wait(200);
+  srv.close();
+  await srv.db.close();
+  srv = await start();
+  base = 'http://127.0.0.1:' + srv.server.address().port;
+  const me = await (await fetch(base + '/api/account/me', { headers: { 'x-token': reg.token } })).json();
+  assert.equal(me.account.progress.player.coins, 777);
+  const rec = await (await fetch(base + '/api/account/recover', { method: 'POST', body: JSON.stringify({ code: reg.code }) })).json();
+  assert.ok(rec.ok);
+  assert.equal(rec.account.progress.player.coins, 777);
+  srv.close();
+  await srv.db.close();
+});

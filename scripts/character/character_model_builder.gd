@@ -236,7 +236,23 @@ func _make_mesh() -> ArrayMesh:
 			_box("Chest", bp.darkened(0.35), Vector3(0.1 * sx, 0.2, -0.02), Vector3(0.035, 0.05, 0.27), Vector3(25, 0, 0))
 			_box("Chest", bp.darkened(0.35), Vector3(0.11 * sx, 0.07, 0.12), Vector3(0.035, 0.3, 0.012), Vector3(-6, 0, 0))
 
+	_shade_depth()
 	return md.build_mesh(get_material())
+
+
+## Profundidade "pintada" nas cores: um pouco mais escuro perto dos pés e
+## embaixo das partes (queixo, axila), mais claro no alto. Custo zero no jogo.
+func _shade_depth() -> void:
+	var top := 1.55 * app.height_scale
+	for i in md.v.size():
+		var p := md.v[i]
+		var nn := md.n[i]
+		var h := clampf(p.y / top, 0.0, 1.0)
+		var k := lerpf(0.8, 1.04, smoothstep(0.0, 0.85, h))
+		# faces viradas para baixo recebem menos luz (oclusão falsa)
+		k *= lerpf(0.86, 1.0, clampf(nn.y * 0.5 + 0.5, 0.0, 1.0) * 1.25)
+		var col := md.c[i]
+		md.c[i] = Color(col.r * k, col.g * k, col.b * k, col.a)
 
 
 func _make_head() -> void:
@@ -245,15 +261,19 @@ func _make_head() -> void:
 	var c := HEAD_C
 	# Crânio levemente oval
 	_sphere("Head", skin, c, HEAD_R, Vector3(0.98, 1.03, 1.0), Vector3.ZERO, 16, 12)
-	# Bochecha/queixo suave
-	_sphere("Head", skin, c + Vector3(0, -0.06, 0.035), 0.11, Vector3(1.0, 0.8, 1.0), Vector3.ZERO, 12, 8)
+	# Bochecha/queixo suave + maçãs do rosto
+	_sphere("Head", skin, c + Vector3(0, -0.06, 0.035), 0.11, Vector3(1.0, 0.8, 1.0), Vector3.ZERO, 14, 10)
+	_sphere("Head", skin, c + Vector3(0, -0.105, 0.065), 0.05, Vector3(1.3, 0.8, 0.9), Vector3.ZERO, 10, 7)
+	for sx2: float in [1.0, -1.0]:
+		_sphere("Head", skin, c + Vector3(0.075 * sx2, -0.03, 0.095), 0.045, Vector3(1.0, 0.8, 0.7), Vector3.ZERO, 10, 7)
 	# Orelhas
 	for sx: float in [1.0, -1.0]:
 		_sphere("Head", skin.darkened(0.06), c + Vector3(0.148 * sx, -0.005, 0.0), 0.036, Vector3(0.45, 1.0, 0.75))
 		# Bochechas rosadas
 		_sphere("Head", skin.lerp(Color("ff8f8f"), 0.35), c + Vector3(0.082 * sx, -0.045, 0.118), 0.024, Vector3(1.0, 0.7, 0.35), Vector3.ZERO, 8, 5)
 	# Nariz
-	_sphere("Head", skin.darkened(0.08), c + Vector3(0, -0.025, 0.152), 0.022, Vector3(1.0, 0.9, 0.8), Vector3.ZERO, 8, 6)
+	_sphere("Head", skin.darkened(0.05), c + Vector3(0, -0.022, 0.152), 0.022, Vector3(1.0, 0.95, 0.85), Vector3.ZERO, 10, 7)
+	_capsule("Head", skin.darkened(0.03), c + Vector3(0, 0.005, 0.146), 0.012, 0.05, Vector3(1, 1, 0.8), Vector3(-12, 0, 0), 8)
 	# Olhos (osso próprio para piscar)
 	for side: String in ["Left", "Right"]:
 		# esclera branca, íris colorida, pupila e brilho
@@ -262,11 +282,19 @@ func _make_head() -> void:
 		_sphere(side + "Eye", Color("15100c"), Vector3(0, -0.002, 0.010), 0.0105, Vector3(1.0, 1.15, 0.4), Vector3.ZERO, 8, 5)
 		_sphere(side + "Eye", Color.WHITE, Vector3(0.007, 0.009, 0.013), 0.0055, Vector3.ONE, Vector3.ZERO, 6, 4)
 		var sx := 1.0 if side == "Left" else -1.0
-		_box(side + "Brow", a.hair_color.darkened(0.1), Vector3.ZERO, Vector3(0.05, 0.012, 0.014), Vector3(0, 0, 8 * sx))
-	# Boca (sorriso simples)
-	_box("Mouth", Color("7a2a2a"), Vector3(0, 0, 0), Vector3(0.036, 0.011, 0.012))
-	_box("Mouth", Color("7a2a2a"), Vector3(0.022, 0.004, -0.002), Vector3(0.014, 0.01, 0.012), Vector3(0, 0, 30))
-	_box("Mouth", Color("7a2a2a"), Vector3(-0.022, 0.004, -0.002), Vector3(0.014, 0.01, 0.012), Vector3(0, 0, -30))
+		# pálpebra de cima (dá um olhar mais vivo) e cílios
+		_cap(side + "Eye", skin.darkened(0.04), Vector3(0, 0.004, -0.006), 0.034, Vector3(0, 1, 0.55), 62, Vector3(1.0, 1.15, 0.5))
+		_capsule(side + "Eye", Color("1a1410"), Vector3(0.002 * sx, 0.026, 0.006), 0.0045, 0.05, Vector3.ONE, Vector3(0, 0, 90 - 10 * sx), 6)
+		# sobrancelha arqueada (3 pedacinhos)
+		var bc := a.hair_color.darkened(0.15)
+		_capsule(side + "Brow", bc, Vector3(-0.012 * sx, -0.002, 0), 0.0065, 0.03, Vector3.ONE, Vector3(0, 0, 90 + 18 * sx), 6)
+		_capsule(side + "Brow", bc, Vector3(0.014 * sx, 0.002, -0.001), 0.006, 0.028, Vector3.ONE, Vector3(0, 0, 90 - 12 * sx), 6)
+	# Boca: sorriso curvo (arco de pontinhos) + lábio inferior
+	var lip := Color("8a2f3a")
+	for k in 7:
+		var t := (k - 3) / 3.0
+		_sphere("Mouth", lip, Vector3(t * 0.026, absf(t) * absf(t) * 0.009, -0.002 - absf(t) * 0.003), 0.0062, Vector3(1.4, 0.9, 0.7), Vector3.ZERO, 6, 4)
+	_sphere("Mouth", skin.lerp(Color("e07a7a"), 0.35), Vector3(0, -0.011, -0.006), 0.012, Vector3(1.6, 0.55, 0.6), Vector3.ZERO, 8, 5)
 
 	_make_hair()
 
@@ -299,10 +327,15 @@ func _make_hair() -> void:
 		"raspado":
 			_cap("Head", hc.lerp(a.skin, 0.25), c + Vector3(0, 0.004, -0.004), HEAD_R + 0.006, Vector3(0, 1, -0.6), 90)
 		"curto":
-			_cap("Head", hc, c + Vector3(0, 0.006, -0.006), HEAD_R + 0.014, Vector3(0, 1, -0.6), 92)
+			_cap("Head", hc, c + Vector3(0, 0.008, -0.008), HEAD_R + 0.018, Vector3(0, 1, -0.6), 92)
+			# costeletas arredondadas
 			for sx: float in [1.0, -1.0]:
-				_box("Head", hc, c + Vector3(0.143 * sx, -0.01, 0.045), Vector3(0.02, 0.06, 0.03))
-			_sphere("Head", hc, c + Vector3(0.03, 0.105, 0.1), 0.06, Vector3(1.6, 0.55, 0.8), Vector3(0, 0, -12))
+				_sphere("Head", hc, c + Vector3(0.142 * sx, -0.005, 0.04), 0.028, Vector3(0.6, 1.4, 0.9), Vector3.ZERO, 8, 6)
+			# mechas da franja + volume no topo
+			for k in 4:
+				var fx := -0.06 + k * 0.04
+				_sphere("Head", hc.lightened(0.04 * (k % 2)), c + Vector3(fx, 0.1 - absf(fx) * 0.3, 0.115), 0.034, Vector3(1.2, 0.7, 0.8), Vector3(-25, 0, -fx * 200.0), 8, 6)
+			_sphere("Head", hc, c + Vector3(0, 0.13, -0.02), 0.09, Vector3(1.5, 0.55, 1.4), Vector3.ZERO, 12, 8)
 		"franja":
 			_cap("Head", hc, c + Vector3(0, 0.006, -0.006), HEAD_R + 0.014, Vector3(0, 1, -0.6), 92)
 			_capsule("Head", hc, c + Vector3(0, 0.085, 0.118), 0.045, 0.27, Vector3(1, 1, 0.55), Vector3(0, 0, 90))

@@ -85,6 +85,18 @@ func _ready() -> void:
 	minigames.name = "Minigames"
 	add_child(minigames)
 	minigames.setup(world, npcs, player, hud, school_day)
+	hud.mission_cancel_check = func() -> bool:
+		return (quests != null and quests.active_id != "") or (events != null and not events.mission.is_empty())
+	hud.mission_cancel = func():
+		if quests and quests.active_id != "":
+			quests.abandon()
+			GameManager.show_toast("Missão cancelada. Você pode pegar outra!")
+		elif events and not events.mission.is_empty():
+			events._fail_mission("Missão cancelada.")
+	var trail := GuideTrail.new()
+	trail.name = "GuideTrail"
+	world.add_child(trail)
+	trail.setup(hud, player, npcs.nav)
 	var social := NPCSocial.new()
 	social.name = "NPCSocial"
 	add_child(social)
@@ -222,12 +234,15 @@ func _build_menu() -> void:
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 16)
 	_menu_box.add_child(spacer)
-	_menu_box.add_child(UITheme.make_button("Jogar sozinho", _on_play_pressed, 360))
-	var on_btn := UITheme.make_button("Jogar online", _on_online_pressed, 360)
-	on_btn.add_theme_stylebox_override("normal", UITheme.box(UITheme.BLUE, 18, UITheme.DARK, 3, 5))
-	on_btn.add_theme_stylebox_override("hover", UITheme.box(UITheme.BLUE.lightened(0.1), 18, UITheme.DARK, 3, 5))
-	on_btn.add_theme_color_override("font_color", Color.WHITE)
-	_menu_box.add_child(on_btn)
+	_hello_lbl = UITheme.title_label("", 28, Color("ffe08a"))
+	_hello_lbl.add_theme_constant_override("outline_size", 8)
+	_hello_lbl.add_theme_color_override("font_outline_color", Color("1f2a44"))
+	_hello_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_menu_box.add_child(_hello_lbl)
+	var play_btn := UITheme.make_button("Jogar", _on_online_pressed, 360)
+	play_btn.add_theme_font_size_override("font_size", 40)
+	play_btn.custom_minimum_size = Vector2(360, 90)
+	_menu_box.add_child(play_btn)
 	_menu_box.add_child(UITheme.make_button("Configurações", _open_menu_settings, 360))
 	_menu_box.add_child(UITheme.make_button("Créditos", _open_credits, 360))
 	if OS.get_name() not in ["Android", "iOS", "Web"]:
@@ -260,6 +275,22 @@ func _build_menu() -> void:
 		_menu_box.visible = true)
 	_online_menu.chosen.connect(_join_online)
 
+	_account_screen = AccountScreen.new()
+	_account_screen.visible = false
+	center.add_child(_account_screen)
+	_account_screen.back.connect(func():
+		_account_screen.visible = false
+		_menu_box.visible = true)
+	_account_screen.done.connect(func(imported):
+		_account_screen.visible = false
+		_refresh_hello()
+		if imported:
+			# progresso de outro celular: recarrega o mundo com ele
+			get_tree().reload_current_scene()
+			return
+		_online_menu.reset()
+		_online_menu.visible = true)
+
 	_credits = PanelContainer.new()
 	_credits.visible = false
 	var cv := VBoxContainer.new()
@@ -287,12 +318,22 @@ func _open_credits() -> void:
 
 
 func _show_menu() -> void:
+	_refresh_hello()
+	# jogou em outro celular? baixa o progresso mais novo da nuvem
+	if not _synced and AccountManager.has_account() and not "--autoplay" in OS.get_cmdline_user_args():
+		_synced = true
+		_sync_start()
 	GameManager.set_state(GameManager.State.MENU)
 	_menu.visible = true
 	_menu_box.visible = true
 	_menu.modulate.a = 1.0
 	camera_rig.set_showcase(true)
 	AudioManager.play_music("music_menu", -10.0)
+
+
+func _sync_start() -> void:
+	if await AccountManager.sync_on_start():
+		get_tree().reload_current_scene()
 
 
 func _on_play_pressed() -> void:
@@ -326,20 +367,25 @@ var _online_menu: OnlineMenu
 var _join_timer: SceneTreeTimer
 
 
+var _account_screen: AccountScreen
+var _hello_lbl: Label
+var _synced := false
+
+
+func _refresh_hello() -> void:
+	if _hello_lbl:
+		_hello_lbl.text = ("Olá, %s!" % AccountManager.nickname()) if AccountManager.has_account() else ""
+
+
+## O jogo é só online: precisa de conta (criada uma vez) e de internet.
 func _on_online_pressed() -> void:
-	var open := func():
-		_menu_box.visible = false
-		_online_menu.reset()
-		_online_menu.visible = true
-	if Learning.has_age():
-		open.call()
-	else:
-		_menu_box.visible = false
-		var p := AgePicker.new()
-		_menu.add_child(p)
-		p.confirmed.connect(func(_a):
-			p.queue_free()
-			open.call())
+	_menu_box.visible = false
+	if not AccountManager.has_account():
+		_account_screen.show_start()
+		_account_screen.visible = true
+		return
+	_online_menu.reset()
+	_online_menu.visible = true
 
 
 func _join_online(mode: String, code: String) -> void:

@@ -54,6 +54,11 @@ func play_label() -> String:
 	return ""
 
 
+## Botões escondidos durante esta brincadeira ("run", "jump", "emote", "ride", "interact").
+func hidden_buttons() -> Array:
+	return mgr.HIDE.get(id, []) if mgr else []
+
+
 func interact_label() -> String:
 	return ""
 

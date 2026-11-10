@@ -1,19 +1,27 @@
 class_name Minimap
 extends Control
-## Minimapa (canto superior) e mapa completo da escola ao tocar.
-## Desenhado a partir dos dados de layout — sem texturas extras.
+## Minimapa (canto superior) e mapa completo da escola.
+## Fundo = foto aérea de verdade da escola, renderizada UMA vez ao carregar
+## (câmera ortográfica de cima). Por cima: nomes dos lugares, marcadores de
+## missões/brincadeiras e a seta "você está aqui". Sem a foto (modo sem
+## vídeo dos testes) desenha as zonas coloridas como antes.
+## O mapa completo fecha ao tocar FORA dele ou no X.
 
 signal toggled_full(is_full: bool)
 
+const AERIAL_PX := 1400  # largura da foto aérea
+
 var world: Node
 var player: Node3D
-var view_radius := 42.0
+var view_radius := 34.0
 var full := false
 var _font: Font
 var _zones: Array = []
 var _shapes: Array = []
 var _lot := Rect2(-90, -75, 180, 150)
 var _timer := 0.0
+var _aerial: Texture2D
+var _aerial_rect := Rect2()  # área do mundo (x,z) coberta pela foto
 ## Marcadores por grupo: {grupo: [{pos: Vector3, color: Color, icon: String}]}
 var markers := {}
 
@@ -36,20 +44,80 @@ func setup(w: Node, p: Node3D) -> void:
 	_zones.sort_custom(func(a, b): return a.priority < b.priority)
 	_shapes = md.shapes
 	_lot = md.lot
+	_capture_aerial()
+
+
+## Tira a "foto de satélite" da escola uma única vez.
+func _capture_aerial() -> void:
+	if DisplayServer.get_name() == "headless" or not is_inside_tree():
+		return
+	var area := _lot.grow(6.0)
+	_aerial_rect = area
+	var h_px := int(AERIAL_PX * area.size.y / area.size.x)
+	var vp := SubViewport.new()
+	vp.size = Vector2i(AERIAL_PX, h_px)
+	vp.world_3d = get_viewport().world_3d
+	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	vp.msaa_3d = Viewport.MSAA_2X
+	vp.own_world_3d = false
+	var cam := Camera3D.new()
+	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	cam.keep_aspect = Camera3D.KEEP_HEIGHT
+	cam.size = area.size.y
+	cam.near = 1.0
+	cam.far = 400.0
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color("5f9e4f")
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.85, 0.88, 0.95)
+	env.ambient_light_energy = 0.35
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_exposure = 0.78
+	env.adjustment_enabled = true
+	env.adjustment_saturation = 1.12
+	env.adjustment_contrast = 1.12
+	cam.environment = env
+	vp.add_child(cam)
+	add_child(vp)
+	var c := area.get_center()
+	cam.global_transform = Transform3D(Basis.looking_at(Vector3.DOWN, Vector3(0, 0, -1)), Vector3(c.x, 150.0, c.y))
+	cam.current = true
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	var img := vp.get_texture().get_image()
+	if img and not img.is_empty():
+		_aerial = ImageTexture.create_from_image(img)
+	vp.queue_free()
 
 
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		full = not full
-		toggled_full.emit(full)
-		AudioManager.play_ui("ui_click")
-		accept_event()
+	var tap: bool = event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT
+	if not tap:
+		return
+	if not full:
+		open_full(true)
+	elif _close_rect().has_point(event.position):
+		open_full(false)
+	accept_event()
+
+
+func open_full(on: bool) -> void:
+	if on == full:
+		return
+	full = on
+	toggled_full.emit(full)
+	AudioManager.play_ui("ui_click")
+
+
+func _close_rect() -> Rect2:
+	return Rect2(Vector2(size.x - 64, 8), Vector2(56, 56))
 
 
 func _process(delta: float) -> void:
 	_timer -= delta
 	if _timer <= 0.0:
-		_timer = 0.1
+		_timer = 0.05
 		queue_redraw()
 
 
@@ -67,7 +135,76 @@ func _draw() -> void:
 		center = _lot.get_center()
 		scale = minf(size.x / (_lot.size.x + 10.0), size.y / (_lot.size.y + 10.0))
 	var bg := Rect2(Vector2.ZERO, size)
-	draw_rect(bg, Color("6fae5c"))
+	draw_rect(bg, Color("5f9e4f"))
+	if _aerial:
+		# recorte da foto aérea que corresponde à área visível
+		var tl := center - size * 0.5 / scale
+		var br := center + size * 0.5 / scale
+		var px_per_m := _aerial.get_width() / _aerial_rect.size.x
+		var src := Rect2((tl - _aerial_rect.position) * px_per_m, (br - tl) * px_per_m)
+		draw_texture_rect_region(_aerial, bg, src)
+	else:
+		_draw_zones(center, scale, bg)
+	# vinheta suave nas bordas do minimapa
+	if not full:
+		draw_rect(bg, Color(0.05, 0.08, 0.18, 0.12))
+	if full:
+		_draw_labels(center, scale)
+	# marcadores (missões, brincadeiras, objetivo)
+	for g in markers.keys():
+		# minimapa pequeno mostra só o que importa agora (objetivo/missão)
+		if not full and g in ["brincadeiras"]:
+			continue
+		for m in markers[g]:
+			var mp := _w2m(Vector2(m.pos.x, m.pos.z), center, scale)
+			if not full:
+				var rel := mp - size * 0.5
+				var lim := minf(size.x, size.y) * 0.5 - 11.0
+				if rel.length() > lim:
+					mp = size * 0.5 + rel.normalized() * lim
+			var rad := 13.0 if full else 10.0
+			draw_circle(mp + Vector2(0, 2), rad + 2.5, Color(0, 0, 0, 0.35))
+			draw_circle(mp, rad + 2.5, Color.WHITE)
+			draw_circle(mp, rad, m.color)
+			var ic: String = m.get("icon", "")
+			if ic != "":
+				var fs := 17 if full else 14
+				var tw := _font.get_string_size(ic, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+				draw_string(_font, mp + Vector2(-tw * 0.5, fs * 0.36), ic, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("1f2a44"))
+	# jogador: anel pulsante + seta
+	var pc := _w2m(pp, center, scale)
+	var yaw: float = player.get("yaw") if player.get("yaw") != null else 0.0
+	var dir := Vector2(sin(yaw), cos(yaw))
+	var side := dir.orthogonal()
+	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.006)
+	draw_circle(pc, 15.0 + pulse * 6.0, Color(0.37, 0.78, 1.0, 0.25 + 0.2 * (1.0 - pulse)))
+	draw_arc(pc, 16.0 + pulse * 6.0, 0, TAU, 28, Color(1, 1, 1, 0.9), 2.5, true)
+	var k := 1.25 if full else 1.0
+	var arrow := PackedVector2Array([pc + dir * 16.0 * k, pc - dir * 10.0 * k + side * 10.0 * k, pc - dir * 4.0 * k, pc - dir * 10.0 * k - side * 10.0 * k])
+	draw_colored_polygon(arrow, Color("ff3b4e"))
+	draw_polyline(PackedVector2Array([arrow[0], arrow[1], arrow[2], arrow[3], arrow[0]]), Color.WHITE, 2.5, true)
+	if full:
+		_draw_label_pill(pc + Vector2(0, -34), "Você", Color("ff3b4e"), 18)
+	# moldura
+	draw_rect(bg, Color(1, 1, 1, 0.95), false, 5.0)
+	draw_rect(bg.grow(-5), Color(0.1, 0.13, 0.25, 0.5), false, 2.0)
+	if not full:
+		_draw_label_pill(Vector2(size.x - 22, 22), "N", Color("1f2a44"), 15)
+	else:
+		# botão fechar
+		var cr := _close_rect()
+		draw_circle(cr.get_center(), 26, Color("e04a3a"))
+		draw_arc(cr.get_center(), 26, 0, TAU, 24, Color.WHITE, 3.0, true)
+		var cc := cr.get_center()
+		draw_line(cc + Vector2(-10, -10), cc + Vector2(10, 10), Color.WHITE, 5.0, true)
+		draw_line(cc + Vector2(10, -10), cc + Vector2(-10, 10), Color.WHITE, 5.0, true)
+		var hint := "Toque fora do mapa para fechar"
+		var tw2 := _font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+		draw_string_outline(_font, Vector2((size.x - tw2) * 0.5, size.y - 16), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, 6, Color(0, 0, 0, 0.7))
+		draw_string(_font, Vector2((size.x - tw2) * 0.5, size.y - 16), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
+
+
+func _draw_zones(center: Vector2, scale: float, bg: Rect2) -> void:
 	for z in _zones:
 		if z.color.a <= 0.0 or z.name in ["Rua da Escola"]:
 			continue
@@ -85,60 +222,36 @@ func _draw() -> void:
 		if mr2.has_area():
 			draw_rect(mr2, s.color)
 			draw_rect(mr2, Color(0, 0, 0, 0.35), false, 1.5)
-	# muro
-	var la := _w2m(_lot.position, center, scale)
-	var lb := _w2m(_lot.end, center, scale)
-	draw_rect(Rect2(la, lb - la), Color("f4f1ea"), false, 3.0)
-	# rótulos no mapa completo
-	if full:
-		var placed: Array = []
-		for z in _zones:
-			if not z.has("rect") or z.priority < 4 or z.rect.size.x * z.rect.size.y < 60.0:
-				continue
-			var c := _w2m(z.rect.get_center(), center, scale)
-			var txt: String = z.name
-			var fs := 13
-			var tw := _font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-			var rect := Rect2(c - Vector2(tw * 0.5, fs * 0.5), Vector2(tw, fs))
-			var overlap := false
-			for o in placed:
-				if o.intersects(rect.grow(2)):
-					overlap = true
-					break
-			if overlap:
-				continue
-			placed.append(rect)
-			draw_string_outline(_font, c + Vector2(-tw * 0.5, fs * 0.4), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(1, 1, 1, 0.9))
-			draw_string(_font, c + Vector2(-tw * 0.5, fs * 0.4), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("1f2a44"))
-	# marcadores (missões, brincadeiras, objetivo)
-	for g in markers.keys():
-		for m in markers[g]:
-			var mp := _w2m(Vector2(m.pos.x, m.pos.z), center, scale)
-			if not full:
-				var rel := mp - size * 0.5
-				var lim := minf(size.x, size.y) * 0.5 - 9.0
-				if rel.length() > lim:
-					mp = size * 0.5 + rel.normalized() * lim
-			var rad := 9.0 if full else 7.5
-			draw_circle(mp, rad + 2.0, Color(0.1, 0.12, 0.25, 0.9))
-			draw_circle(mp, rad, m.color)
-			var ic: String = m.get("icon", "")
-			if ic != "":
-				var fs := 13 if full else 11
-				var tw := _font.get_string_size(ic, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-				draw_string(_font, mp + Vector2(-tw * 0.5, fs * 0.36), ic, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("1f2a44"))
-	# jogador (seta grande + anel pulsante: "você está aqui")
-	var pc := _w2m(pp, center, scale)
-	var yaw: float = player.get("yaw") if player.get("yaw") != null else 0.0
-	var dir := Vector2(sin(yaw), cos(yaw))
-	var side := dir.orthogonal()
-	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.006)
-	draw_circle(pc, 12.0 + pulse * 5.0, Color(1, 1, 1, 0.25 + 0.2 * (1.0 - pulse)))
-	draw_arc(pc, 13.0 + pulse * 5.0, 0, TAU, 24, Color(1, 1, 1, 0.8), 2.0, true)
-	var arrow := PackedVector2Array([pc + dir * 14.0, pc - dir * 9.0 + side * 9.0, pc - dir * 4.0, pc - dir * 9.0 - side * 9.0])
-	draw_colored_polygon(arrow, Color("e04a3a"))
-	draw_polyline(PackedVector2Array([arrow[0], arrow[1], arrow[2], arrow[3], arrow[0]]), Color.WHITE, 2.0, true)
-	draw_rect(bg, Color(1, 1, 1, 0.9), false, 4.0)
-	if not full:
-		draw_string_outline(_font, Vector2(size.x - 18, 18), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, 4, Color(0, 0, 0, 0.6))
-		draw_string(_font, Vector2(size.x - 18, 18), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
+
+
+func _draw_labels(center: Vector2, scale: float) -> void:
+	var placed: Array = []
+	for z in _zones:
+		if not z.has("rect") or z.priority < 4 or z.rect.size.x * z.rect.size.y < 60.0:
+			continue
+		if "Corredor" in z.name or "Banheiro" in z.name or "Vão" in z.name:
+			continue
+		var c := _w2m(z.rect.get_center(), center, scale)
+		var txt: String = z.name
+		var fs := 16
+		var tw := _font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var rect := Rect2(c - Vector2(tw * 0.5 + 8, fs * 0.5 + 4), Vector2(tw + 16, fs + 8))
+		var overlap := false
+		for o in placed:
+			if o.intersects(rect.grow(3)):
+				overlap = true
+				break
+		if overlap:
+			continue
+		placed.append(rect)
+		_draw_label_pill(c, txt, Color(0.1, 0.13, 0.25, 0.78), fs)
+
+
+func _draw_label_pill(c: Vector2, txt: String, col: Color, fs: int) -> void:
+	var tw := _font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var r := Rect2(c - Vector2(tw * 0.5 + 8, fs * 0.5 + 4), Vector2(tw + 16, fs + 8))
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = col
+	sb.set_corner_radius_all(int(r.size.y * 0.5))
+	draw_style_box(sb, r)
+	draw_string(_font, Vector2(r.position.x + 8, r.position.y + fs + 1), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)

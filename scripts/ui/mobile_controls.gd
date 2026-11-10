@@ -43,7 +43,7 @@ func _ready() -> void:
 	btn_jump = _make_button(TouchButton.Icon.JUMP, Color("8fd3ff"), "Pular")
 	btn_interact = _make_button(TouchButton.Icon.INTERACT, Color("9be37a"), "")
 	btn_run = _make_button(TouchButton.Icon.RUN, Color("ff9f6b"), "Correr")
-	btn_run.toggle = true
+	btn_run.toggle = false  # corre só enquanto segura
 	btn_pause = _make_button(TouchButton.Icon.PAUSE, Color("ffffff"), "")
 	btn_emote = _make_button(TouchButton.Icon.EMOTE, Color("ffffff"), "")
 	btn_bag = _make_button(TouchButton.Icon.BAG, Color("ffffff"), "")
@@ -58,6 +58,9 @@ func _ready() -> void:
 	btn_jump.pressed.connect(_on_jump)
 	btn_interact.pressed.connect(_on_interact)
 	btn_run.pressed.connect(_on_run)
+	btn_run.released.connect(func():
+		if player and player.forced_dir == Vector3.ZERO:
+			player.run_active = false)
 	btn_pause.pressed.connect(pause_pressed.emit)
 	btn_emote.pressed.connect(emote_pressed.emit)
 	btn_bag.pressed.connect(bag_pressed.emit)
@@ -90,7 +93,7 @@ func _on_interact() -> void:
 
 func _on_run() -> void:
 	if player:
-		player.run_active = btn_run.toggled_on
+		player.run_active = true
 
 
 func _on_setting_changed(key: String) -> void:
@@ -167,6 +170,15 @@ func get_move_vector() -> Vector2:
 
 
 func _on_context_changed(interact_label: String, play_label: String) -> void:
+	# brincadeira: deixa na tela só os botões que ela usa
+	var hidden: Array = player.minigame.hidden_buttons() if player and player.minigame else []
+	btn_run.visible = not "run" in hidden
+	btn_jump.visible = not "jump" in hidden
+	btn_emote.visible = not "emote" in hidden
+	if "ride" in hidden:
+		btn_ride.visible = false
+	elif player and not player.minigame:
+		btn_ride.visible = player.vehicle != ""
 	btn_interact.label = interact_label
 	btn_interact.highlight = interact_label != ""
 	btn_interact.modulate.a = 1.0 if interact_label != "" else 0.55
@@ -177,7 +189,11 @@ func _on_context_changed(interact_label: String, play_label: String) -> void:
 # ------------------------------------------------------------------ entrada
 
 func _input(event: InputEvent) -> void:
-	if not visible or not GameManager.is_playing():
+	if not GameManager.is_playing():
+		return
+	# botões escondidos (conversa, cena): ainda dá para girar a câmera
+	if not visible:
+		_camera_only_input(event)
 		return
 	if event is InputEventScreenTouch:
 		var st := event as InputEventScreenTouch
@@ -199,7 +215,13 @@ func _touch_down(index: int, pos: Vector2) -> void:
 			get_viewport().set_input_as_handled()
 			return
 	for c in blockers:
-		if c.is_visible_in_tree() and c.get_global_rect().has_point(pos):
+		if not is_instance_valid(c) or not c.is_visible_in_tree():
+			continue
+		# painéis grandes (ex.: chat) dizem quais partes realmente bloqueiam
+		if c.has_method("blocks_point"):
+			if c.blocks_point(pos):
+				return
+		elif c.get_global_rect().has_point(pos):
 			return
 	var vs := get_viewport_rect().size
 	if _joy_index == -1 and pos.x < vs.x * 0.45 and pos.y > vs.y * 0.3:
@@ -211,6 +233,22 @@ func _touch_down(index: int, pos: Vector2) -> void:
 		return
 	_cam_touches[index] = pos
 	_pinch_dist = -1.0
+
+
+func _camera_only_input(event: InputEvent) -> void:
+	if _joy_index != -1:
+		_joy_index = -1
+		_joy_vec = Vector2.ZERO
+	if event is InputEventScreenTouch:
+		var st := event as InputEventScreenTouch
+		if st.pressed:
+			_cam_touches[st.index] = st.position
+		else:
+			_cam_touches.erase(st.index)
+	elif event is InputEventScreenDrag:
+		var sd := event as InputEventScreenDrag
+		if _cam_touches.has(sd.index) and camera_rig and _cam_touches.size() == 1:
+			camera_rig.rotate_input(sd.relative)
 
 
 func _touch_up(index: int) -> void:
@@ -279,8 +317,7 @@ func _release_all() -> void:
 
 
 func _process(_delta: float) -> void:
-	if player and btn_run.toggled_on != player.run_active:
-		btn_run.toggled_on = player.run_active
+	pass
 
 
 func _draw() -> void:

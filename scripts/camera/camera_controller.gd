@@ -5,9 +5,9 @@ extends Node3D
 ## realinha atrás do jogador quando ele corre e tem modo vitrine (menu).
 
 @export var follow_height := 1.45
-@export var distance := 4.6
+@export var distance := 3.9
 @export var min_distance := 2.2
-@export var max_distance := 8.0
+@export var max_distance := 5.2  # sempre perto do personagem
 @export var min_pitch := -65.0
 @export var max_pitch := 8.0
 

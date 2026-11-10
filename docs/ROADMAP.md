@@ -179,6 +179,22 @@ recompensas próprias; estações com placa no mapa (só no recreio) e convites 
   servidor, marcador sobre o pegador, placar e prêmios.
 - Chamada de voz avaliada e não feita (ver docs/ONLINE.md).
 
+## ✅ Revisão 5 (concluída)
+
+- Jogo só online, com contas (apelido seguro + código de recuperação), progresso na
+  nuvem, troca de celular sem perder nada e apagar conta.
+- Controles: correr só segurando; analógico funciona no online (chat não bloqueia mais);
+  câmera gira durante conversas e na diretoria; câmera sempre perto.
+- Tela mais limpa: cartão de objetivo que fica discreto, nome do lugar só por alguns
+  segundos, letras maiores, moedas num selo.
+- Minimapa e mapa com foto aérea real da escola; mapa fecha tocando fora ou no X.
+- Rolagem funciona arrastando em cima dos itens.
+- Missões: cancelar (com confirmação), trilha de setas no chão até o destino + seta na
+  cabeça, prazo para voltar à sala, papéis parados e com seta, lixeira de verdade.
+- Brincadeiras: tutorial de primeira vez, "Como jogar", só os botões usados; amarelinha
+  bem mais fácil.
+- Personagens: rosto mais expressivo, cabelo com volume, sombreamento de profundidade.
+
 ## Próximos passos sugeridos
 
 - Testar em aparelhos Android reais (o ambiente de desenvolvimento não tinha SDK) e

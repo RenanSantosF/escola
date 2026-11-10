@@ -26,7 +26,7 @@ const { WebSocketServer } = require('ws');
 const { check, QUICK_PHRASES } = require('./chat_filter');
 const { Safety } = require('./safety');
 const { RoomManager } = require('./rooms');
-const { Accounts } = require('./accounts');
+const { Accounts, sha } = require('./accounts');
 const { Analytics } = require('./analytics');
 const { TagGame } = require('./tag_game');
 const { Database } = require('./db');
@@ -79,6 +79,34 @@ function createServer(opts = {}) {
     return adminToken !== '' && req.headers['x-admin-token'] === adminToken;
   }
 
+  // limite de tentativas por IP (criação de conta / recuperação)
+  const attempts = new Map();
+  function limited(req, key, max, windowMs) {
+    const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '?').split(',')[0].trim();
+    const k = key + ':' + ip;
+    const now = Date.now();
+    const list = (attempts.get(k) || []).filter((t) => now - t < windowMs);
+    list.push(now);
+    attempts.set(k, list);
+    return list.length > max;
+  }
+
+  async function accountFromToken(token) {
+    token = String(token || '').slice(0, 80);
+    if (!token) return null;
+    if (accounts.byToken.has(token)) return accounts.byToken.get(token);
+    if (db.ready) {
+      const found = await db.findAccount(token).catch(() => null);
+      if (found) return accounts.adopt(found);
+    }
+    return null;
+  }
+
+  const publicAccount = (a, withProgress = false) => ({
+    id: a.id, name: a.name, age: a.age, level: a.level, registered: !!a.registered,
+    ...(withProgress ? { progress: a.progress || null, progressAt: a.progressAt || 0 } : {}),
+  });
+
   function liveInfo() {
     let online = 0;
     for (const r of rooms.rooms.values()) online += r.players.size;
@@ -109,6 +137,56 @@ function createServer(opts = {}) {
       const b = await readJson(req, 65536);
       const n = analytics.ingest(String(b.uid || ''), b.events);
       return json(200, { ok: true, accepted: n });
+    }
+    // ---------------------------------------------------------- contas
+    if (url === '/api/account/names' && req.method === 'GET') {
+      return json(200, { names: Accounts.nameOptions(6) });
+    }
+    if (url === '/api/account/register' && req.method === 'POST') {
+      if (limited(req, 'reg', 20, 3600000)) return json(429, { ok: false, error: 'Muitas contas criadas. Tente mais tarde.' });
+      const b = await readJson(req);
+      if (!Accounts.validName(b.name)) return json(400, { ok: false, error: 'Escolha um dos apelidos da lista.' });
+      const { acc, code } = accounts.register({ name: b.name, age: b.age });
+      dbSafe(db.saveAccount(acc));
+      return json(200, { ok: true, token: acc.token, code, account: publicAccount(acc) });
+    }
+    if (url === '/api/account/recover' && req.method === 'POST') {
+      if (limited(req, 'rec', 8, 600000)) return json(429, { ok: false, error: 'Muitas tentativas. Espere 10 minutos.' });
+      const b = await readJson(req);
+      const hash = sha(Accounts.normalizeCode(b.code));
+      const newToken = require('crypto').randomBytes(18).toString('hex');
+      let acc = accounts.byRecovery.get(hash) || null;
+      if (acc) {
+        accounts.byToken.delete(acc.token);
+        acc.token = newToken;
+        accounts.adopt(acc);
+        dbSafe(db.saveAccount(acc));
+      } else if (db.ready) {
+        const found = await db.findByRecovery(hash, newToken).catch(() => null);
+        if (found) acc = accounts.adopt(found);
+      }
+      if (!acc) return json(404, { ok: false, error: 'Código não encontrado. Confira as palavras e o número.' });
+      return json(200, { ok: true, token: acc.token, account: publicAccount(acc, true) });
+    }
+    if (url === '/api/account/me' && req.method === 'GET') {
+      const acc = await accountFromToken(req.headers['x-token']);
+      if (!acc) return json(401, { ok: false });
+      return json(200, { ok: true, account: publicAccount(acc, true) });
+    }
+    if (url === '/api/progress' && req.method === 'PUT') {
+      const acc = await accountFromToken(req.headers['x-token']);
+      if (!acc) return json(401, { ok: false });
+      const b = await readJson(req, 300000);
+      if (!accounts.setProgress(acc, b.save, b.savedAt)) return json(409, { ok: false, progressAt: acc.progressAt });
+      dbSafe(db.saveProgress(acc));
+      return json(200, { ok: true, progressAt: acc.progressAt });
+    }
+    if (url === '/api/account' && req.method === 'DELETE') {
+      const acc = await accountFromToken(req.headers['x-token']);
+      if (!acc) return json(401, { ok: false });
+      accounts.remove(acc);
+      await db.deleteAccount(acc.id).catch(() => {});
+      return json(200, { ok: true });
     }
     if (url === '/api/rooms' && req.method === 'GET') {
       return json(200, { rooms: rooms.publicList(), online: liveInfo().online });

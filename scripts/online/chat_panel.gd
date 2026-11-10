@@ -101,6 +101,15 @@ func _ready() -> void:
 	_refresh_tabs()
 
 
+## Só os botões e a caixa aberta bloqueiam o toque (o resto da área do
+## painel deixa o analógico e a câmera funcionarem).
+func blocks_point(p: Vector2) -> bool:
+	for c in get_children():
+		if c is Control and (c as Control).visible and (c as Control).get_global_rect().has_point(p):
+			return true
+	return false
+
+
 func _tab_button(text: String, ch: String) -> Button:
 	var b := Button.new()
 	b.text = text

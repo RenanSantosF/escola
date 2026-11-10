@@ -5,7 +5,8 @@
 // Sem DATABASE_URL o servidor funciona em memória (como antes).
 //
 // O que fica salvo:
-//   accounts  — contas (token guardado só como hash), nome gerado, idade, nível, visual
+//   accounts  — contas (token e código de recuperação só como hash), apelido,
+//               idade, nível, visual e o PROGRESSO do jogo (moedas, itens...)
 //   events    — estatísticas anônimas do painel
 //   reports   — denúncias (com as últimas mensagens do denunciado)
 //   mutes     — silenciamentos com prazo
@@ -25,6 +26,11 @@ create table if not exists accounts (
   created_at timestamptz not null default now(),
   last_seen timestamptz not null default now()
 );
+alter table accounts add column if not exists registered boolean not null default false;
+alter table accounts add column if not exists recovery_hash text;
+alter table accounts add column if not exists progress jsonb;
+alter table accounts add column if not exists progress_at bigint not null default 0;
+create unique index if not exists accounts_recovery_idx on accounts (recovery_hash);
 create table if not exists events (
   id bigserial primary key,
   at timestamptz not null,
@@ -82,22 +88,52 @@ class Database {
   }
 
   // ---------------------------------------------------------- contas
+  _row(a, token) {
+    return {
+      token, id: a.id, name: a.name, age: a.age, level: a.level, look: a.look || {}, freeChat: a.free_chat,
+      registered: a.registered, recoveryHash: a.recovery_hash || undefined, progress: a.progress || null,
+      progressAt: Number(a.progress_at) || 0, createdAt: a.created_at,
+    };
+  }
+
   async findAccount(token) {
     if (!this.ready || !token) return null;
     const r = await this.pool.query('select * from accounts where token_hash = $1', [hashToken(token)]);
-    if (!r.rows.length) return null;
-    const a = r.rows[0];
-    return { token, id: a.id, name: a.name, age: a.age, level: a.level, look: a.look || {}, freeChat: a.free_chat, createdAt: a.created_at };
+    return r.rows.length ? this._row(r.rows[0], token) : null;
+  }
+
+  /** Recuperação em outro aparelho: gera um token NOVO (o antigo para de valer). */
+  async findByRecovery(recoveryHash, newToken) {
+    if (!this.ready) return null;
+    const r = await this.pool.query('update accounts set token_hash = $2, last_seen = now() where recovery_hash = $1 returning *',
+      [recoveryHash, hashToken(newToken)]);
+    return r.rows.length ? this._row(r.rows[0], newToken) : null;
   }
 
   async saveAccount(acc) {
     if (!this.ready) return;
     await this.pool.query(
-      `insert into accounts (id, token_hash, name, age, level, look, free_chat, last_seen)
-       values ($1,$2,$3,$4,$5,$6,$7, now())
-       on conflict (id) do update set age = excluded.age, level = excluded.level, look = excluded.look,
-         free_chat = excluded.free_chat, last_seen = now()`,
-      [acc.id, hashToken(acc.token), acc.name, acc.age, acc.level, JSON.stringify(acc.look || {}), !!acc.freeChat]);
+      `insert into accounts (id, token_hash, name, age, level, look, free_chat, registered, recovery_hash, last_seen)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9, now())
+       on conflict (id) do update set token_hash = excluded.token_hash, age = excluded.age, level = excluded.level,
+         look = excluded.look, free_chat = excluded.free_chat, registered = excluded.registered,
+         recovery_hash = coalesce(excluded.recovery_hash, accounts.recovery_hash), last_seen = now()`,
+      [acc.id, hashToken(acc.token), acc.name, acc.age, acc.level, JSON.stringify(acc.look || {}), !!acc.freeChat,
+        !!acc.registered, acc.recoveryHash || null]);
+  }
+
+  async saveProgress(acc) {
+    if (!this.ready) return;
+    await this.pool.query('update accounts set progress = $2, progress_at = $3, level = $4, look = $5 where id = $1',
+      [acc.id, JSON.stringify(acc.progress || {}), acc.progressAt || 0, acc.level, JSON.stringify(acc.look || {})]);
+  }
+
+  /** LGPD: apagar conta e dados ligados a ela. */
+  async deleteAccount(id) {
+    if (!this.ready) return;
+    await this.pool.query('delete from accounts where id = $1', [id]);
+    await this.pool.query('delete from mutes where account_id = $1', [id]);
+    await this.pool.query('delete from blocks where account_id = $1 or blocked_id = $1', [id]);
   }
 
   async setFreeChat(id, allow) {

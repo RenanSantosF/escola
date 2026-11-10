@@ -63,6 +63,7 @@ func _ready() -> void:
 	await _test_revisao2()
 	await _test_revisao3()
 	await _test_online_tag()
+	await _test_revisao5()
 	_finish()
 
 
@@ -910,9 +911,13 @@ func _test_discipline() -> void:
 	check(disc.restricted and disc._cleanup_left == 5, "ocorrência 2: consequência leve (ajudar a recolher papel)")
 	check(not main.minigames.start("futebol"), "ocorrência 2: minijogos bloqueados até cumprir")
 	var balls := get_tree().get_nodes_in_group("cleanup")
+	check(balls.size() == 5 and balls.all(func(b): return b.freeze and b.has_node("GoalArrow")), "ocorrência 2: papéis parados e com seta")
 	for b in balls.slice(0, 5):
 		disc.on_player_picked(b)
-	check(not disc.restricted, "ocorrência 2: cumprir a tarefa libera o recreio")
+	check(disc.restricted and disc._cleanup_bin != null and disc.cleanup_target() != null, "ocorrência 2: depois dos papéis, a lixeira aparece com seta")
+	disc._cleanup_bin.done.emit(disc._cleanup_bin)
+	await _frames(2)
+	check(not disc.restricted, "ocorrência 2: jogar na lixeira libera o recreio")
 	# 3ª: banco do hall
 	disc.start_occurrence("correr_corredor")
 	for i in 60:
@@ -1126,6 +1131,50 @@ func _finish() -> void:
 		print(l)
 	print("Total: %d ok, %d falhas" % [passed, failed])
 	get_tree().quit(0 if failed == 0 else 1)
+
+
+func _test_revisao5() -> void:
+	var ctl: MobileControls = main.hud.controls
+	# correr só enquanto segura
+	_place(Vector3(0, 0.05, -6), 0)
+	ctl.btn_run.press()
+	check(player.run_active, "correr: segurando corre")
+	ctl.btn_run.release()
+	check(not player.run_active, "correr: soltou, para de correr")
+	# painel de chat não bloqueia o analógico
+	var cp := ChatPanel.new()
+	main.ui_layer.add_child(cp)
+	await _frames(2)
+	var vs := main.get_viewport().get_visible_rect().size
+	check(not cp.blocks_point(Vector2(150, vs.y - 140)), "online: chat não bloqueia o analógico")
+	cp.queue_free()
+	# trilha-guia no chão até o objetivo
+	var trail: GuideTrail = main.world.get_node("GuideTrail")
+	main.hud.set_game_point(Vector3(20, 1.05, -10))
+	for i in 5:
+		await _frames(2)
+	check(trail._mm.multimesh.visible_instance_count > 3 and trail._arrow.visible, "missão: trilha de setas e seta na cabeça", "%d" % trail._mm.multimesh.visible_instance_count)
+	main.hud.set_game_point(null)
+	# cancelar missão
+	await _recess()
+	main.quests.start("biblioteca")
+	check(bool(main.hud.mission_cancel_check.call()), "missão: botão cancelar aparece")
+	main.hud.mission_cancel.call()
+	check(main.quests.active_id == "", "missão: cancelada")
+	# brincadeira esconde botões que não usa
+	var hs = await _mg_start("amarelinha")
+	player._emit_context(true)
+	await _frames(2)
+	check(not ctl.btn_run.visible and ctl.btn_jump.visible, "amarelinha: só os botões que usa")
+	hs._finish()
+	await _frames(3)
+	player._emit_context(true)
+	await _frames(2)
+	check(ctl.btn_run.visible, "botões voltam depois da brincadeira")
+	check(MinigameManager.TUTORIALS.size() >= 9, "tutoriais para todas as brincadeiras")
+	# prazo para sentar
+	var day: SchoolDay = main.school_day
+	check(day.ARRIVAL_LIMIT > 0 and day.RETURN_LIMIT > 0, "aula: prazo para voltar à sala")
 
 
 func _test_online_tag() -> void:

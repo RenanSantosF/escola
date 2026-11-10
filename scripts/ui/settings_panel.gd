@@ -14,6 +14,7 @@ func _ready() -> void:
 		margin.add_theme_constant_override("margin_" + side, 18)
 	add_child(margin)
 	var scroll := ScrollContainer.new()
+	scroll.scroll_deadzone = 12
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.custom_minimum_size = Vector2(0, 470)
 	margin.add_child(scroll)
@@ -65,6 +66,28 @@ func _ready() -> void:
 			GameManager.show_toast("Idade atualizada: atividades do %s" % Learning.grade_name())), 420)
 	v.add_child(age_btn)
 
+	v.add_child(_section("Minha conta"))
+	var acc_lbl := Label.new()
+	acc_lbl.text = ("Apelido: %s" % AccountManager.nickname()) if AccountManager.has_account() else "Sem conta neste celular."
+	acc_lbl.add_theme_font_size_override("font_size", 22)
+	v.add_child(acc_lbl)
+	if AccountManager.has_account():
+		var del_btn := UITheme.make_button("Apagar minha conta", func(): pass, 360)
+		var confirm := [false]
+		del_btn.pressed.connect(func():
+			if not confirm[0]:
+				confirm[0] = true
+				del_btn.text = "Toque de novo para APAGAR tudo"
+				return
+			del_btn.disabled = true
+			del_btn.text = "Apagando..."
+			var ok: bool = await AccountManager.delete_account()
+			del_btn.text = "Conta apagada" if ok else "Sem conexão. Tente depois."
+			if ok:
+				get_tree().reload_current_scene())
+		del_btn.add_theme_stylebox_override("normal", UITheme.box(Color("e04a3a"), 18, Color("a33a2c"), 0, 6))
+		v.add_child(del_btn)
+
 	v.add_child(_section("Privacidade"))
 	v.add_child(_check("Enviar estatísticas anônimas (tempo de jogo, compras com moedas do jogo)", "share_stats"))
 
@@ -73,6 +96,7 @@ func _ready() -> void:
 	v.add_child(_slider("Opacidade dos botões", "controls_opacity", 0.3, 1.0))
 	v.add_child(_check("Inverter eixo vertical da câmera", "invert_y"))
 
+	UITheme.scroll_friendly(v)
 	var close := UITheme.make_button("Voltar", func(): closed.emit(), 260)
 	close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(close)

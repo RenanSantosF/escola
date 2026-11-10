@@ -121,3 +121,13 @@ static func make_button(text: String, cb: Callable, min_w := 320) -> Button:
 		AudioManager.play_ui("ui_click")
 		cb.call())
 	return b
+
+
+## Faz o arrastar o dedo em cima de botões/cartões rolar a lista
+## (o toque passa do item para o ScrollContainer). Chame depois de montar.
+static func scroll_friendly(root: Node) -> void:
+	for c in root.get_children():
+		if c is Control and not (c is ScrollContainer) and not (c is LineEdit) and not (c is Slider):
+			if (c as Control).mouse_filter == Control.MOUSE_FILTER_STOP:
+				(c as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+		scroll_friendly(c)

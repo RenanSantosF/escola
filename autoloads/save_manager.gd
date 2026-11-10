@@ -54,6 +54,7 @@ func load_game() -> void:
 
 
 func save_game() -> bool:
+	data["saved_at"] = int(Time.get_unix_time_from_system() * 1000.0)
 	var json := JSON.stringify(data, "\t")
 	var f := FileAccess.open(TEMP_PATH, FileAccess.WRITE)
 	if f == null:
@@ -76,6 +77,28 @@ func save_game() -> bool:
 		return false
 	saved.emit()
 	return true
+
+
+## Progresso para a nuvem (sem a parte "online", que tem o token).
+func export_progress() -> Dictionary:
+	var out := data.duplicate(true)
+	out.erase("online")
+	return out
+
+
+## Aplica o progresso que veio do servidor (mantém o token local).
+func import_progress(d: Dictionary, saved_at: int) -> void:
+	var online: Dictionary = section("online").duplicate(true)
+	data = _merge(default_data(), d)
+	data.version = SCHEMA_VERSION
+	data["online"] = online
+	save_game()
+	data["saved_at"] = saved_at
+	loaded.emit()
+
+
+func saved_at() -> int:
+	return int(data.get("saved_at", 0))
 
 
 func reset() -> void:

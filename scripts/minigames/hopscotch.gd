@@ -119,7 +119,7 @@ func _to_start() -> void:
 
 
 func _update_hud() -> void:
-	var t := "Jogue a pedra na casa %d" % target if stage == "throw" else "Pule no ritmo! (botão Pular)"
+	var t := "Segure e solte quando o círculo ficar VERDE" if stage == "throw" else "Toque em Pular para cada casa"
 	hud.set_minigame_text("Amarelinha  ·  Casa %d de 8  ·  Vidas: %s  ·  %s" % [target, "♥".repeat(lives), t])
 
 
@@ -157,11 +157,7 @@ func on_play_release() -> bool:
 func on_jump() -> bool:
 	if stage != "hop" or _hopping:
 		return true
-	# acertou o ritmo?
-	var off := absf(_beat_t - BEAT)
-	if _beat_t < BEAT * 0.45:
-		_fail("Pulou cedo demais!")
-		return true
+	# sem castigo por ritmo: o círculo só ajuda a criança a achar o próximo pulo
 	_do_hop()
 	return true
 
@@ -178,6 +174,13 @@ func _throw_stone() -> void:
 	if not running:
 		return
 	_stone_cell = _cell_at(land)
+	# perto o bastante da casa certa? a pedrinha "escorrega" para ela
+	var want := cell_pos(target)
+	if _stone_cell != target and absf(land.z - want.z) < 0.8:
+		var snap := create_tween()
+		snap.tween_property(_stone, "global_position", want + Vector3(0, 0.04, 0), 0.18)
+		_stone_cell = target
+		GameManager.show_toast("Quase! A pedrinha rolou para a casa %d." % target)
 	if _stone_cell != target:
 		_fail("A pedrinha caiu fora da casa %d!" % target)
 		return
@@ -251,7 +254,7 @@ func tick(delta: float) -> void:
 	if not running:
 		return
 	if stage == "throw" and _charging:
-		_power += _power_dir * delta * 0.7
+		_power += _power_dir * delta * 0.42
 		if _power >= 1.0 or _power <= 0.0:
 			_power_dir *= -1.0
 			_power = clampf(_power, 0.0, 1.0)
@@ -260,7 +263,10 @@ func tick(delta: float) -> void:
 		var dist := lerpf(0.3, 5.6, _power)
 		_beat_ring.visible = true
 		_beat_ring.global_position = ORIGIN + Vector3(CELLS[target].x, 0.05, -dist)
-		_beat_ring.scale = Vector3.ONE * 0.6
+		# verde = vai cair na casa certa
+		var on_target := absf(-dist - (cell_pos(target).z - ORIGIN.z)) < 0.8
+		_beat_ring.scale = Vector3.ONE * (0.8 if on_target else 0.55)
+		(_beat_ring.mesh.surface_get_material(0) as StandardMaterial3D).albedo_color = Color("6be36b") if on_target else Color.WHITE
 	elif stage == "hop":
 		_beat_t += delta
 		# anel de ritmo: encolhe até o tamanho certo = hora de pular
@@ -268,8 +274,9 @@ func tick(delta: float) -> void:
 		_beat_ring.visible = true
 		_beat_ring.global_position = nxt.pos + Vector3(0, 0.05, 0)
 		_beat_ring.scale = Vector3.ONE * lerpf(2.2, 0.8, clampf(_beat_t / BEAT, 0.0, 1.0))
-		if _beat_t > BEAT + 0.55 and not _hopping:
-			_fail("Perdeu o ritmo!")
+		# demorou? pula sozinho (só ganha menos pontos de estilo)
+		if _beat_t > BEAT * 3.0 and not _hopping:
+			_do_hop()
 	else:
 		_beat_ring.visible = false
 	player.visual.rotation.y = player.yaw

@@ -119,6 +119,36 @@ func get_prompt(_player: Node) -> String:
 	return prompt
 
 
+## Objeto de tarefa/missão: fica parado (sem rolar), fácil de pegar e com
+## uma setinha brilhante em cima para a criança achar.
+func mark_as_goal() -> void:
+	freeze = true
+	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+	interact_radius = 1.8
+	var md := MeshData.new()
+	md.cur_color = Color("ffcf3f")
+	md.add_cylinder(Transform3D(Basis(Vector3.RIGHT, PI), Vector3.ZERO), 0.0, 0.16, 0.3, 10)
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.no_depth_test = true
+	m.render_priority = 4
+	var mi := MeshInstance3D.new()
+	mi.name = "GoalArrow"
+	mi.mesh = md.build_mesh(m)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position = Vector3(0, 0.75, 0)
+	add_child(mi)
+
+
+func _process(delta: float) -> void:
+	var arrow := get_node_or_null("GoalArrow")
+	if arrow:
+		arrow.visible = held_by == null
+		arrow.position.y = 0.75 + sin(Time.get_ticks_msec() * 0.006) * 0.12
+		arrow.rotate_y(delta * 2.5)
+
+
 func can_interact(_player: Node) -> bool:
 	return held_by == null
 
@@ -155,7 +185,7 @@ func throw_from(world_parent: Node, from: Vector3, velocity: Vector3) -> void:
 
 
 func _physics_process(_delta: float) -> void:
-	if held_by == null and global_position.y < -5.0:
+	if held_by == null and global_position.y < -1.0:
 		global_position = _spawn
 		linear_velocity = Vector3.ZERO
 

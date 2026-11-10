@@ -23,6 +23,8 @@ const SHOTS := [
 	["andando", Vector3(5, 0.05, -12), 90.0, 70.0, -10.0, 3.2],
 	["sentado", Vector3(0, 0.05, -12), 0.0, 40.0, -12.0, 3.0],
 	["fonte", Vector3(0, 0.05, 66), 180.0, 0.0, -20.0, 7.0],
+	["mapa", Vector3(0, 0.05, -6), 180.0, 0.0, -20.0, 4.0],
+	["rosto", Vector3(6, 0.05, -2), 200.0, 180.0, -4.0, 2.2],
 	["blococ_escada", Vector3(-66, 0.05, 26), -90.0, 0.0, -18.0, 3.0],
 	["mirante", Vector3(-70, 3.9, 40), 90.0, 0.0, -18.0, 3.5],
 	["amarelinha", Vector3(-14, 0.05, 3), 180.0, 0.0, -24.0, 6.0],
@@ -66,6 +68,8 @@ func _ready() -> void:
 		cam.distance = s[5]
 		cam._cur_distance = s[5]
 		cam.snap_to_target()
+		if s[0] == "mapa":
+			main.hud.minimap.open_full(true)
 		if s[0] == "andando":
 			Input.action_press("move_forward")
 		if s[0] == "sentado":

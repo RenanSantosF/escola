@@ -120,8 +120,6 @@ func _physics_process(delta: float) -> void:
 	var mag := clampf(wish.length(), 0.0, 1.0)
 	if mag < 0.1:
 		_stop_timer += delta
-		if _stop_timer > 0.6:
-			run_active = false
 	else:
 		_stop_timer = 0.0
 	var running := (run_active or Input.is_action_pressed("run")) and mag > 0.5

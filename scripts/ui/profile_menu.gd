@@ -76,6 +76,7 @@ func _ready() -> void:
 	root.add_child(panel)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.scroll_deadzone = 12  # arrastar o dedo rola; toque curto seleciona
 	panel.add_child(scroll)
 	_content = VBoxContainer.new()
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -177,6 +178,7 @@ func _refresh() -> void:
 		"ficha":
 			_build_record()
 	_update_preview()
+	UITheme.scroll_friendly(_content)
 
 
 func _title(t: String) -> void:
@@ -519,7 +521,16 @@ func _build_games() -> void:
 			close_menu(), 220)
 		go.custom_minimum_size = Vector2(220, 56)
 		go.add_theme_font_size_override("font_size", 19)
-		h.add_child(go)
+		var bv := VBoxContainer.new()
+		bv.add_theme_constant_override("separation", 6)
+		bv.add_child(go)
+		var how := UITheme.make_button("Como jogar", func():
+			if minigames:
+				minigames.show_tutorial(gid, func(): pass), 220)
+		how.custom_minimum_size = Vector2(220, 50)
+		how.add_theme_font_size_override("font_size", 19)
+		bv.add_child(how)
+		h.add_child(bv)
 		p.add_child(h)
 		_content.add_child(p)
 

@@ -29,6 +29,7 @@ Effects="*res://autoloads/effects.gd"
 AdsManager="*res://autoloads/ads_manager.gd"
 NetworkManager="*res://autoloads/network_manager.gd"
 Telemetry="*res://autoloads/telemetry.gd"
+AccountManager="*res://autoloads/account_manager.gd"
 
 [display]
 

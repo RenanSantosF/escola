@@ -227,3 +227,46 @@ test('servidor: canal Perto, reações e convite de pique-pega', async () => {
   for (const p of [a, b, c]) p.ws.close();
   srv.close();
 });
+
+test('contas: criar com apelido da lista, recuperar, progresso e apagar', async () => {
+  const srv = createServer({ adminToken: 'x', dataDir: '' });
+  await new Promise((r) => srv.server.listen(0, r));
+  const base = 'http://127.0.0.1:' + srv.server.address().port;
+  const post = (u, b, h = {}) => fetch(base + u, { method: 'POST', headers: h, body: JSON.stringify(b) });
+  const { names } = await (await fetch(base + '/api/account/names')).json();
+  assert.equal(names.length, 6);
+  assert.equal((await post('/api/account/register', { name: 'Maria Silva', age: 9 })).status, 400); // nome livre não
+  const reg = await (await post('/api/account/register', { name: names[0], age: 9 })).json();
+  assert.ok(reg.ok && reg.token && /^[A-Z]+-[A-Z]+-[A-Z]+-[A-Z]+-\d{2}$/.test(reg.code));
+  // salva progresso
+  const save = { player: { level: 7, coins: 1234, appearance: { shirt_color: 'ff0000' } }, inventory: { owned: ['skin_ninja'] } };
+  let r = await fetch(base + '/api/progress', { method: 'PUT', headers: { 'x-token': reg.token }, body: JSON.stringify({ save, savedAt: 1000 }) });
+  assert.equal(r.status, 200);
+  // progresso mais velho não sobrescreve
+  r = await fetch(base + '/api/progress', { method: 'PUT', headers: { 'x-token': reg.token }, body: JSON.stringify({ save: {}, savedAt: 500 }) });
+  assert.equal(r.status, 409);
+  // outro celular: recupera com o código (minúsculo e com espaços também vale)
+  const rec = await (await post('/api/account/recover', { code: reg.code.toLowerCase().replace(/-/g, ' ') })).json();
+  assert.ok(rec.ok);
+  assert.equal(rec.account.name, names[0]);
+  assert.equal(rec.account.progress.player.coins, 1234);
+  assert.notEqual(rec.token, reg.token);
+  assert.equal((await fetch(base + '/api/account/me', { headers: { 'x-token': reg.token } })).status, 401); // token velho caiu
+  assert.equal((await post('/api/account/recover', { code: 'BOLA-SOL-LUA-RIO-00' })).status, 404);
+  // apagar conta (LGPD)
+  assert.equal((await fetch(base + '/api/account', { method: 'DELETE', headers: { 'x-token': rec.token } })).status, 200);
+  assert.equal((await fetch(base + '/api/account/me', { headers: { 'x-token': rec.token } })).status, 401);
+  srv.close();
+});
+
+test('contas: limite de tentativas de recuperação', async () => {
+  const srv = createServer({ adminToken: 'x', dataDir: '' });
+  await new Promise((r) => srv.server.listen(0, r));
+  const base = 'http://127.0.0.1:' + srv.server.address().port;
+  let last = 0;
+  for (let i = 0; i < 10; i++) {
+    last = (await fetch(base + '/api/account/recover', { method: 'POST', body: JSON.stringify({ code: 'X-' + i }) })).status;
+  }
+  assert.equal(last, 429);
+  srv.close();
+});

@@ -14,12 +14,17 @@ var _send_t := 0.0
 var npcs: NPCManager
 var day: SchoolDay
 var tag: OnlineTag
+var hud_ref: HUD
 var _badge: Label
+var _offline_t := 0.0
+var _lost_panel: PanelContainer
+var _was_online := false
 
 
 func setup(p: PlayerController, w: Node3D, ui_parent: Node, hud: HUD) -> void:
 	player = p
 	world = w
+	hud_ref = hud
 	chat_panel = ChatPanel.new()
 	chat_panel.player = p
 	ui_parent.add_child(chat_panel)
@@ -85,6 +90,10 @@ func _refresh_badge() -> void:
 func _exit_tree() -> void:
 	if is_instance_valid(_badge):
 		_badge.queue_free()
+	if is_instance_valid(_lost_panel):
+		_lost_panel.queue_free()
+	if player and is_instance_valid(player):
+		player.input_enabled = true
 	if npcs:
 		npcs.set_online_players(1)
 
@@ -169,6 +178,7 @@ func _process(delta: float) -> void:
 		var sp := Vector2(root.global_position.x - prev.x, root.global_position.z - prev.z).length() / maxf(delta, 0.001)
 		vis.animator.speed = lerpf(vis.animator.speed, sp, 1.0 - exp(-8.0 * delta))
 		vis.animator.ride_mode = 2 if r.anim == "bike" else (1 if r.anim == "ride" else 0)
+	_watch_connection(delta)
 	if not NetworkManager.is_online() or player == null:
 		return
 	_send_t += delta
@@ -180,6 +190,60 @@ func _process(delta: float) -> void:
 		elif player.mode == PlayerController.Mode.SITTING:
 			anim = "sit"
 		NetworkManager.send_state(player.global_position, player.yaw, anim)
+
+
+## O jogo é só online: caiu a internet, avisa; demorou, oferece sair.
+func _watch_connection(delta: float) -> void:
+	var on := NetworkManager.is_online()
+	if on:
+		if _offline_t > 3.0:
+			GameManager.show_toast("Conectado de novo!")
+		_offline_t = 0.0
+		_was_online = true
+		if _lost_panel and _lost_panel.visible:
+			_lost_panel.visible = false
+			player.input_enabled = true
+		return
+	if not _was_online:
+		return
+	_offline_t += delta
+	if _offline_t > 25.0 and (_lost_panel == null or not _lost_panel.visible):
+		_show_lost()
+
+
+func _show_lost() -> void:
+	if _lost_panel == null:
+		_lost_panel = PanelContainer.new()
+		_lost_panel.add_theme_stylebox_override("panel", UITheme.box(Color(UITheme.CREAM, 0.98), 26, UITheme.RED, 4, 6))
+		_lost_panel.set_anchors_preset(Control.PRESET_CENTER)
+		_lost_panel.position = Vector2(-330, -150)
+		_lost_panel.custom_minimum_size = Vector2(660, 0)
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 12)
+		_lost_panel.add_child(v)
+		v.add_child(UITheme.title_label("Sem conexão", 44, UITheme.RED))
+		var l := Label.new()
+		l.text = "O Recreio precisa de internet para jogar com a turma. Estamos tentando reconectar..."
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.add_theme_font_size_override("font_size", 24)
+		v.add_child(l)
+		var h := HBoxContainer.new()
+		h.alignment = BoxContainer.ALIGNMENT_CENTER
+		h.add_theme_constant_override("separation", 12)
+		v.add_child(h)
+		h.add_child(UITheme.make_button("Tentar de novo", func():
+			_offline_t = 0.0
+			_lost_panel.visible = false
+			player.input_enabled = true
+			NetworkManager.connect_to_server(), 260))
+		h.add_child(UITheme.make_button("Voltar ao menu", func():
+			_lost_panel.visible = false
+			if hud_ref and hud_ref.main_menu_cb.is_valid():
+				hud_ref.main_menu_cb.call(), 260))
+		chat_panel.get_parent().add_child(_lost_panel)
+	_lost_panel.visible = true
+	player.input_enabled = false
 
 
 static func _vec(a: Variant) -> Vector3:

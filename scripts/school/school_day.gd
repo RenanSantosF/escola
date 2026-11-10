@@ -11,7 +11,10 @@ signal day_finished(summary: Dictionary)
 
 enum Phase { ARRIVAL, CLASS_1, RECESS, RETURN, CLASS_2, DAY_END }
 
-const RECESS_SECONDS := 480.0  # 8 minutos de recreio
+const RECESS_SECONDS := 480.0
+## Prazo para chegar e sentar na carteira (chegada / volta do recreio).
+const ARRIVAL_LIMIT := 90.0
+const RETURN_LIMIT := 75.0  # 8 minutos de recreio
 const LESSON_SIZE := [7, 5]
 const MIN_CORRECT := [4, 3]
 const PHASE_NAMES := ["Chegada", "Aula", "Recreio", "Volta para a sala", "Aula", "Saída"]
@@ -42,6 +45,7 @@ var _find_item: PickupItem
 var _find_timer := 0.0
 var _nag_timer := 0.0
 var _phase_time := 0.0
+var _deadline_shown := -1
 var _talking_npc: NPC
 var _marker: Node3D
 var _marker_target: Variant = null
@@ -476,8 +480,30 @@ func _process(delta: float) -> void:
 				if _nag_timer <= 0.0:
 					_nag_timer = 7.0
 					npcs.teacher.say("Volte para o seu lugar, por favor!", 2.5)
+	_update_deadline()
 	_update_clock()
 	_update_marker(delta)
+
+
+## Prazo para sentar: contagem na tela; acabou o tempo, a aula começa sem
+## o aluno (e quem ficar fora da sala é procurado por matar aula).
+func _update_deadline() -> void:
+	if not (phase == Phase.ARRIVAL or phase == Phase.RETURN) or not _waiting_seat or _player_at_desk():
+		_deadline_shown = -1
+		return
+	var limit := ARRIVAL_LIMIT if phase == Phase.ARRIVAL else RETURN_LIMIT
+	var left := int(ceil(limit - _phase_time))
+	if left != _deadline_shown:
+		_deadline_shown = left
+		hud.set_objective("Vá para a %s e sente na carteira · %d:%02d" % [NPCManager.CLASS_ROOM, maxi(left, 0) / 60, maxi(left, 0) % 60])
+		if left == 20:
+			GameManager.show_toast("Faltam 20 segundos para a aula começar!")
+	if left <= 0:
+		_deadline_shown = -1
+		GameManager.show_toast("A aula começou sem você! Corra para a sala!")
+		npcs.teacher.say("Vamos começar. Quem não chegou, perdeu o começo!", 3.0)
+		_begin_class(0 if phase == Phase.ARRIVAL else 1)
+		_set_objective("A aula começou! Vá para a %s" % NPCManager.CLASS_ROOM, npcs.player_desk)
 
 
 func _set_objective(text: String, target: Variant) -> void:
