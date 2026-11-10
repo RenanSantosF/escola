@@ -12,7 +12,8 @@ const { GameHub } = require('./games');
 
 const MAX_PER_ROOM = 16;
 const DESKS = 16;
-const DESK_HOLD_MS = 90000; // quem caiu e volta logo recupera a mesma carteira
+const DESK_HOLD_MS = 300000; // quem caiu (ou minimizou o app) e volta recupera a mesma carteira
+const EMPTY_KEEP_MS = 300000; // sala vazia espera 5 min (quem minimizou volta para a MESMA sala e hora)
 
 class Room {
   constructor(id, code, opts = {}) {
@@ -124,6 +125,7 @@ class RoomManager {
   }
 
   _enter(room, player) {
+    room.emptySince = 0;
     room.players.set(player.id, player);
     player.roomId = room.code;
     room.assignDesk(player.id);
@@ -137,8 +139,15 @@ class RoomManager {
     room.players.delete(player.id);
     room.releaseDesk(player.id);
     room.games.leaveAll(player.id);
-    if (room.players.size === 0) this.rooms.delete(room.code);
+    if (room.players.size === 0) room.emptySince = Date.now();
     return room;
+  }
+
+  /** Apaga as salas vazias há muito tempo. */
+  prune(now = Date.now()) {
+    for (const [code, r] of this.rooms) {
+      if (r.players.size === 0 && r.emptySince && now - r.emptySince > EMPTY_KEEP_MS) this.rooms.delete(code);
+    }
   }
 
   get(code) { return this.rooms.get(code); }
@@ -148,4 +157,4 @@ class RoomManager {
   }
 }
 
-module.exports = { RoomManager, Room, MAX_PER_ROOM, DESKS };
+module.exports = { RoomManager, Room, MAX_PER_ROOM, DESKS, EMPTY_KEEP_MS };

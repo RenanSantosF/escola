@@ -55,10 +55,31 @@ var desks: Dictionary = {}
 var my_desk := -1
 var games := {}  # gid -> estado
 var names := {}  # id -> nome dos jogadores da sala
+## A última entrada foi uma RECONEXÃO (caiu/minimizou e voltou), não a primeira.
+var reconnected := false
+var _ever_welcomed := false
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+
+
+## Voltou do app minimizado: a conexão costuma ter morrido; reconecta já.
+var _paused_at := 0.0
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_PAUSED:
+		_paused_at = Time.get_unix_time_from_system()
+	elif what == NOTIFICATION_APPLICATION_RESUMED and _want_online:
+		var away := Time.get_unix_time_from_system() - _paused_at
+		if _ws == null or _ws.get_ready_state() != WebSocketPeer.STATE_OPEN or away > 8.0:
+			# volta para a MESMA sala (o servidor guarda a sala e a carteira)
+			if room_code != "":
+				_mode = "code"
+				_code = room_code
+			my_id = ""
+			connect_to_server()
 
 
 ## Endereço efetivo: o fixo do jogo (ou um de teste passado pela linha de comando).
@@ -98,6 +119,8 @@ func join(mode: String, code := "") -> void:
 
 func leave() -> void:
 	_want_online = false
+	_ever_welcomed = false
+	reconnected = false
 	disconnect_from_server()
 	room_code = ""
 	clock = {}
@@ -154,7 +177,7 @@ func _process(delta: float) -> void:
 			online_changed.emit(false)
 			notice.emit("Conexão perdida. Tentando de novo...")
 		_retry_t += delta
-		if _retry_t > 5.0 and _want_online:
+		if _retry_t > 2.0 and _want_online:
 			_retry_t = 0.0
 			connect_to_server()
 
@@ -172,6 +195,8 @@ func _send_hello() -> void:
 func _handle(m: Dictionary) -> void:
 	match str(m.get("t", "")):
 		"welcome":
+			reconnected = _ever_welcomed
+			_ever_welcomed = true
 			my_id = str(m.id)
 			my_name = str(m.name)
 			room = str(m.room)

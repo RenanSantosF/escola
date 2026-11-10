@@ -69,8 +69,10 @@ func _ready() -> void:
 	_map_dim.visible = false
 	_map_dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	# tocar fora do mapa fecha
+	# (só clique: no celular o MESMO toque chega como clique + toque; o toque
+	# que abriu o mapa não pode fechá-lo em seguida)
 	_map_dim.gui_input.connect(func(e):
-		if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
+		if e is InputEventMouseButton and e.pressed and Time.get_ticks_msec() - _map_opened_ms > 350:
 			minimap.open_full(false))
 	add_child(_map_dim)
 
@@ -142,7 +144,14 @@ func _layout() -> void:
 		_zone_panel.position = Vector2(20, minimap.position.y + minimap.size.y + 8) if not minimap.full else Vector2(-999, -999)
 
 
+var _map_opened_ms := 0
+
+
 func _on_map_full(is_full: bool) -> void:
+	if is_full:
+		_map_opened_ms = Time.get_ticks_msec()
+	else:
+		controls.ignore_touches(400)
 	_map_dim.visible = is_full
 	# mapa aberto: some o resto da tela para não poluir
 	controls.visible = not is_full

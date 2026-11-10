@@ -566,6 +566,7 @@ function createServer(opts = {}) {
 
   // envia estados agregados por sala (~10 Hz)
   const timer = setInterval(() => {
+    rooms.prune();
     for (const r of rooms.rooms.values()) {
       const list = [];
       for (const p of r.players.values()) {

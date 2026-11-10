@@ -77,6 +77,25 @@ test('salas: cada um tem sua carteira; quem cai e volta logo recupera a mesma', 
   assert.equal(Object.keys(room.deskMap()).length, 4);
 });
 
+test('salas: quem minimiza o app e volta encontra a mesma sala (vazia espera 5 min)', () => {
+  const { EMPTY_KEEP_MS } = require('../src/rooms');
+  const rm = new RoomManager();
+  const p = { id: 'solo' };
+  const room = rm.create(p);
+  rm.leave(p);
+  assert.ok(rm.get(room.code), 'a sala continua lá');
+  const p2 = { id: 'solo' };
+  assert.equal(rm.joinCode(p2, room.code).code, room.code);
+  assert.equal(room.desks.get('solo'), 0, 'mesma carteira');
+  rm.leave(p2);
+  rm.prune(Date.now() + EMPTY_KEEP_MS + 1000);
+  assert.ok(!rm.get(room.code), 'depois de muito tempo vazia, some');
+  // entrada rápida não manda ninguém para sala vazia
+  const px = { id: 'x' };
+  const r2 = rm.create(px); rm.leave(px);
+  assert.notEqual(rm.quick({ id: 'y' }).code, r2.code);
+});
+
 test('relógio: fases na ordem, dia seguinte e quem chega no meio sabe quanto falta', () => {
   const { SchoolClock, PHASES } = require('../src/clock');
   const t0 = 1000000;

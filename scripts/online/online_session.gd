@@ -19,6 +19,7 @@ var _badge: Label
 var _offline_t := 0.0
 var _lost_panel: PanelContainer
 var _was_online := false
+var _lost_btns: HBoxContainer
 
 
 func setup(p: PlayerController, w: Node3D, ui_parent: Node, hud: HUD) -> void:
@@ -255,8 +256,11 @@ func _watch_connection(delta: float) -> void:
 	if not _was_online:
 		return
 	_offline_t += delta
-	if _offline_t > 25.0 and (_lost_panel == null or not _lost_panel.visible):
+	# quedinha (lag) não mostra nada; caiu de verdade: aviso e não anda
+	if _offline_t > 2.5 and (_lost_panel == null or not _lost_panel.visible):
 		_show_lost()
+	if _lost_btns:
+		_lost_btns.visible = _offline_t > 20.0
 
 
 func _show_lost() -> void:
@@ -269,9 +273,9 @@ func _show_lost() -> void:
 		var v := VBoxContainer.new()
 		v.add_theme_constant_override("separation", 12)
 		_lost_panel.add_child(v)
-		v.add_child(UITheme.title_label("Sem conexão", 44, UITheme.RED))
+		v.add_child(UITheme.title_label("Reconectando...", 44, UITheme.BLUE))
 		var l := Label.new()
-		l.text = "O Recreio precisa de internet para jogar com a turma. Estamos tentando reconectar..."
+		l.text = "A conexão caiu. Você volta para o mesmo lugar e a mesma sala assim que a internet voltar."
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.add_theme_font_size_override("font_size", 24)
@@ -279,6 +283,8 @@ func _show_lost() -> void:
 		var h := HBoxContainer.new()
 		h.alignment = BoxContainer.ALIGNMENT_CENTER
 		h.add_theme_constant_override("separation", 12)
+		h.visible = false
+		_lost_btns = h
 		v.add_child(h)
 		h.add_child(UITheme.make_button("Tentar de novo", func():
 			_offline_t = 0.0
@@ -292,6 +298,7 @@ func _show_lost() -> void:
 		chat_panel.get_parent().add_child(_lost_panel)
 	_lost_panel.visible = true
 	player.input_enabled = false
+	player.velocity = Vector3.ZERO
 
 
 static func _vec(a: Variant) -> Vector3:

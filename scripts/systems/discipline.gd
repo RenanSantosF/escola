@@ -91,6 +91,21 @@ func change_reputation(delta: int) -> void:
 # ------------------------------------------------------------- detecção
 
 ## Adulto que viu a cena (ou null).
+## O diretor está perto e OLHANDO para o jogador (campo de visão)?
+func director_sees() -> NPC:
+	var dir := npcs.director
+	if dir == null or not dir.active:
+		return null
+	var to := player.global_position - dir.global_position
+	to.y = 0.0
+	if to.length() > 10.0:
+		return null
+	var fwd := Vector3(sin(dir.yaw), 0, cos(dir.yaw))
+	if fwd.dot(to.normalized()) < 0.35:
+		return null  # de costas ou de lado: não viu
+	return dir if npcs.nav.is_clear(dir.global_position, player.global_position) else null
+
+
 func witness() -> NPC:
 	var best: NPC = null
 	var bd := 14.0
@@ -128,7 +143,13 @@ func _on_behavior(kind: String) -> void:
 	var now := Time.get_ticks_msec() * 0.001
 	if _cooldown.get(kind, -100.0) > now:
 		return
-	var w: NPC = npcs.teacher if kind in ["levantou_na_aula", "bagunca_aula"] else witness()
+	var w: NPC
+	if kind in ["levantou_na_aula", "bagunca_aula"]:
+		w = npcs.teacher
+	elif kind in ["esbarrao_forte", "esbarrao_repetido"]:
+		w = director_sees()  # esbarrar só é problema se o diretor estiver vendo
+	else:
+		w = witness()
 	if w == null:
 		return  # ninguém viu... desta vez!
 	_cooldown[kind] = now + 6.0
@@ -181,6 +202,12 @@ func _request_occurrence(kind: String, _w: NPC) -> void:
 
 
 func _on_phase(p: int) -> void:
+	if p == SchoolDay.Phase.RECESS and _pending_consequence > 0:
+		var pc := _pending_consequence
+		get_tree().create_timer(1.0).timeout.connect(func():
+			_do_consequence(pc)
+			_pending_consequence = 0
+			GameManager.show_toast("Hora de cumprir o castigo da diretoria."))
 	if p == SchoolDay.Phase.RECESS and pending_kind != "":
 		var k := pending_kind
 		pending_kind = ""
@@ -244,6 +271,8 @@ func _cutscene(kind: String, n: int) -> void:
 	hud.fade(0.0)
 	dir.visual.play("talk")
 	var lines := _lines_for(kind, n)
+	if n >= 2 and _class_time():
+		lines.append(["Diretor Valdir", "Mas agora volte para a aula! O castigo fica para o recreio."])
 	day.dialogue.open(dir.display_name, lines)
 	await day.dialogue.finished
 	dir.visual.stop_upper()
@@ -410,16 +439,36 @@ func on_shove(target: NPC) -> void:
 		GameManager.show_toast("Ninguém viu... mas o colega ficou muito chateado.")
 
 
+var _pending_consequence := 0
+
+
+func _class_time() -> bool:
+	return day.phase in [SchoolDay.Phase.ARRIVAL, SchoolDay.Phase.CLASS_1, SchoolDay.Phase.RETURN, SchoolDay.Phase.CLASS_2]
+
+
 func _apply_consequence(n: int) -> void:
+	# castigo (banco do hall / ajudar a Dona Cida) só no recreio: na hora da
+	# aula o aluno volta para a sala (sem duas ordens ao mesmo tempo)
+	if n >= 2 and _class_time():
+		_pending_consequence = n
+		change_reputation(-12)
+		GameManager.show_toast("Agora volte para a aula! O castigo é no recreio.")
+		return
+	_do_consequence(n)
+
+
+func _do_consequence(n: int) -> void:
 	match n:
 		1:
 			change_reputation(-8)
 			GameManager.show_toast("Advertência registrada. Reputação caiu um pouco.")
 		2:
-			change_reputation(-12)
+			if _pending_consequence == 0:
+				change_reputation(-12)
 			_start_cleanup_task()
 		_:
-			change_reputation(-12)
+			if _pending_consequence == 0:
+				change_reputation(-12)
 			restricted = true
 			restriction_text = "Castigo: sentar no banco do hall"
 			_bench_t = 45.0

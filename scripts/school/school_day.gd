@@ -188,6 +188,9 @@ func unsync() -> void:
 
 
 func _place(pos: Vector3, yaw: float) -> void:
+	# reconexão (minimizou o app e voltou): fica onde estava
+	if NetworkManager.reconnected:
+		return
 	if player.mode == PlayerController.Mode.SITTING:
 		player.force_stand()
 	player.global_position = pos

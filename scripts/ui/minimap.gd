@@ -91,13 +91,16 @@ func _capture_aerial() -> void:
 	vp.queue_free()
 
 
+var _opened_ms := 0
+
+
 func _gui_input(event: InputEvent) -> void:
 	var tap: bool = event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT
 	if not tap:
 		return
 	if not full:
 		open_full(true)
-	elif _close_rect().has_point(event.position):
+	elif _close_rect().has_point(event.position) and Time.get_ticks_msec() - _opened_ms > 350:
 		open_full(false)
 	accept_event()
 
@@ -106,6 +109,8 @@ func open_full(on: bool) -> void:
 	if on == full:
 		return
 	full = on
+	if on:
+		_opened_ms = Time.get_ticks_msec()
 	toggled_full.emit(full)
 	AudioManager.play_ui("ui_click")
 

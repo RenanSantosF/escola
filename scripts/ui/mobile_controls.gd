@@ -221,7 +221,17 @@ func _input(event: InputEvent) -> void:
 		_touch_drag(sd.index, sd.position, sd.relative)
 
 
+## Ignora toques por um instante (ex.: o toque que fechou o mapa não aperta o botão de baixo).
+var _ignore_until := 0
+
+
+func ignore_touches(ms: int) -> void:
+	_ignore_until = Time.get_ticks_msec() + ms
+
+
 func _touch_down(index: int, pos: Vector2) -> void:
+	if Time.get_ticks_msec() < _ignore_until:
+		return
 	for b in buttons:
 		if b.visible and b.contains(pos):
 			_button_touch[index] = b

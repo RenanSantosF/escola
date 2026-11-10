@@ -75,6 +75,7 @@ func _ready() -> void:
 	await _test_atividades()
 	await _test_relogio_servidor()
 	await _test_guia_missao()
+	await _test_mapa_toque()
 	_finish()
 
 
@@ -937,7 +938,12 @@ func _test_discipline() -> void:
 	main.npcs.inspector.teleport(Vector3(12, 0.05, -12), 0)
 	await _frames(2)
 	GameManager.report_behavior("esbarrao_forte")
-	check(disc.strikes_today == 1.0, "disciplina: adulto viu e chamou atenção")
+	check(disc.strikes_today == 0.0, "disciplina: esbarrão só conta se o diretor estiver vendo")
+	main.npcs.director.teleport(Vector3(10, 0.05, -20), 0.0)  # olhando para o jogador (+z)
+	await _frames(2)
+	GameManager.report_behavior("esbarrao_forte")
+	check(disc.strikes_today == 1.0, "disciplina: diretor viu o esbarrão e chamou atenção")
+	main.npcs.director.teleport(Vector3(60, 0.05, 60), 0.0)
 	disc._cooldown.clear()
 	GameManager.report_behavior("bolinha_em_colega")
 	await _wait(0.6)
@@ -1710,3 +1716,56 @@ func _test_guia_missao() -> void:
 	await _frames(3)
 	check(qs.suggestion().is_empty() and qs._guide_target() == null, "guia: na volta para a aula não sugere missão")
 	qs.guide_on = false
+
+
+func _tap(pos: Vector2) -> void:
+	for pressed in [true, false]:
+		var t := InputEventScreenTouch.new()
+		t.position = get_viewport().get_screen_transform() * pos  # coordenadas da janela
+		t.pressed = pressed
+		Input.parse_input_event(t)
+		await _frames(2)
+	await _frames(3)
+
+
+func _test_mapa_toque() -> void:
+	var hud: HUD = main.hud
+	main._menu.visible = false
+	await _wait(1.5)  # tela de carregamento some
+	await _tap(hud.minimap.get_global_rect().get_center())
+	check(hud.minimap.full, "mapa: abre com um toque (sem online)")
+	# o mesmo toque chegando de novo (clique + toque) não fecha
+	var t2 := InputEventScreenTouch.new()
+	t2.position = get_viewport().get_screen_transform() * Vector2(600, 400)
+	t2.pressed = true
+	Input.parse_input_event(t2)
+	await _frames(2)
+	check(hud.minimap.full, "mapa: não fecha sozinho logo depois de abrir")
+	var t3 := t2.duplicate()
+	t3.pressed = false
+	Input.parse_input_event(t3)
+	await _wait(0.5)
+	var mr := hud.minimap.get_global_rect()
+	await _tap(mr.position + Vector2(mr.size.x - 36, 36))
+	check(not hud.minimap.full, "mapa: fecha no X")
+	check(not hud._pause_layer.visible, "mapa: o toque que fecha não abre a pausa embaixo")
+	await _wait(0.5)
+	hud.minimap.open_full(false)
+	await _frames(3)
+	if main.online == null:
+		main.online = OnlineSession.new()
+		main.add_child(main.online)
+		main.online.npcs = main.npcs
+		main.online.day = main.school_day
+		main.online.setup(player, main.world, main.ui_layer, hud)
+	await _frames(5)
+	var mm: Minimap = hud.minimap
+	await _tap(mm.get_global_rect().get_center())
+	var hit := get_viewport().gui_get_hovered_control()
+	if hit and hit != mm:
+		var top: Node = hit.get_parent()
+		print("DBG cobre: ", top.get_class(), " filhos=", top.get_children().map(func(c): return c.get_class()), " vis=", top.visible)
+		for c in top.find_children("*", "Label", true, false):
+			print("DBG   texto: ", (c as Label).text.left(60))
+	check(mm.full, "mapa: abre com um toque (com o chat online na tela)", "por cima: %s" % [str(hit.get_path()) if hit else "nada"])
+	mm.open_full(false)

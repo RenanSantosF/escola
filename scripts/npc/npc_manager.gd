@@ -93,7 +93,11 @@ func _pick_player_desk() -> void:
 	for s in list:
 		if best == null or s.global_position.distance_to(target) < best.global_position.distance_to(target):
 			best = s
+	if player_desk and player_desk.has_meta("my_desk"):
+		player_desk.remove_meta("my_desk")
 	player_desk = best
+	if best:
+		best.set_meta("my_desk", true)
 
 
 # =================================================================== carteiras
@@ -134,7 +138,10 @@ func apply_desks(map: Dictionary, my_id: String) -> void:
 		_pick_player_desk()
 		new_desk = player_desk
 	if new_desk and new_desk != player_desk:
+		if player_desk and player_desk.has_meta("my_desk"):
+			player_desk.remove_meta("my_desk")
 		player_desk = new_desk
+		player_desk.set_meta("my_desk", true)
 		player_desk_changed.emit(new_desk)
 	# quantos bots ficam na turma
 	var humans := maxi(map.size(), 1)

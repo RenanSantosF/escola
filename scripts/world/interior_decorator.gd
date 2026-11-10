@@ -146,8 +146,6 @@ static func _classroom(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: 
 			if rng.randf() < 0.12:
 				var dn := Vector3(0, 0, 1).rotated(Vector3.UP, desk_yaw)
 				b.box("plain", pos + dn * 0.46 + Vector3(0, 0.745, 0), Vector3(0.2, 0.015, 0.28), [Color("e74c3c"), Color("3498db"), Color("f1c40f")][rng.randi() % 3], desk_yaw, false)
-			if rng.randf() < 0.07:
-				_paper_ball(sb, pos + Vector3(0, 0.8, 0) + Vector3(0, 0, 1).rotated(Vector3.UP, desk_yaw) * 0.45)
 			if sb.classrooms.has(room.name) and (i + j) % 6 == 2:
 				sb.classrooms[room.name]["item_spots"].append(pos + Vector3(0, 0.8, 0) + Vector3(0, 0, 1).rotated(Vector3.UP, desk_yaw) * 0.45)
 	# Mural, cartazes e armário na parede do fundo

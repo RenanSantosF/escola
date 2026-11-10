@@ -388,9 +388,8 @@ func _start_busy(action: String, target: Node) -> void:
 # ------------------------------------------------------------- sentar
 
 func sit_on(seat: Seat) -> void:
-	if mode == Mode.FREE and seat.occupant != null and seat._only_reserved():
-		(seat.occupant as NPC).cancel_seat()
-		seat.occupant = null
+	if mode == Mode.FREE and seat.occupant != null:
+		seat.free_for_owner()
 	if mode != Mode.FREE or seat.occupant != null:
 		return
 	if riding:
@@ -626,6 +625,9 @@ func _scan_interactables() -> void:
 		if not n.can_interact(self):
 			continue
 		var score := d - facing * 0.4
+		# a MINHA carteira sempre ganha de bolinhas/objetos em volta
+		if n.has_meta("my_desk"):
+			score -= 1.5
 		if score < best_score:
 			best_score = score
 			best = n
