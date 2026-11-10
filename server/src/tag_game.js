@@ -5,6 +5,8 @@
 // 2 minutos de jogo -> quem passou MENOS tempo como pegador ganha.
 // Regras: encostar (< 1,4 m) passa o pegador; quem acabou de ser pego tem
 // 3 s de imunidade de volta ("não vale pegar de volta").
+// Quem entra com o jogo rolando ganha 3 s de imunidade e o placar é JUSTO:
+// conta a PORCENTAGEM do tempo jogado como pegador (não o tempo total).
 
 const LOBBY_MS = 20000;
 const GAME_MS = 120000;
@@ -25,6 +27,8 @@ class TagGame {
     this.itSince = 0;
     this.timeIt = new Map();
     this.tags = new Map();
+    this.joinedAt = new Map();
+    this.immuneUntil = new Map();
     this.lobbyEnds = now + LOBBY_MS;
     this.ends = 0;
   }
@@ -35,10 +39,16 @@ class TagGame {
     this.lobbyEnds = now + LOBBY_MS;
   }
 
-  join(id) {
+  join(id, now = Date.now()) {
     if (this.state !== 'lobby' && this.state !== 'playing') return false;
+    if (this.players.has(id)) return true;
     this.players.add(id);
     if (!this.timeIt.has(id)) this.timeIt.set(id, 0);
+    if (this.state === 'playing') {
+      this.joinedAt.set(id, now);
+      this.immuneUntil.set(id, now + BACK_IMMUNITY_MS);
+      if (!this.tags.has(id)) this.tags.set(id, 0);
+    }
     return true;
   }
 
@@ -55,6 +65,7 @@ class TagGame {
     for (const id of this.players) {
       this.timeIt.set(id, 0);
       this.tags.set(id, 0);
+      this.joinedAt.set(id, now);
     }
     this._pickIt(now, null);
     return true;
@@ -90,7 +101,7 @@ class TagGame {
     }
     if (now >= this.ends) {
       this.state = 'over';
-      ev.push({ kind: 'end', results: this.results() });
+      ev.push({ kind: 'end', results: this.results(now) });
       return ev;
     }
     if (!this.it || now - this.lastTagAt < TAG_COOLDOWN_MS) return ev;
@@ -101,6 +112,7 @@ class TagGame {
     for (const id of this.players) {
       if (id === this.it) continue;
       if (id === this.lastTagger && now - this.lastTagAt < BACK_IMMUNITY_MS) continue;
+      if ((this.immuneUntil.get(id) || 0) > now) continue;
       const b = pos(id);
       if (!b) continue;
       const d = Math.hypot(a[0] - b[0], a[2] - b[2]);
@@ -118,9 +130,13 @@ class TagGame {
     return ev;
   }
 
-  results() {
-    return [...this.players].map((id) => ({ id, secondsIt: Math.round((this.timeIt.get(id) || 0) / 1000), tags: this.tags.get(id) || 0 }))
-      .sort((x, y) => x.secondsIt - y.secondsIt || y.tags - x.tags);
+  results(now = Date.now()) {
+    const end = Math.min(now, this.ends || now);
+    return [...this.players].map((id) => {
+      const played = Math.max(1000, end - (this.joinedAt.get(id) || end));
+      const it = this.timeIt.get(id) || 0;
+      return { id, secondsIt: Math.round(it / 1000), secondsPlayed: Math.round(played / 1000), pctIt: Math.round((it / played) * 100), tags: this.tags.get(id) || 0 };
+    }).sort((x, y) => x.pctIt - y.pctIt || y.tags - x.tags);
   }
 
   snapshot(now = Date.now()) {

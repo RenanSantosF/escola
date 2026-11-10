@@ -13,7 +13,15 @@
 //   {t:'quick'|'chat', ..., ch:'near'}               canal "Perto de mim" (18 m)
 //   {t:'emote', name}                                reação (aceno, comemorar...)
 //   {t:'tag_invite'|'tag_join'|'tag_leave'|'tag_start'}  pique-pega online
+//   {t:'mg_join', gid, wait?, opts?} {t:'mg_leave', gid} {t:'mg_start', gid, opts?}
+//   {t:'mg_opts', gid, opts} {t:'mg_score', gid, score, final} {t:'mg_team_result', gid, a, b}
+//   {t:'mg_relay', gid, d}                           jogo de time (anfitrião <-> outros)
+//   {t:'direct', to, kind, data}                     missão em grupo (convite/estado)
 // Servidor -> cliente
+//   {t:'clock', day, phase, index, startedAt, endsAt, now, seed, left}  relógio da escola
+//   {t:'desks', map:{id: carteira}}                  carteiras reservadas na Sala 5
+//   {t:'mg', list:[estado]} {t:'mg_event', gid, kind, ...} {t:'mg_relay', gid, from, d}
+//   {t:'direct', from, fromName, kind, data}
 //   {t:'welcome', token, id, name, room, code, private, freeChat, quick, players, phase}
 //   {t:'join_error', text}   código errado / sala cheia (a conexão continua)
 //   {t:'join', player} {t:'leave', id} {t:'states', list}
@@ -29,6 +37,7 @@ const { RoomManager } = require('./rooms');
 const { Accounts, sha, nameKey, nameProblem, checkPassword } = require('./accounts');
 const { Analytics } = require('./analytics');
 const { TagGame } = require('./tag_game');
+const { CATALOG } = require('./games');
 const { Database } = require('./db');
 
 const NEAR_DIST = 18; // metros do canal "Perto de mim"
@@ -51,7 +60,7 @@ function createServer(opts = {}) {
     onReport: (e) => dbSafe(db.insertReport(e)),
     onBlock: (id, other) => dbSafe(db.saveBlock(id, other)),
   });
-  const rooms = new RoomManager();
+  const rooms = new RoomManager({ clock: { scale: opts.clockScale ?? (Number(process.env.CLOCK_SCALE) || 1) } });
   const analytics = opts.analytics || new Analytics({
     ...(opts.dataDir !== undefined ? { dataDir: opts.dataDir } : {}),
     ...(db.enabled ? { dataDir: '' } : {}),
@@ -298,6 +307,23 @@ function createServer(opts = {}) {
       (viewer) => !safety.isBlocked(viewer.id, p.id) && (!nearOnly || viewer.id === p.id || near(viewer, p)));
   }
 
+  const DIRECT_KINDS = new Set(['party_invite', 'party_accept', 'party_decline', 'party_state', 'party_step', 'party_leave']);
+
+  /** Limite simples de mensagens por segundo (por tipo). */
+  function rate(player, key, perSec) {
+    const now = Date.now();
+    const b = (player.rates ||= {});
+    const e = b[key] && now - b[key].t < 1000 ? b[key] : (b[key] = { t: now, n: 0 });
+    e.n++;
+    return e.n <= perSec;
+  }
+
+  function flushGames(room) {
+    const list = room.games.takeDirty();
+    if (list.length) broadcast(room, { t: 'mg', list });
+    for (const e of room.games.takeEvents()) broadcast(room, { t: 'mg_event', ...e });
+  }
+
   function names(room) {
     const out = {};
     for (const p of room.players.values()) out[p.id] = p.name;
@@ -338,9 +364,9 @@ function createServer(opts = {}) {
       dbSafe(db.saveAccount(acc));
       player = { id: acc.id, name: acc.name, level: acc.level, look: acc.look, pos: [0, 0, 70], yaw: 0, anim: 'idle', ws, acc, dirty: true };
       let r;
-      if (m.mode === 'create') r = rooms.create(player, true);
-      else if (m.mode === 'code') r = rooms.joinCode(player, m.code);
-      else r = rooms.join(player, typeof m.room === 'string' ? m.room.slice(0, 8) : null);
+      if (m.mode === 'create') r = rooms.create(player);
+      else if (m.mode === 'code') r = rooms.joinCode(player, String(m.code || '').slice(0, 8));
+      else r = rooms.quick(player);
       if (r.error) {
         player = null;
         return send(ws, { t: 'join_error', text: r.error });
@@ -349,9 +375,12 @@ function createServer(opts = {}) {
       send(ws, {
         t: 'welcome', token: acc.token, id: acc.id, name: acc.name, room: room.id, code: room.code, private: room.private,
         freeChat: accounts.canFreeChat(acc), quick: QUICK_PHRASES, players: room.snapshot(acc.id), phase: room.phase,
+        clock: room.clock.state(), desks: room.deskMap(), desk: room.desks.get(acc.id) ?? -1, games: room.games.all(),
       });
+      if (room.tag) send(ws, { t: 'tag', ...room.tag.snapshot(), names: names(room) });
       broadcast(room, { t: 'join', player: { id: player.id, name: player.name, level: player.level, look: player.look, pos: player.pos, yaw: player.yaw, anim: player.anim } }, player.id);
       broadcast(room, { t: 'count', n: room.players.size });
+      broadcast(room, { t: 'desks', map: room.deskMap() }, player.id);
     }
 
     ws.on('message', (raw) => {
@@ -413,6 +442,7 @@ function createServer(opts = {}) {
           break;
         }
         case 'tag_invite': {
+          if (room.phase !== 'recess') return send(ws, { t: 'notice', text: 'O pique-pega é no recreio!' });
           if (room.tag && room.tag.state !== 'over') {
             room.tag.join(player.id);
             sendTag(room);
@@ -440,6 +470,61 @@ function createServer(opts = {}) {
             if (room.tag.start()) tagEvents(room, [{ kind: 'start', it: room.tag.it }]);
             else send(ws, { t: 'notice', text: 'Precisa de pelo menos 2 jogadores para começar.' });
           }
+          break;
+        }
+        case 'mg_join': {
+          const gid = String(m.gid || '');
+          if (!CATALOG[gid]) return;
+          const r = room.games.join(gid, player.id, { wait: !!m.wait, opts: m.opts });
+          if (r.error) send(ws, { t: 'mg_error', gid, text: r.error });
+          flushGames(room);
+          break;
+        }
+        case 'mg_leave': {
+          room.games.leave(String(m.gid || ''), player.id);
+          flushGames(room);
+          break;
+        }
+        case 'mg_start': {
+          room.games.start(String(m.gid || ''), player.id, m.opts);
+          flushGames(room);
+          break;
+        }
+        case 'mg_opts': {
+          room.games.setOpts(String(m.gid || ''), player.id, m.opts);
+          flushGames(room);
+          break;
+        }
+        case 'mg_score': {
+          room.games.score(String(m.gid || ''), player.id, m.score, !!m.final);
+          flushGames(room);
+          break;
+        }
+        case 'mg_team_result': {
+          room.games.teamResult(String(m.gid || ''), player.id, { a: m.a, b: m.b });
+          flushGames(room);
+          break;
+        }
+        case 'mg_relay': {
+          if (!rate(player, 'relay', 25)) return;
+          const gid = String(m.gid || '');
+          const r = room.games.relay(gid, player.id, m.d);
+          if (!r) return;
+          const out = JSON.stringify({ t: 'mg_relay', gid, from: player.id, d: m.d });
+          for (const id of r.to) {
+            const p = room.players.get(id);
+            if (p && p.ws.readyState === 1) p.ws.send(out);
+          }
+          break;
+        }
+        case 'direct': {
+          if (!rate(player, 'direct', 8)) return;
+          const kind = String(m.kind || '');
+          if (!DIRECT_KINDS.has(kind)) return;
+          const to = room.players.get(String(m.to || ''));
+          if (!to || to.id === player.id || safety.isBlocked(player.id, to.id) || safety.isBlocked(to.id, player.id)) return;
+          if (JSON.stringify(m.data ?? null).length > 1500) return;
+          send(to.ws, { t: 'direct', from: player.id, fromName: player.name, kind, data: m.data ?? null });
           break;
         }
         case 'look': {
@@ -471,6 +556,8 @@ function createServer(opts = {}) {
         }
         broadcast(r, { t: 'leave', id: player.id });
         broadcast(r, { t: 'count', n: r.players.size });
+        broadcast(r, { t: 'desks', map: r.deskMap() });
+        flushGames(r);
       }
     });
   });
@@ -485,6 +572,19 @@ function createServer(opts = {}) {
         list.push({ id: p.id, pos: p.pos, yaw: p.yaw, anim: p.anim });
       }
       if (list.length) broadcast(r, { t: 'states', list });
+      // relógio da escola: a mesma fase para todos
+      for (const st of r.clock.tick()) {
+        if (st.phase !== 'recess') {
+          r.games.endAll();
+          if (r.tag && r.tag.state !== 'over') {
+            r.tag.ends = Math.min(r.tag.ends || Date.now(), Date.now());
+            if (r.tag.state === 'lobby') { r.tag.state = 'over'; tagEvents(r, [{ kind: 'cancel', text: 'O sinal tocou!' }]); }
+          }
+        }
+        broadcast(r, { t: 'clock', ...st });
+      }
+      r.games.tick();
+      flushGames(r);
       // pique-pega: o servidor confere quem encostou em quem
       if (r.tag) {
         const evs = r.tag.tick((id) => (r.players.get(id) || {}).pos);

@@ -39,23 +39,125 @@ test('segurança: limite, auto-silêncio e denúncias', () => {
   assert.ok(s.isBlocked('b', 'a'));
 });
 
-test('salas: entrada rápida, lotação, criar e entrar com código', () => {
+test('salas: todas abertas, entrada rápida prioriza salas existentes, código junta amigos', () => {
   const rm = new RoomManager();
   const codes = new Set();
   for (let i = 0; i < MAX_PER_ROOM + 1; i++) codes.add(rm.quick({ id: 'p' + i }).code);
   assert.equal(codes.size, 2);
   const first = rm.get([...codes][0]);
   assert.equal(first.snapshot('p0').length, MAX_PER_ROOM - 1);
-  const priv = rm.create({ id: 'dono' });
-  assert.equal(priv.private, true);
-  assert.match(priv.code, /^\d{4}$/);
-  // entrada rápida nunca cai em sala privada
-  for (let i = 0; i < 5; i++) assert.notEqual(rm.quick({ id: 'q' + i }).code, priv.code);
-  assert.equal(rm.joinCode({ id: 'amigo' }, priv.code).code, priv.code);
-  assert.ok(rm.joinCode({ id: 'x' }, '0000').error);
-  assert.ok(rm.publicList().every((r) => !r.private));
+  // sala criada por um amigo é ABERTA: quem entra pela entrada rápida pode cair nela
+  const rm2 = new RoomManager();
+  const nova = rm2.create({ id: 'dono' });
+  assert.equal(nova.private, false);
+  assert.match(nova.code, /^\d{4}$/);
+  assert.equal(rm2.joinCode({ id: 'amigo' }, nova.code).code, nova.code);
+  assert.equal(rm2.quick({ id: 'estranho' }).code, nova.code, 'entrada rápida prioriza a sala que já existe');
+  assert.ok(rm2.joinCode({ id: 'x' }, '0000').error);
+  // entre duas salas, a rápida vai para a mais cheia
+  const outra = rm2.create({ id: 'sozinho' });
+  assert.equal(rm2.quick({ id: 'novo' }).code, nova.code);
+  assert.notEqual(outra.code, nova.code);
 });
 
+test('salas: cada um tem sua carteira; quem cai e volta logo recupera a mesma', () => {
+  const rm = new RoomManager();
+  const a = { id: 'a' }; const b = { id: 'b' }; const c = { id: 'c' };
+  const room = rm.create(a);
+  rm.joinCode(b, room.code);
+  rm.joinCode(c, room.code);
+  const da = room.desks.get('a'); const db = room.desks.get('b'); const dc = room.desks.get('c');
+  assert.equal(new Set([da, db, dc]).size, 3, 'carteiras diferentes');
+  rm.leave(b);
+  const d = { id: 'd' };
+  rm.joinCode(d, room.code);
+  assert.notEqual(room.desks.get('d'), db, 'a carteira de quem caiu fica guardada um tempo');
+  rm.joinCode({ id: 'b' }, room.code);
+  assert.equal(room.desks.get('b'), db, 'voltou e recuperou a mesma carteira');
+  assert.equal(Object.keys(room.deskMap()).length, 4);
+});
+
+test('relógio: fases na ordem, dia seguinte e quem chega no meio sabe quanto falta', () => {
+  const { SchoolClock, PHASES } = require('../src/clock');
+  const t0 = 1000000;
+  const c = new SchoolClock(t0, { scale: 0.01 });
+  assert.equal(c.state(t0).phase, 'arrival');
+  let t = t0;
+  const seen = [];
+  for (let i = 0; i < PHASES.length; i++) {
+    t = c.endsAt;
+    for (const st of c.tick(t)) seen.push(st.phase);
+  }
+  assert.deepEqual(seen, ['class1', 'recess', 'return', 'class2', 'end', 'arrival']);
+  assert.equal(c.day, 2);
+  const mid = c.state(t + 300);
+  assert.equal(mid.phase, 'arrival');
+  assert.ok(mid.left <= Math.ceil(c.duration(0) / 1000));
+  // atraso grande: pula várias fases de uma vez sem travar
+  const c2 = new SchoolClock(0, { scale: 0.001 });
+  assert.ok(c2.tick(10 * 60 * 1000).length > 6);
+});
+
+test('brincadeiras: rodada com quem chega depois, vez com fila e time com troca de anfitrião', () => {
+  const { GameHub } = require('../src/games');
+  const room = { phase: 'recess' };
+  const hub = new GameHub(room);
+  const t = 5000;
+  // fora do recreio não dá
+  room.phase = 'class1';
+  assert.ok(hub.join('aviao', 'a', {}, t).error);
+  room.phase = 'recess';
+  // RODADA: a começa sozinho (sem espera); b entra no meio; acaba quando os dois terminam
+  hub.join('aviao', 'a', { wait: false }, t);
+  hub.tick(t);
+  assert.equal(hub.sessions.get('aviao').state, 'playing');
+  hub.join('aviao', 'b', {}, t + 1000);
+  hub.score('aviao', 'a', 30, true, t + 2000);
+  assert.equal(hub.sessions.get('aviao').state, 'playing', 'espera quem entrou depois');
+  hub.score('aviao', 'b', 45, true, t + 3000);
+  const r = hub.sessions.get('aviao');
+  assert.equal(r.state, 'results');
+  assert.equal(r.ranking[0].id, 'b');
+  // VEZ: fila; quem chega espera; quem sai na vez passa a vez
+  hub.join('amarelinha', 'a', { wait: true }, t);
+  hub.join('amarelinha', 'b', {}, t + 100);
+  assert.equal(hub.sessions.get('amarelinha').state, 'lobby');
+  assert.ok(hub.start('amarelinha', 'a', null, t + 200));
+  const s = hub.sessions.get('amarelinha');
+  assert.equal(s.current, 'a');
+  hub.join('amarelinha', 'c', {}, t + 300);
+  assert.deepEqual(s.queue, ['b', 'c']);
+  hub.score('amarelinha', 'a', 10, true, t + 400);
+  assert.equal(s.current, 'b');
+  hub.leave('amarelinha', 'b', t + 500);
+  assert.equal(s.current, 'c');
+  hub.score('amarelinha', 'c', 12, true, t + 600);
+  assert.equal(s.state, 'results');
+  // entrar em outra brincadeira tira da anterior
+  hub.join('corda', 'z', {}, t);
+  hub.join('pontaria', 'z', {}, t);
+  assert.ok(!hub.sessions.get('corda'), 'saiu da corda (sessão vazia fecha)');
+  // TIME: times equilibrados; anfitrião sai e o time dele vira o "a"
+  for (const id of ['h', 'p1', 'p2', 'p3']) hub.join('futebol', id, { wait: true }, t);
+  const f = hub.sessions.get('futebol');
+  assert.equal(f.teams.h, 'a');
+  assert.equal(f.teamCount('a'), 2);
+  assert.equal(f.teamCount('b'), 2);
+  hub.start('futebol', 'h', { size: 4, difficulty: 1, bots: true }, t);
+  assert.ok(hub.relay('futebol', 'h', { a: 1, b: 0, t: 90 }).to.length === 3);
+  assert.deepEqual(hub.relay('futebol', 'p1', { k: 'chute' }).to, ['h']);
+  hub.join('futebol', 'late', {}, t + 1000);
+  assert.ok(['a', 'b'].includes(f.teams.late));
+  const before = f.teams.p1;
+  hub.leave('futebol', 'h', t + 2000);
+  assert.equal(f.teams[f.host], 'a', 'o novo anfitrião fica no time a');
+  assert.ok(f.hostState.swapped || before === 'a');
+  // o sinal toca: termina com o placar de agora
+  hub.endAll(t + 3000);
+  assert.equal(f.state, 'results');
+  hub.tick(t + 3000 + 7000);
+  assert.ok(!hub.sessions.get('futebol'));
+});
 test('estatísticas: sessões, idades e compras', () => {
   const { Analytics } = require('../src/analytics');
   const a = new Analytics({ dataDir: '' });
@@ -108,7 +210,7 @@ test('servidor: painel protegido e eventos', async () => {
   srv.close();
 });
 
-test('servidor: criar sala e amigo entra pelo código', async () => {
+test('servidor: criar sala e amigo entra pelo código; desconhecido cai na sala que já existe', async () => {
   const srv = createServer({ adminToken: 'x', dataDir: '' });
   await new Promise((r) => srv.server.listen(0, r));
   const port = srv.server.address().port;
@@ -116,7 +218,9 @@ test('servidor: criar sala e amigo entra pelo código', async () => {
   a.ws.send(JSON.stringify({ t: 'hello', age: 9, mode: 'create' }));
   await wait(60);
   const wa = a.inbox.find((m) => m.t === 'welcome');
-  assert.ok(wa.private && /^\d{4}$/.test(wa.code));
+  assert.ok(!wa.private && /^\d{4}$/.test(wa.code));
+  assert.equal(wa.clock.phase, 'arrival');
+  assert.equal(wa.desk, 0);
   const b = await connect(port);
   b.ws.send(JSON.stringify({ t: 'hello', age: 9, mode: 'code', code: '0001' }));
   await wait(60);
@@ -125,11 +229,49 @@ test('servidor: criar sala e amigo entra pelo código', async () => {
   await wait(60);
   const wb = b.inbox.find((m) => m.t === 'welcome');
   assert.equal(wb.code, wa.code);
+  assert.equal(wb.desk, 1);
+  assert.ok(a.inbox.some((m) => m.t === 'desks' && Object.keys(m.map).length === 2));
   const c = await connect(port);
   c.ws.send(JSON.stringify({ t: 'hello', age: 9, mode: 'quick' }));
   await wait(60);
-  assert.notEqual(c.inbox.find((m) => m.t === 'welcome').code, wa.code);
+  assert.equal(c.inbox.find((m) => m.t === 'welcome').code, wa.code);
   a.ws.close(); b.ws.close(); c.ws.close();
+  srv.close();
+});
+
+test('servidor: relógio igual para todos e brincadeira compartilhada pelo websocket', async () => {
+  const srv = createServer({ adminToken: 'x', dataDir: '', clockScale: 0.004 }); // chegada = 300 ms
+  await new Promise((r) => srv.server.listen(0, r));
+  const port = srv.server.address().port;
+  const a = await connect(port);
+  a.ws.send(JSON.stringify({ t: 'hello', age: 9, mode: 'create' }));
+  await wait(60);
+  const code = a.inbox.find((m) => m.t === 'welcome').code;
+  // espera chegar no recreio (chegada 300 ms + aula 960 ms)
+  await wait(1500);
+  const clocks = a.inbox.filter((m) => m.t === 'clock').map((m) => m.phase);
+  assert.deepEqual(clocks.slice(0, 2), ['class1', 'recess']);
+  const b = await connect(port);
+  b.ws.send(JSON.stringify({ t: 'hello', age: 9, mode: 'code', code }));
+  await wait(80);
+  assert.equal(b.inbox.find((m) => m.t === 'welcome').clock.phase, 'recess', 'quem chega depois recebe a fase atual');
+  a.ws.send(JSON.stringify({ t: 'mg_join', gid: 'futebol', wait: true }));
+  await wait(40);
+  assert.ok(b.inbox.some((m) => m.t === 'mg' && m.list.some((g) => g.gid === 'futebol' && g.players.length === 1)), 'quem está perto vê que tem futebol rolando');
+  b.ws.send(JSON.stringify({ t: 'mg_join', gid: 'futebol' }));
+  await wait(40);
+  a.ws.send(JSON.stringify({ t: 'mg_start', gid: 'futebol', opts: { size: 3, bots: true } }));
+  await wait(60);
+  assert.ok(b.inbox.some((m) => m.t === 'mg_event' && m.kind === 'start' && m.host));
+  a.ws.send(JSON.stringify({ t: 'mg_relay', gid: 'futebol', d: { a: 1, b: 0, ball: [40, 0.3, -49] } }));
+  b.ws.send(JSON.stringify({ t: 'mg_relay', gid: 'futebol', d: { k: 'chute', p: 0.8 } }));
+  await wait(60);
+  assert.ok(b.inbox.some((m) => m.t === 'mg_relay' && m.d.ball), 'estado do anfitrião chega aos outros');
+  assert.ok(a.inbox.some((m) => m.t === 'mg_relay' && m.d.k === 'chute'), 'comando do colega chega ao anfitrião');
+  // fora do recreio a brincadeira acaba com resultado para todos
+  await wait(2200);
+  assert.ok(b.inbox.some((m) => m.t === 'mg_event' && m.kind === 'results' && m.gid === 'futebol'));
+  a.ws.close(); b.ws.close();
   srv.close();
 });
 
@@ -195,6 +337,25 @@ test('pique-pega: lobby, sorteio, pegar, imunidade e resultado', () => {
   assert.equal(ev[0].results[0].id, 'c'); // c nunca foi pegador
 });
 
+test('pique-pega: quem entra no meio tem imunidade e o placar é por porcentagem', () => {
+  const { TagGame } = require('../src/tag_game');
+  const g = new TagGame({}, 0);
+  g.invite('a', 0); g.join('b', 0);
+  g.start(0);
+  g.it = 'a'; g.itSince = 0;
+  const pos = { a: [0, 0, 0], b: [10, 0, 0], c: [0.5, 0, 0] };
+  g.tick((id) => pos[id], 30000); // a foi pegador 30 s
+  g.join('c', 30000);
+  g.lastTagAt = 0;
+  assert.deepEqual(g.tick((id) => pos[id], 31000).filter((e) => e.kind === 'tagged'), [], 'recém-chegado não é pego na hora');
+  const evs = g.tick((id) => pos[id], 34000);
+  assert.ok(evs.some((e) => e.kind === 'tagged' && e.to === 'c'));
+  const res = g.results(60000);
+  const c = res.find((r) => r.id === 'c');
+  assert.equal(c.secondsPlayed, 30);
+  assert.ok(res.every((r) => Number.isFinite(r.pctIt)));
+});
+
 test('pique-pega: cancela sem jogadores suficientes', () => {
   const { TagGame } = require('../src/tag_game');
   const g = new TagGame({}, 0);
@@ -215,6 +376,10 @@ test('servidor: canal Perto, reações e convite de pique-pega', async () => {
   await wait(60);
   a.ws.send(JSON.stringify({ t: 'quick', i: 1, ch: 'near' }));
   a.ws.send(JSON.stringify({ t: 'emote', name: 'wave' }));
+  a.ws.send(JSON.stringify({ t: 'tag_invite' }));
+  await wait(60);
+  assert.ok(a.inbox.some((m) => m.t === 'notice' && /recreio/.test(m.text)), 'fora do recreio não tem pique-pega');
+  for (const r of srv.rooms.rooms.values()) r.clock.jump('recess');
   a.ws.send(JSON.stringify({ t: 'tag_invite' }));
   await wait(120);
   assert.ok(b.inbox.some((m) => m.t === 'chat' && m.ch === 'near'));
