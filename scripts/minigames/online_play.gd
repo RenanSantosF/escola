@@ -10,9 +10,11 @@ extends Node
 ## Mostra a espera (com "Começar agora" para quem chamou), a fila, o placar
 ## final e um botão "Entrar" quando alguém está brincando perto de você.
 
+## Fora da lista (queimada, esconde-esconde): por enquanto são jogos contra os
+## colegas-bot; jogar "junto" cada um com sua partida não faria sentido.
 const KINDS := {
 	"aviao": "round", "pontaria": "round", "basquete": "round", "gude": "round", "guerra": "round",
-	"corrida": "round", "queimada": "round", "esconde": "round",
+	"corrida": "round",
 	"amarelinha": "turn", "corda": "turn",
 	"futebol": "team", "cabo": "team",
 }
@@ -41,6 +43,8 @@ var _view := ""
 var _view_g: Dictionary = {}
 var _view_ms := 0
 var _redraw_t := 0.0
+## Recorde da sala em cada brincadeira: gid -> {id, name, score}.
+var room_best := {}
 
 
 func setup(m: MinigameManager) -> void:
@@ -377,11 +381,24 @@ func _show_results(gid: String, ev: Dictionary) -> void:
 			var r: Dictionary = arr[i]
 			lines.append("%dº  %s  ·  %s" % [i + 1, NetworkManager.name_of(str(r.id)), _fmt_score(gid, float(r.score))])
 		won = arr.size() > 1 and str(arr[0].id) == me
+		if not arr.is_empty():
+			var top: Dictionary = arr[0]
+			var old: Dictionary = room_best.get(gid, {})
+			var better: bool = old.is_empty() or (float(top.score) < float(old.score) if gid in LOWER_BETTER else float(top.score) > float(old.score))
+			if better:
+				room_best[gid] = {"id": str(top.id), "name": NetworkManager.name_of(str(top.id)), "score": float(top.score)}
+				if not old.is_empty():
+					lines.append("NOVO RECORDE DA SALA!")
 	if won:
 		lines.append("Você foi o campeão! +15 moedas")
 		GameManager.add_rewards(20, 15)
 		player.visual.play("celebrate")
-	_show_panel("Placar · " + str(mgr.GAMES.get(gid, {}).get("title", gid)), lines, [])
+	# jogar de novo: abre outra espera para quem quiser
+	var again := func():
+		_panel.visible = false
+		if mgr.can_start() and mgr.is_recess():
+			mgr.start(gid)
+	_show_panel("Placar · " + str(mgr.GAMES.get(gid, {}).get("title", gid)), lines, [["Jogar de novo", again], ["Fechar", func(): _panel.visible = false]])
 	var p := _panel
 	get_tree().create_timer(6.0).timeout.connect(func():
 		if is_instance_valid(p) and my_gid == "":
@@ -444,6 +461,9 @@ func _update_stations() -> void:
 			st.prompt = ("Entrar na fila: %s (%d)" if KINDS.get(gid, "") == "turn" else "Entrar: %s (%d jogando)") % [mgr.GAMES[gid].title, n]
 		else:
 			st.prompt = "Jogar: %s" % mgr.GAMES[gid].title
+			var rb: Dictionary = room_best.get(gid, {})
+			if not rb.is_empty():
+				st.prompt += "  ·  recorde: %s %s" % [rb.name, _fmt_score(gid, float(rb.score))]
 
 
 func _update_chip() -> void:

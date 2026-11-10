@@ -54,6 +54,7 @@ func _ready() -> void:
 	await _test_football()
 	await _test_round()
 	await _test_turn()
+	await _test_party()
 	_done("")
 
 
@@ -211,7 +212,8 @@ func _test_football() -> void:
 func _test_round() -> void:
 	var mgr: MinigameManager = main.minigames
 	events.clear()
-	_place(Vector3(24, 0.05, -14))
+	_place(Vector3(24, 0.05, -14) if role == "A" else Vector3(-30, 0.05, -5))
+	await _secs(1.0)
 	if role == "A":
 		mgr.start("pontaria")
 		var ok := await _until(func(): return mgr.active != null, 5.0)
@@ -219,6 +221,7 @@ func _test_round() -> void:
 		await barrier("pt")
 	else:
 		await barrier("pt")
+		_place(Vector3(24.5, 0.05, -14))
 		mgr.start("pontaria")
 		var ok2 := await _until(func(): return mgr.active != null, 5.0)
 		check(ok2, "rodada: entrei com a rodada rolando")
@@ -237,7 +240,8 @@ func _test_round() -> void:
 func _test_turn() -> void:
 	var mgr: MinigameManager = main.minigames
 	events.clear()
-	_place(Vector3(-14, 0.05, 3))
+	_place(Vector3(-14, 0.05, 3) if role == "A" else Vector3(30, 0.05, -5))
+	await _secs(1.0)
 	if role == "A":
 		mgr.start("amarelinha")
 		var ok := await _until(func(): return mgr.active != null, 5.0)
@@ -247,6 +251,7 @@ func _test_turn() -> void:
 		mgr.active.end_game(0, "fim", 0, 0, {"score": 5})
 	else:
 		await barrier("am")
+		_place(Vector3(-13.5, 0.05, 3.5))
 		mgr.start("amarelinha")
 		var queued := await _until(func(): return (NetworkManager.game_state("amarelinha").get("queue", []) as Array).has(NetworkManager.my_id), 4.0)
 		check(queued and mgr.active == null, "vez: entrei na fila e espero (sem jogar junto)")
@@ -258,3 +263,59 @@ func _test_turn() -> void:
 	var got := await _until(func(): return events.any(func(e): return e.get("kind") == "results" and e.get("gid") == "amarelinha"), 6.0)
 	check(got, "vez: placar no fim da fila")
 	await barrier("am_end")
+
+
+
+func _test_party() -> void:
+	var qs: QuestSystem = main.quests
+	var npcm: NPCManager = main.npcs
+	_place(Vector3(-5 if role == "A" else -3.5, 0.05, -8))
+	await _secs(1.0)
+	if role == "A":
+		qs.start("reciclagem")
+		await _secs(0.5)
+		var others: Array = NetworkManager.names.keys().filter(func(k): return k != NetworkManager.my_id)
+		var friend: String = others[0] if not others.is_empty() else ""
+		NetworkManager.send_direct(friend, "party_invite", {"q": "reciclagem", "title": "Coleta"})
+		var joined := await _until(func(): return qs.party_role == "host" and qs.party_members.size() == 1, 6.0)
+		check(joined, "missão em grupo: colega aceitou")
+		await barrier("party_in")
+		await barrier("party_pick")
+		var got := await _until(func(): return qs._step_left == 4, 3.0)
+		check(got, "missão em grupo: o item que o colega pegou conta para o grupo", str(qs._step_left))
+		# o dono pega o resto
+		for it in qs._spawned.duplicate():
+			qs._on_picked(it)
+		await _secs(0.3)
+		check(qs.step_i == 1, "missão em grupo: etapa seguinte")
+		await barrier("party_step2")
+		if not qs._spot_nodes.is_empty():
+			qs._on_spot_done(qs._spot_nodes[0], "")
+		await _secs(0.5)
+		for a in main.hud.find_children("*", "QuestActivity", true, false):
+			(a as QuestActivity)._finish(1.0)
+		var done := await _until(func(): return qs.active_id == "", 4.0)
+		check(done, "missão em grupo: concluída pelo dono")
+		await barrier("party_end")
+	else:
+		# aceita o convite que vai chegar
+		var dlg: DialogueUI = main.school_day.dialogue
+		var asked := await _until(func(): return dlg.is_open(), 6.0)
+		check(asked, "missão em grupo: recebi o convite")
+		dlg._close(0)
+		var synced := await _until(func(): return qs.active_id == "reciclagem" and qs._spawned.size() == 5, 6.0)
+		check(synced, "missão em grupo: vejo os mesmos 5 lixos do dono", "%s %d" % [qs.active_id, qs._spawned.size()])
+		await barrier("party_in")
+		if not qs._spawned.is_empty():
+			qs._on_picked(qs._spawned[0])
+		await barrier("party_pick")
+		var st2 := await _until(func(): return qs.step_i == 1, 4.0)
+		check(st2, "missão em grupo: acompanho a etapa do dono")
+		await barrier("party_step2")
+		var coins_before := int(SaveManager.section("player").get("coins", 0))
+		for a in main.hud.find_children("*", "QuestActivity", true, false):
+			(a as QuestActivity)._finish(1.0)
+		var done2 := await _until(func(): return qs.active_id == "" and qs._state().has("reciclagem"), 6.0)
+		check(done2, "missão em grupo: concluída para mim também")
+		check(int(SaveManager.section("player").get("coins", 0)) > coins_before, "missão em grupo: ganhei a recompensa")
+		await barrier("party_end")

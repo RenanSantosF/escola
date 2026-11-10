@@ -165,6 +165,7 @@ func setup(m: NPCManager, p: PlayerController, h: HUD, d: SchoolDay, w: SchoolWo
 	_rebuild_garden()
 	player.picked_up.connect(_on_picked)
 	d.day_finished.connect(func(_s): _rebuild_garden())
+	_setup_party_ui()
 
 
 func _staff(entry: Dictionary, pos: Vector3, yaw: float) -> NPC:
@@ -314,6 +315,8 @@ func start(qid: String) -> void:
 
 
 func abandon() -> void:
+	if party_role != "":
+		_party_leave()
 	_cleanup_step()
 	active_id = ""
 	hud.set_mission("")
@@ -328,16 +331,21 @@ func _step() -> Dictionary:
 	return steps[step_i] if step_i < steps.size() else {}
 
 
-func _begin_step() -> void:
+## forced: estado do dono da missão em grupo (posições dos itens/pontos).
+func _begin_step(forced := {}) -> void:
 	_cleanup_step()
 	var st := _step()
 	if st.is_empty():
+		if party_role == "member":
+			return  # quem conclui é o dono; o colega espera o "done"
 		_complete()
 		return
 	hud.set_mission("Missão: %s — %s" % [QUESTS[active_id].title, st.text])
 	match st.t:
 		"spot":
 			var spots: Array = st.spots
+			if forced.has("spots"):
+				spots = (forced.spots as Array).map(func(a): return _v(a))
 			_step_left = spots.size()
 			for sp in spots:
 				var pos: Vector3 = _tree_target() if str(sp) == "tree_spot" else sp
@@ -354,8 +362,11 @@ func _begin_step() -> void:
 			var r := RandomNumberGenerator.new()
 			r.randomize()
 			var area: Rect2 = st.area
-			for i in int(st.count):
-				var pos := npcs.nav.random_point(r, area) + Vector3(0, 0.3, 0)
+			var forced_items: Array = forced.get("items", []) if forced.has("items") else []
+			var n_items: int = forced_items.size() if forced.has("items") else int(st.count)
+			_step_left = n_items
+			for i in n_items:
+				var pos := (_v(forced_items[i]) + Vector3(0, 0.15, 0)) if forced.has("items") else (npcs.nav.random_point(r, area) + Vector3(0, 0.3, 0))
 				var it: PickupItem = PickupItem.create_paper_ball() if st.item == "paper_ball" else PickupItem.create_item(st.item)
 				if st.has("label"):
 					it.prompt = st.label
@@ -371,6 +382,7 @@ func _begin_step() -> void:
 		"activity":
 			_open_activity(st)
 	_refresh_markers()
+	_party_broadcast()
 
 
 func _cleanup_step() -> void:
@@ -387,6 +399,12 @@ func _cleanup_step() -> void:
 
 
 func _advance() -> void:
+	if party_role == "member":
+		# avisa o dono uma vez por etapa (ex.: "chegar no lugar" seria a cada quadro)
+		if _done_sent != "%s:%d" % [active_id, step_i]:
+			_done_sent = "%s:%d" % [active_id, step_i]
+			NetworkManager.send_direct(party_host, "party_step", {"kind": "done", "step": step_i, "q": active_id})
+		return
 	step_i += 1
 	_quiz_tries = 0
 	AudioManager.play_ui("pickup", -4.0)
@@ -394,6 +412,12 @@ func _advance() -> void:
 
 
 func _complete() -> void:
+	if party_role == "host":
+		_party_broadcast({"done": true})
+		GameManager.add_rewards(5, 5)
+		GameManager.show_toast("Missão em grupo! Bônus de equipe: +5 moedas")
+		party_role = ""
+		party_members.clear()
 	var q: Dictionary = QUESTS[active_id]
 	_state()[active_id] = {"day": day.day, "count": int(_state().get(active_id, {}).get("count", 0)) + 1}
 	GameManager.add_rewards(int(q.xp), int(q.coins))
@@ -416,6 +440,13 @@ func _complete() -> void:
 # ------------------------------------------------------------- etapas
 
 func _on_spot_done(spot: Node, fx: String) -> void:
+	if party_role == "member":
+		NetworkManager.send_direct(party_host, "party_step", {"kind": "spot", "step": step_i, "q": active_id, "pos": _pos_list([spot])[0]})
+		_spot_nodes.erase(spot)
+		_apply_fx(fx, spot.global_position)
+		spot.queue_free()
+		_refresh_markers()
+		return
 	_spot_nodes.erase(spot)
 	_apply_fx(fx, spot.global_position)
 	spot.queue_free()
@@ -424,9 +455,18 @@ func _on_spot_done(spot: Node, fx: String) -> void:
 		_advance()
 	else:
 		_refresh_markers()
+		_party_broadcast()
 
 
 func _on_picked(item: Node) -> void:
+	if item in _spawned and _step().get("t", "") == "collect" and party_role == "member":
+		NetworkManager.send_direct(party_host, "party_step", {"kind": "pick", "step": step_i, "q": active_id, "pos": _pos_list([item])[0]})
+		_spawned.erase(item)
+		player.held_item = null
+		item.queue_free()
+		AudioManager.play_ui("pickup")
+		_refresh_markers()
+		return
 	if item in _spawned and _step().get("t", "") == "collect":
 		_spawned.erase(item)
 		player.held_item = null
@@ -438,6 +478,7 @@ func _on_picked(item: Node) -> void:
 		else:
 			hud.set_mission("Missão: %s — %s (faltam %d)" % [QUESTS[active_id].title, _step().text, _step_left])
 			_refresh_markers()
+			_party_broadcast()
 
 
 func _ask_quiz(subject: String) -> void:
@@ -447,9 +488,13 @@ func _ask_quiz(subject: String) -> void:
 	player.input_enabled = false
 	hud.controls.visible = false
 	day.dialogue.open(t.subject, [t.prompt], opts)
+	var q0 := active_id
+	var s0 := step_i
 	day.dialogue.finished.connect(func(choice: int):
 		player.input_enabled = true
 		hud.controls.visible = true
+		if active_id != q0 or step_i != s0:
+			return  # o grupo já passou desta etapa
 		var ok := choice == int(t.answer)
 		Learning.record(ok)
 		if ok:
@@ -468,9 +513,13 @@ func _ask_choice(st: Dictionary) -> void:
 	player.input_enabled = false
 	hud.controls.visible = false
 	day.dialogue.open(QUESTS[active_id].title, [st.question], st.options)
+	var q0 := active_id
+	var s0 := step_i
 	day.dialogue.finished.connect(func(choice: int):
 		player.input_enabled = true
 		hud.controls.visible = true
+		if active_id != q0 or step_i != s0:
+			return
 		if choice == int(st.answer):
 			day.dialogue.open(QUESTS[active_id].title if active_id != "" else "", [st.success])
 			_apply_fx(st.get("fx", ""), player.global_position + Vector3(0, 1.2, 0))
@@ -485,6 +534,8 @@ func _open_activity(st: Dictionary) -> void:
 	player.input_enabled = false
 	hud.controls.visible = false
 	var a := QuestActivity.open(hud, str(st.kind), st.get("data", {}))
+	var q0 := active_id
+	var s0 := step_i
 	a.finished.connect(func(score: float):
 		player.input_enabled = true
 		hud.controls.visible = true
@@ -493,7 +544,7 @@ func _open_activity(st: Dictionary) -> void:
 			GameManager.add_rewards(0, bonus)
 			GameManager.show_toast("Bônus de capricho: +%d moedas" % bonus)
 		Learning.record(score >= 0.6)
-		if active_id != "":
+		if active_id != "" and active_id == q0 and step_i == s0:
 			_advance())
 
 
@@ -684,8 +735,11 @@ func _process(delta: float) -> void:
 		for n in [gardener, librarian]:
 			if n and not n.moving and n.visual.animator.upper_action == "" and randf() < 0.1:
 				n.visual.play("talk")
+	_update_party_ui(delta)
 	if active_id == "":
 		var ep: Variant = _event_target()
+		if ep == null:
+			ep = _guide_target()
 		if ep != null:
 			var epos: Vector3 = ep
 			hud.set_mission_point(epos + Vector3(0, 1.0, 0))
@@ -710,3 +764,278 @@ func _process(delta: float) -> void:
 	_marker.get_node("Ring").global_position = pos + Vector3(0, 0.04, 0)
 	_marker.rotate_y(delta * 2.0)
 	hud.set_mission_point(pos + Vector3(0, 1.0, 0))
+
+
+# ================================================================ guia e grupo
+# "Me guie": o jogo sugere a próxima missão e leva até quem oferece.
+# Missão em grupo (online): quem tem a missão chama um colega que está
+# perto; o progresso (itens, pontos, etapas) é do grupo e todos ganham.
+# Quem chamou é o "dono" do progresso; os outros mandam o que fizeram.
+
+var guide_on := false
+var _guide_btn: Button
+var _invite_btn: Button
+var _invite_target := ""
+var party_role := ""  # "", "host", "member"
+var party_host := ""
+var party_members: Array = []
+var _ui_t := 0.0
+var _party_t := 0.0
+var _done_sent := ""
+
+
+func _setup_party_ui() -> void:
+	_guide_btn = _small_button("Me guie: missão", func():
+		guide_on = not guide_on
+		_guide_btn.text = "Guia ligado ✓" if guide_on else "Me guie: missão"
+		GameManager.show_toast("O jogo vai te levar até a próxima missão." if guide_on else "Guia de missões desligado."))
+	_guide_btn.position = Vector2(-250, 230)
+	_invite_btn = _small_button("Chamar para a missão", func():
+		if _invite_target != "":
+			NetworkManager.send_direct(_invite_target, "party_invite", {"q": active_id, "title": QUESTS[active_id].title})
+			GameManager.show_toast("Convite enviado para %s!" % NetworkManager.name_of(_invite_target))
+			_invite_btn.visible = false)
+	_invite_btn.position = Vector2(-250, 290)
+	NetworkManager.direct.connect(_on_direct)
+
+
+func _small_button(text: String, cb: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(236, 50)
+	b.add_theme_font_size_override("font_size", 19)
+	for st in ["normal", "hover", "focus"]:
+		b.add_theme_stylebox_override(st, UITheme.box(Color("5ec8ff"), 22, Color("2f8bc0"), 0, 3))
+	b.add_theme_stylebox_override("pressed", UITheme.box(Color("3fb0ea"), 22, Color("2f8bc0"), 0, 1))
+	b.add_theme_color_override("font_color", UITheme.DARK)
+	b.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	b.pressed.connect(func():
+		AudioManager.play_ui("ui_click")
+		cb.call())
+	b.visible = false
+	hud.add_child(b)
+	if hud.controls:
+		hud.controls.blockers.append(b)
+	return b
+
+
+## Missão sugerida: a disponível com quem está mais perto.
+func suggestion() -> Dictionary:
+	if active_id != "" or not _free_phase():
+		return {}
+	var best := {}
+	var bd := INF
+	for qid in QUESTS.keys():
+		if not is_available(qid):
+			continue
+		var g := _giver_node(QUESTS[qid].giver)
+		if g == null or not g.active:
+			continue
+		var d := g.global_position.distance_to(player.global_position)
+		if d < bd:
+			bd = d
+			best = {"qid": qid, "giver": g}
+	return best
+
+
+func _update_party_ui(delta: float) -> void:
+	# o dono reenvia o estado de tempos em tempos (se uma mensagem se perder, ninguém trava)
+	if party_role == "host":
+		_party_t -= delta
+		if _party_t <= 0.0:
+			_party_t = 2.0
+			_party_broadcast()
+	_ui_t -= delta
+	if _ui_t > 0.0:
+		return
+	_ui_t = 0.4
+	var free_now := player.minigame == null and not day.dialogue.is_open()
+	_guide_btn.visible = free_now and active_id == "" and _free_phase()
+	# chamar colega que está pertinho para a missão
+	_invite_target = ""
+	if NetworkManager.is_online() and active_id != "" and party_role != "member" and free_now:
+		var s := get_tree().get_first_node_in_group("online_session")
+		if s:
+			var bd := 8.0
+			for id in s.remotes.keys():
+				if id in party_members:
+					continue
+				var d: float = (s.remotes[id].root as Node3D).global_position.distance_to(player.global_position)
+				if d < bd:
+					bd = d
+					_invite_target = id
+	_invite_btn.visible = _invite_target != ""
+	if _invite_target != "":
+		_invite_btn.text = "Chamar %s" % NetworkManager.name_of(_invite_target)
+
+
+## Guia: aponta para quem oferece a missão sugerida.
+func _guide_target() -> Variant:
+	if not guide_on:
+		return null
+	var sg := suggestion()
+	if sg.is_empty():
+		return null
+	var g: NPC = sg.giver
+	hud.set_mission("Sugestão: fale com %s — %s" % [g.display_name, QUESTS[sg.qid].title])
+	return g.global_position
+
+
+# ---------------------------------------------------------------- grupo: mensagens
+
+func _on_direct(from: String, from_name: String, kind: String, data: Variant) -> void:
+	var d: Dictionary = data if data is Dictionary else {}
+	if OS.has_environment("RECREIO_NET_DEBUG"):
+		print("[missão %s] %s de %s: %s (papel=%s etapa=%d)" % [NetworkManager.my_name, kind, from_name, str(d).left(160), party_role, step_i])
+	match kind:
+		"party_invite":
+			var qid := str(d.get("q", ""))
+			if not QUESTS.has(qid) or active_id != "" or player.minigame != null or day.dialogue.is_open() or not _free_phase():
+				NetworkManager.send_direct(from, "party_decline", {"why": "ocupado"})
+				return
+			player.input_enabled = false
+			hud.controls.visible = false
+			day.dialogue.open("Missão em grupo", ["%s te chamou para a missão \"%s\"." % [from_name, QUESTS[qid].title], "Vamos juntos? Todo mundo ganha a recompensa!"], ["Bora!", "Agora não"])
+			day.dialogue.finished.connect(func(choice: int):
+				player.input_enabled = true
+				hud.controls.visible = true
+				if choice == 0 and active_id == "":
+					party_role = "member"
+					party_host = from
+					active_id = qid
+					step_i = -1
+					hud.set_mission("Missão em grupo com %s: %s" % [from_name, QUESTS[qid].title])
+					NetworkManager.send_direct(from, "party_accept", {"q": qid})
+				else:
+					NetworkManager.send_direct(from, "party_decline", {}), CONNECT_ONE_SHOT)
+		"party_accept":
+			if active_id == str(d.get("q", "")) and party_role != "member":
+				party_role = "host"
+				if not from in party_members:
+					party_members.append(from)
+				GameManager.show_toast("%s entrou na sua missão!" % from_name)
+				_party_broadcast()
+		"party_decline":
+			GameManager.show_toast("%s não pode agora." % from_name)
+		"party_leave":
+			party_members.erase(from)
+			GameManager.show_toast("%s saiu da missão em grupo." % from_name)
+			if party_members.is_empty():
+				party_role = ""
+		"party_step":
+			if party_role == "host" and from in party_members:
+				_party_member_step(from_name, d)
+		"party_state":
+			if party_role == "member" and from == party_host:
+				_party_apply(d)
+
+
+func _pos_list(nodes: Array) -> Array:
+	var out: Array = []
+	for n in nodes:
+		if is_instance_valid(n):
+			var p: Vector3 = (n as Node3D).global_position
+			out.append([snappedf(p.x, 0.01), snappedf(p.y, 0.01), snappedf(p.z, 0.01)])
+	return out
+
+
+static func _v(a: Array) -> Vector3:
+	return Vector3(float(a[0]), float(a[1]), float(a[2]))
+
+
+func _party_broadcast(extra := {}) -> void:
+	if party_role != "host":
+		return
+	var d := {"q": active_id, "step": step_i, "items": _pos_list(_spawned), "spots": _pos_list(_spot_nodes)}
+	d.merge(extra)
+	for id in party_members:
+		NetworkManager.send_direct(id, "party_state", d)
+
+
+## Dono: um colega fez algo (pegou item, fez ponto, terminou etapa).
+func _party_member_step(from_name: String, d: Dictionary) -> void:
+	if int(d.get("step", -1)) != step_i or str(d.get("q", "")) != active_id:
+		return
+	var kind := str(d.get("kind", ""))
+	var pos: Array = d.get("pos", [])
+	match kind:
+		"pick":
+			for it in _spawned.duplicate():
+				if is_instance_valid(it) and pos.size() == 3 and (it as Node3D).global_position.distance_to(_v(pos)) < 0.6:
+					_spawned.erase(it)
+					if player.held_item == it:
+						player.held_item = null
+					it.queue_free()
+					_step_left -= 1
+					break
+			GameManager.show_toast("%s pegou um item da missão" % from_name)
+			if _step_left <= 0:
+				_advance()
+			else:
+				_refresh_markers()
+				_party_broadcast()
+		"spot":
+			for sp in _spot_nodes.duplicate():
+				if is_instance_valid(sp) and pos.size() == 3 and (sp as Node3D).global_position.distance_to(_v(pos)) < 0.6:
+					_on_spot_done(sp, str(_step().get("fx", "")))
+					break
+		"done":
+			GameManager.show_toast("%s completou uma etapa!" % from_name)
+			_advance()
+
+
+## Colega: segue o progresso do dono.
+func _party_apply(d: Dictionary) -> void:
+	if bool(d.get("end", false)):
+		party_role = ""
+		party_host = ""
+		abandon()
+		GameManager.show_toast("A missão em grupo acabou.")
+		return
+	if bool(d.get("done", false)):
+		party_role = ""
+		party_host = ""
+		_complete()
+		GameManager.add_rewards(5, 5)
+		GameManager.show_toast("Bônus de equipe: +5 moedas")
+		return
+	var q := str(d.get("q", ""))
+	if not QUESTS.has(q):
+		return
+	var step := int(d.get("step", 0))
+	if q != active_id or step != step_i:
+		active_id = q
+		step_i = step
+		_quiz_tries = 0
+		_begin_step(d)
+		return
+	# mesma etapa: tira o que o grupo já fez
+	for it in _spawned.duplicate():
+		if is_instance_valid(it) and not _in_list((it as Node3D).global_position, d.get("items", [])):
+			_spawned.erase(it)
+			if player.held_item == it:
+				player.held_item = null
+			it.queue_free()
+	for sp in _spot_nodes.duplicate():
+		if is_instance_valid(sp) and not _in_list((sp as Node3D).global_position, d.get("spots", [])):
+			_spot_nodes.erase(sp)
+			sp.queue_free()
+	_refresh_markers()
+
+
+func _in_list(p: Vector3, list: Array) -> bool:
+	for a in list:
+		if (a as Array).size() == 3 and p.distance_to(_v(a)) < 0.6:
+			return true
+	return false
+
+
+func _party_leave() -> void:
+	if party_role == "host":
+		_party_broadcast({"end": true})
+	elif party_role == "member" and party_host != "":
+		NetworkManager.send_direct(party_host, "party_leave", {})
+	party_role = ""
+	party_host = ""
+	party_members.clear()

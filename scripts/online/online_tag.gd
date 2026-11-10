@@ -163,7 +163,7 @@ func _on_state(m: Dictionary) -> void:
 	st = m
 	var mine := in_game()
 	var state := str(m.get("state", ""))
-	day.hold_recess = mine and state in ["lobby", "playing"]
+	day.hold_recess = mine and state in ["lobby", "playing"] and not day.synced
 	_ctrl_box.visible = mine and state in ["lobby", "playing"]
 	_start_btn.visible = state == "lobby" and str(m.get("host", "")) == NetworkManager.my_id and (m.get("players", []) as Array).size() >= 2
 	var names: Dictionary = m.get("names", {})
@@ -233,7 +233,8 @@ func _finish(results: Array) -> void:
 	var my_rank := -1
 	for i in results.size():
 		var r: Dictionary = results[i]
-		lines.append("%dº %s — %d s de pegador, %d pegadas" % [i + 1, r.get("name", "?"), int(r.get("secondsIt", 0)), int(r.get("tags", 0))])
+		# justo para quem chegou depois: conta a porcentagem do tempo que jogou
+		lines.append("%dº %s — pegador em %d%% do tempo, %d pegadas" % [i + 1, r.get("name", "?"), int(r.get("pctIt", 0)), int(r.get("tags", 0))])
 		if str(r.get("id", "")) == NetworkManager.my_id:
 			my_rank = i
 	if my_rank >= 0:

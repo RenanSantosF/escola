@@ -519,12 +519,13 @@ function createServer(opts = {}) {
           break;
         }
         case 'direct': {
-          if (!rate(player, 'direct', 8)) return;
+          if (!rate(player, 'direct', 20)) { if (process.env.NET_DEBUG) console.log('direct: limite', player.name); return; }
           const kind = String(m.kind || '');
           if (!DIRECT_KINDS.has(kind)) return;
           const to = room.players.get(String(m.to || ''));
           if (!to || to.id === player.id || safety.isBlocked(player.id, to.id) || safety.isBlocked(to.id, player.id)) return;
           if (JSON.stringify(m.data ?? null).length > 1500) return;
+          if (process.env.NET_DEBUG) console.log('direct', kind, player.name, '->', to.name);
           send(to.ws, { t: 'direct', from: player.id, fromName: player.name, kind, data: m.data ?? null });
           break;
         }

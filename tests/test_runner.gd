@@ -74,6 +74,7 @@ func _ready() -> void:
 	await _test_novas_brincadeiras()
 	await _test_atividades()
 	await _test_relogio_servidor()
+	await _test_guia_missao()
 	_finish()
 
 
@@ -1689,3 +1690,23 @@ func _test_relogio_servidor() -> void:
 	NetworkManager.room = ""
 	NetworkManager.clock = {}
 	check(npcm.classmates.size() == total_bots and npcm.benched.is_empty(), "bots: voltam quando sai do online")
+
+
+
+func _test_guia_missao() -> void:
+	var qs: QuestSystem = main.quests
+	if qs.active_id != "":
+		qs.abandon()
+	await _recess()
+	qs.guide_on = true
+	var sg := qs.suggestion()
+	check(not sg.is_empty() and qs.is_available(sg.qid), "guia: sugere uma missão disponível no recreio")
+	var tgt: Variant = qs._guide_target()
+	check(tgt is Vector3 and (tgt as Vector3).distance_to((sg.giver as NPC).global_position) < 0.1, "guia: aponta para quem oferece")
+	qs.start(sg.qid)
+	check(qs.suggestion().is_empty(), "guia: com missão ativa não sugere outra")
+	qs.abandon()
+	main.school_day._start_return()
+	await _frames(3)
+	check(qs.suggestion().is_empty() and qs._guide_target() == null, "guia: na volta para a aula não sugere missão")
+	qs.guide_on = false
