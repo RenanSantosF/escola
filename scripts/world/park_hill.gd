@@ -93,8 +93,8 @@ static func _terrain(b: SchoolBuilder) -> void:
 			# cor: grama com manchas, mais clara no alto, terra/areia na beira do lago
 			var noise := 0.5 + 0.5 * sin(x * 0.31 + z * 0.17) * cos(z * 0.23 - x * 0.07)
 			# mesma grama da escola (textura) com manchas suaves de luz/sombra
-			var col := SchoolBuilder.GRASS_TINT.lerp(Color("a9c29c"), noise * 0.6)
-			col = col.lerp(Color("e3ecc8"), clampf(h / 7.0, 0.0, 0.5))
+			var col := SchoolBuilder.GRASS_TINT.lerp(Color("b9cfae"), noise * 0.7)
+			col = col.lerp(Color("eef3d8"), clampf(h / 7.0, 0.0, 0.5))
 			var dl := Vector2(x - LAKE.x, z - LAKE.y).length()
 			if dl < LAKE_R + 1.5:
 				col = col.lerp(Color("d9c18f"), smoothstep(LAKE_R + 1.5, LAKE_R - 1.0, dl))

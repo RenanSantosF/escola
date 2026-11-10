@@ -346,7 +346,11 @@ func _test_zones_and_roofs() -> void:
 	await _wait(0.5)
 	check(GameManager.current_zone == "Sala 1", "zonas: detecta Sala 1", GameManager.current_zone)
 	var w: SchoolWorld = GameManager.world
-	check(not w._chunk_nodes["roof_A"].visible, "telhado: some ao entrar no Bloco A")
+	var roof_gi: GeometryInstance3D = null
+	for c in w._chunk_nodes["roof_A"].get_children():
+		if c is GeometryInstance3D:
+			roof_gi = c
+	check(roof_gi != null and roof_gi.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY, "telhado: fica invisível (só sombra) ao entrar no Bloco A")
 	check(w._chunk_nodes["int_A_Sala 1"].visible, "interior: mobília visível dentro do prédio")
 	_place(Vector3(0, 0.05, -10), 0)
 	await _wait(0.5)

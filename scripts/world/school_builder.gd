@@ -11,7 +11,7 @@ const LOT := Rect2(-90, -125, 180, 200)
 ## Parte plana original da escola.
 const SCHOOL_AREA := Rect2(-90, -75, 180, 150)
 ## Tom da grama (a textura sozinha fica verde-limão demais).
-const GRASS_TINT := Color("cddcc2")
+const GRASS_TINT := Color("dfe9d6")
 
 var chunks := {}
 var zones: Array = []
@@ -106,6 +106,7 @@ func build_all(step: Callable) -> void:
 	BuildingC.build(self)
 	ParkHill.build(self)
 	_fountain_plaza()
+	_dressing_extra()
 	_general_zones()
 	_recess_spots()
 
@@ -1171,6 +1172,28 @@ func _garden_and_woods() -> void:
 		_tree("pinheiro", p, rng.randf_range(0.9, 1.3), Color.WHITE)
 	for k in 8:
 		_tree("copa", Vector3(rng.randf_range(62, 88), 0, rng.randf_range(26, 48)), rng.randf_range(0.9, 1.2), Color.WHITE, j)
+
+
+## Detalhes de ambientação: bicicletários, cercas vivas na fachada e
+## canteiros ao longo dos caminhos (sem colisão nas plantas).
+func _dressing_extra() -> void:
+	var d := chunk("ambientacao", 80.0)
+	var r := RandomNumberGenerator.new()
+	r.seed = 99
+	Props.bike_rack(d, Vector3(-24, 0.012, 70.2), 0.0, 6)
+	Props.bike_rack(d, Vector3(17, 0.012, 70.2), 0.0, 5)
+	# cerca viva na frente do Bloco A (fachada), deixando a entrada livre
+	Props.bush_row(d, Vector3(-58, 0, 49.6), Vector3(-9, 0, 49.6), r)
+	Props.bush_row(d, Vector3(9, 0, 49.6), Vector3(58, 0, 49.6), r)
+	# ao longo da murada da frente, por dentro
+	Props.bush_row(d, Vector3(-88, 0, 73.6), Vector3(-30, 0, 73.6), r)
+	Props.bush_row(d, Vector3(52, 0, 73.6), Vector3(88, 0, 73.6), r)
+	# lateral do pátio dos fundos, junto das muradas
+	Props.bush_row(d, Vector3(-88.6, 0, -72), Vector3(-88.6, 0, -46), r)
+	Props.bush_row(d, Vector3(88.6, 0, -28), Vector3(88.6, 0, 20), r)
+	# postes novos iluminando o caminho da entrada
+	for sx: float in [-1.0, 1.0]:
+		Props.lamp_post(d, Vector3(7.5 * sx, 0.012, 67.5))
 
 
 func _general_zones() -> void:

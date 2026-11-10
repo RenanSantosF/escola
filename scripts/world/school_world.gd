@@ -364,12 +364,32 @@ func _set_roof_hidden(id: String, hidden: bool) -> void:
 
 
 func _fade_roof(node: Node3D, hidden: bool) -> void:
-	# Mantém a sombra do telhado (interior fica "na sombra" de forma natural
-	# só quando o jogador está fora); dentro, some para a câmera ver o ambiente.
+	# Dentro do prédio o telhado fica invisível para a câmera, mas CONTINUA
+	# fazendo sombra: a sala fica iluminada de verdade pelas janelas e portas
+	# (manchas de sol no chão), sem o sol "lavar" o ambiente inteiro.
 	for c in node.get_children():
 		if c is GeometryInstance3D:
-			(c as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if hidden else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-	node.visible = not hidden
+			(c as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY if hidden else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	node.visible = true
+	_roof_hidden_count += 1 if hidden else -1
+	_update_indoor_light()
+
+
+var _roof_hidden_count := 0
+var _light_tween: Tween
+
+
+## Dentro: luz ambiente mais forte e morna (lâmpadas); fora: luz do céu.
+func _update_indoor_light() -> void:
+	if env == null:
+		return
+	var inside := _roof_hidden_count > 0
+	if _light_tween:
+		_light_tween.kill()
+	_light_tween = create_tween().set_parallel(true)
+	_light_tween.tween_property(env, "ambient_light_energy", 1.5 if inside else 0.75, 0.5)
+	_light_tween.tween_property(env, "ambient_light_color", Color("fff1dc") if inside else Color("b9d3ee"), 0.5)
+	_light_tween.tween_property(env, "ambient_light_sky_contribution", 0.15 if inside else 0.55, 0.5)
 
 
 func _set_interiors_visible(id: String, vis: bool) -> void:

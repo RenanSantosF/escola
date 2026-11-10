@@ -96,9 +96,10 @@ save("wood.png", np.stack([wood, wood * 0.93, wood * 0.86], axis=-1))
 n1 = fbm(S, 8, 5, 5)
 n2 = fbm(S, 32, 3, 6)
 blades = rng.random((S, S))
-r = 0.32 + n1 * 0.12 + (blades - 0.5) * 0.05
-gch = 0.55 + n1 * 0.18 + n2 * 0.08 + (blades - 0.5) * 0.08
-b = 0.18 + n1 * 0.06
+# verde de gramado mais frio e natural (menos amarelo), com manchas e fios
+r = 0.25 + n1 * 0.10 + (blades - 0.5) * 0.05
+gch = 0.50 + n1 * 0.16 + n2 * 0.08 + (blades - 0.5) * 0.09
+b = 0.24 + n1 * 0.07 + n2 * 0.03
 save("grass.png", np.stack([r, gch, b], axis=-1))
 
 # 5. Cimento queimado (pátio)

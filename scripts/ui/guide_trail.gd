@@ -119,8 +119,8 @@ func _process(delta: float) -> void:
 	var dir := Vector3(nxt.x - player.global_position.x, 0, nxt.z - player.global_position.z)
 	if dir.length() > 0.1:
 		_arrow.visible = true
-		_arrow.global_position = player.global_position + Vector3(0, 2.6 + sin(Time.get_ticks_msec() * 0.005) * 0.06, 0)
-		_arrow.global_basis = Basis.looking_at(-dir.normalized(), Vector3.UP).scaled(Vector3.ONE * 1.25)
+		_arrow.global_position = player.global_position + Vector3(0, 2.3 + sin(Time.get_ticks_msec() * 0.005) * 0.06, 0)
+		_arrow.global_basis = Basis.looking_at(-dir.normalized(), Vector3.UP).scaled(Vector3.ONE * 0.75)
 		_arrow_mat.albedo_color = _col
 
 
