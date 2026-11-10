@@ -41,21 +41,22 @@ static func add_seat(o: Vector3, r: float, local_seat: Vector3, seat_top: float,
 
 static func student_desk(b: WorldBatcher, o: Vector3, r: float, frame_col := C_METAL_BLUE) -> void:
 	var y := o.y
+	const K := 1.12  # um pouco maior que antes
 	# Cadeira (pessoa senta olhando para +Z local)
-	_bx(b, "wood", o, r, Vector3(0, 0.43, 0), Vector3(0.4, 0.035, 0.38), C_WOOD)
-	_bx(b, "wood", o, r, Vector3(0, 0.74, -0.2), Vector3(0.38, 0.2, 0.03), C_WOOD)
+	_bx(b, "wood", o, r, Vector3(0, 0.43, 0) * K, Vector3(0.4, 0.035, 0.38) * K, C_WOOD)
+	_bx(b, "wood", o, r, Vector3(0, 0.74, -0.2) * K, Vector3(0.38, 0.2, 0.03) * K, C_WOOD)
 	for lx: float in [-0.17, 0.17]:
 		for lz: float in [-0.16, 0.16]:
-			_bx(b, "metal", o, r, Vector3(lx, 0.21, lz), Vector3(0.025, 0.42, 0.025), frame_col)
-		_bx(b, "metal", o, r, Vector3(lx, 0.6, -0.19), Vector3(0.025, 0.36, 0.025), frame_col)
+			_bx(b, "metal", o, r, Vector3(lx, 0.21, lz) * K, Vector3(0.025, 0.42, 0.025) * K, frame_col)
+		_bx(b, "metal", o, r, Vector3(lx, 0.6, -0.19) * K, Vector3(0.025, 0.36, 0.025) * K, frame_col)
 	# Mesa
-	_bx(b, "wood", o, r, Vector3(0, 0.72, 0.46), Vector3(0.62, 0.03, 0.46), C_WOOD)
-	_bx(b, "metal", o, r, Vector3(0, 0.6, 0.5), Vector3(0.56, 0.02, 0.34), frame_col.darkened(0.1))
+	_bx(b, "wood", o, r, Vector3(0, 0.72, 0.46) * K, Vector3(0.62, 0.03, 0.46) * K, C_WOOD)
+	_bx(b, "metal", o, r, Vector3(0, 0.6, 0.5) * K, Vector3(0.56, 0.02, 0.34) * K, frame_col.darkened(0.1))
 	for lx: float in [-0.28, 0.28]:
 		for lz: float in [0.27, 0.65]:
-			_bx(b, "metal", o, r, Vector3(lx, 0.355, lz), Vector3(0.025, 0.71, 0.025), frame_col)
-	add_seat(Vector3(o.x, y, o.z), r, Vector3(0, 0.45, 0), y + 0.45)
-	b.collider(_p(o, r, Vector3(0, 0.37, 0.46)), Vector3(0.62, 0.74, 0.46), r)
+			_bx(b, "metal", o, r, Vector3(lx, 0.355, lz) * K, Vector3(0.025, 0.71, 0.025) * K, frame_col)
+	add_seat(Vector3(o.x, y, o.z), r, Vector3(0, 0.45 * K, 0), y + 0.45 * K)
+	b.collider(_p(o, r, Vector3(0, 0.37, 0.46) * K), Vector3(0.62, 0.74, 0.46) * K, r)
 
 
 static func teacher_desk(b: WorldBatcher, o: Vector3, r: float) -> void:

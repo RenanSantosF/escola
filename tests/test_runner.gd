@@ -738,6 +738,7 @@ func _test_minigames() -> void:
 	await _frames(3)
 	check(fb.ball.global_position.distance_to(player.global_position) < 1.0, "futebol: bola colada no pé")
 	var bpos: Vector3 = fb.ball.global_position
+	fb._hold_immune = 5.0  # ninguém rouba enquanto o teste carrega o chute
 	player.request_play()
 	await _wait(0.5)
 	player.request_play_release()

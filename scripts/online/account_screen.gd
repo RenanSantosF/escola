@@ -17,7 +17,7 @@ var _check_seq := 0
 
 
 func _ready() -> void:
-	add_theme_stylebox_override("panel", UITheme.box(Color(UITheme.CREAM, 0.98), 28, UITheme.DARK, 4, 6))
+	add_theme_stylebox_override("panel", UITheme.box(Color(1, 1, 1, 0.97), 16, UITheme.LINE, 2, 0))
 	custom_minimum_size = Vector2(820, 0)
 	var root := VBoxContainer.new()
 	root.add_theme_constant_override("separation", 12)
@@ -40,7 +40,7 @@ func _clear() -> void:
 
 
 func _title(t: String, sub := "") -> void:
-	_v.add_child(UITheme.title_label(t, 46, UITheme.BLUE))
+	_v.add_child(UITheme.title_label(t, 44, UITheme.NAVY))
 	if sub != "":
 		var l := Label.new()
 		l.text = sub
@@ -57,9 +57,9 @@ func _big(text: String, col: Color, cb: Callable, w := 620) -> Button:
 	b.custom_minimum_size = Vector2(w, 72)
 	b.add_theme_font_size_override("font_size", 30)
 	for st in ["normal", "hover", "focus"]:
-		b.add_theme_stylebox_override(st, UITheme.box(col, 22, col.darkened(0.35), 3, 6))
-	b.add_theme_stylebox_override("pressed", UITheme.box(col.darkened(0.12), 22, col.darkened(0.35), 3, 2))
-	b.add_theme_stylebox_override("disabled", UITheme.box(Color("cfcabf"), 22, Color("a8a397"), 3, 2))
+		b.add_theme_stylebox_override(st, UITheme.box(col, 10, col.darkened(0.3), 0, 4))
+	b.add_theme_stylebox_override("pressed", UITheme.box(col.darkened(0.12), 10, col.darkened(0.3), 0, 1))
+	b.add_theme_stylebox_override("disabled", UITheme.box(Color("d5dbe6"), 10, Color("aab3c5"), 0, 2))
 	b.add_theme_color_override("font_color", Color.WHITE if col.get_luminance() < 0.7 else UITheme.DARK)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	b.pressed.connect(func():
@@ -79,7 +79,7 @@ func _field(placeholder: String, secret := false) -> LineEdit:
 	e.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	e.max_length = 40
 	for st in ["normal", "focus"]:
-		e.add_theme_stylebox_override(st, UITheme.box(Color.WHITE, 16, UITheme.BLUE if st == "focus" else Color("c9c3b4"), 3, 0))
+		e.add_theme_stylebox_override(st, UITheme.box(Color.WHITE, 10, UITheme.TEAL if st == "focus" else UITheme.LINE, 2, 0))
 	_v.add_child(e)
 	return e
 
@@ -104,10 +104,11 @@ func _set_status(t: String, err := false) -> void:
 
 func show_start() -> void:
 	_clear()
-	_title("Bem-vindo ao Recreio!", "Crie seu nome de jogador e uma senha. Não pedimos e-mail nem telefone.")
-	_big("Criar minha conta", UITheme.GREEN, _ask_age)
-	_big("Já tenho conta: Entrar", UITheme.BLUE, show_login)
-	_big("Voltar", Color("d9d4c7"), func(): back.emit(), 300)
+	_title("Bem-vindo à Turma Viva!", "Crie seu nome de jogador e uma senha. Não pedimos e-mail nem telefone.")
+	_big("Criar minha conta", UITheme.TEAL, _ask_age)
+	_big("Já tenho conta: Entrar", UITheme.NAVY_2, show_login)
+	if AccountManager.has_account():
+		_big("Voltar", Color("e3e8f2"), func(): back.emit(), 300)
 
 
 func _ask_age() -> void:
@@ -118,7 +119,28 @@ func _ask_age() -> void:
 		_age = a
 		p.queue_free()
 		visible = true
-		show_signup())
+		show_gender())
+
+
+## Menino ou menina (muda o visual de partida; dá para trocar depois na mochila).
+func show_gender() -> void:
+	_clear()
+	_title("Você é...", "Escolha como o seu personagem vai ser.")
+	_big("Menino", UITheme.NAVY_2, func(): _set_gender(false), 420)
+	_big("Menina", Color("c2457a"), func(): _set_gender(true), 420)
+
+
+func _set_gender(girl: bool) -> void:
+	var pl := GameManager.player
+	if pl and pl.get("visual"):
+		var a: CharacterAppearance = pl.visual.appearance
+		a.set_girl(girl)
+		pl.set_appearance(a)
+	else:
+		var d: Dictionary = SaveManager.section("player").get("appearance", {})
+		d["girl"] = girl
+		SaveManager.section("player")["appearance"] = d
+	show_signup()
 
 
 func show_signup() -> void:
@@ -131,7 +153,7 @@ func show_signup() -> void:
 	var pw := _field("Senha (mínimo 6)", true)
 	var pw2 := _field("Repita a senha", true)
 	var pw_hint := _hint("Peça para um adulto anotar a senha num lugar seguro.", Color("6b7690"))
-	var create := _big("Criar conta", UITheme.GREEN, func(): pass, 420)
+	var create := _big("Criar conta", UITheme.TEAL, func(): pass, 420)
 	create.disabled = true
 	var refresh := func():
 		var ok_pw := pw.text.length() >= 6 and pw.text == pw2.text
@@ -174,7 +196,7 @@ func show_signup() -> void:
 			name_hint.add_theme_color_override("font_color", UITheme.RED)
 		refresh.call())
 	create.pressed.connect(func(): _signup(name_edit.text.strip_edges(), pw.text))
-	_big("Voltar", Color("d9d4c7"), show_start, 300)
+	_big("Voltar", Color("e3e8f2"), show_start, 300)
 
 
 func _signup(nick: String, pw: String) -> void:
@@ -198,8 +220,8 @@ func show_login() -> void:
 	var name_edit := _field("Nome de jogador")
 	var pw := _field("Senha", true)
 	pw.text_submitted.connect(func(_t): _login(name_edit.text.strip_edges(), pw.text))
-	_big("Entrar", UITheme.GREEN, func(): _login(name_edit.text.strip_edges(), pw.text), 420)
-	_big("Voltar", Color("d9d4c7"), show_start, 300)
+	_big("Entrar", UITheme.TEAL, func(): _login(name_edit.text.strip_edges(), pw.text), 420)
+	_big("Voltar", Color("e3e8f2"), show_start, 300)
 
 
 func _login(nick: String, pw: String) -> void:

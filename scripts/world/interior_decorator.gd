@@ -139,13 +139,16 @@ static func _classroom(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: 
 		for j in 4:
 			var pos: Vector3
 			if board_side == "w":
-				pos = Vector3(x0 + 3.4 + i * 1.45, FY, z0 + 1.7 + j * (r.size.y - 4.4) / 3.0)
+				# mais espaço entre as carteiras (e a porta sempre livre)
+				var door_n := _door_side(room) == "n"
+				var z_start := 2.4 if door_n else 1.6
+				pos = Vector3(x0 + 3.1 + i * 1.62, FY, z0 + z_start + j * (r.size.y - 4.0) / 3.0)
 			else:
 				pos = Vector3(x0 + 1.9 + j * (r.size.x - 3.8) / 3.0, FY, z0 + 3.6 + i * (r.size.y - 5.4) / 3.0)
 			Props.student_desk(b, pos, desk_yaw, frame)
 			if rng.randf() < 0.12:
 				var dn := Vector3(0, 0, 1).rotated(Vector3.UP, desk_yaw)
-				b.box("plain", pos + dn * 0.46 + Vector3(0, 0.745, 0), Vector3(0.2, 0.015, 0.28), [Color("e74c3c"), Color("3498db"), Color("f1c40f")][rng.randi() % 3], desk_yaw, false)
+				b.box("plain", pos + dn * 0.52 + Vector3(0, 0.83, 0), Vector3(0.2, 0.015, 0.28), [Color("e74c3c"), Color("3498db"), Color("f1c40f")][rng.randi() % 3], desk_yaw, false)
 			if sb.classrooms.has(room.name) and (i + j) % 6 == 2:
 				sb.classrooms[room.name]["item_spots"].append(pos + Vector3(0, 0.8, 0) + Vector3(0, 0, 1).rotated(Vector3.UP, desk_yaw) * 0.45)
 	# Mural, cartazes e armário na parede do fundo

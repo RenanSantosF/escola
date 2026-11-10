@@ -15,12 +15,12 @@ var _busy := false
 
 
 func _ready() -> void:
-	add_theme_stylebox_override("panel", UITheme.box(Color(UITheme.CREAM, 0.97), 28, UITheme.DARK, 4, 6))
+	add_theme_stylebox_override("panel", UITheme.box(Color(1, 1, 1, 0.97), 16, UITheme.LINE, 2, 0))
 	custom_minimum_size = Vector2(760, 0)
 	var root := VBoxContainer.new()
 	root.add_theme_constant_override("separation", 14)
 	add_child(root)
-	var t := UITheme.title_label("Jogar online", 52, UITheme.BLUE)
+	var t := UITheme.title_label("Amigos", 48, UITheme.NAVY)
 	root.add_child(t)
 	var sub := Label.new()
 	sub.text = "Todas as salas são abertas: o código serve para os amigos\ncaírem juntos na mesma sala."
@@ -31,9 +31,8 @@ func _ready() -> void:
 	_main = VBoxContainer.new()
 	_main.add_theme_constant_override("separation", 12)
 	root.add_child(_main)
-	_main.add_child(_big("Entrar numa sala", "Vai para uma turma que já está jogando", UITheme.GREEN, func(): _go("quick", "")))
-	_main.add_child(_big("Criar sala nova", "Sala aberta: passe o código para os amigos entrarem juntos", UITheme.ORANGE, func(): _go("create", "")))
-	_main.add_child(_big("Entrar com código", "Digite o código que o amigo passou", UITheme.BLUE, _open_pad))
+	_main.add_child(_big("Criar sala nova", "Sala aberta: passe o código para os amigos entrarem juntos", UITheme.TEAL, func(): _go("create", "")))
+	_main.add_child(_big("Entrar com código", "Digite o código que o amigo passou", UITheme.NAVY_2, _open_pad))
 
 	_pad = VBoxContainer.new()
 	_pad.visible = false
@@ -54,7 +53,7 @@ func _ready() -> void:
 		b.text = "Apagar" if k == "<" else k
 		b.custom_minimum_size = Vector2(150, 74)
 		b.add_theme_font_size_override("font_size", 34 if k.length() == 1 and k != "<" else 24)
-		var col := UITheme.GREEN if k == "OK" else (UITheme.RED if k == "<" else Color.WHITE)
+		var col := UITheme.TEAL if k == "OK" else (UITheme.RED if k == "<" else Color.WHITE)
 		for st in ["normal", "hover", "focus"]:
 			b.add_theme_stylebox_override(st, UITheme.box(col, 16, UITheme.DARK, 3, 5))
 		b.add_theme_stylebox_override("pressed", UITheme.box(col.darkened(0.15), 16, UITheme.DARK, 3, 2))
@@ -93,16 +92,14 @@ func _big(title: String, desc: String, col: Color, cb: Callable) -> Button:
 	b.custom_minimum_size = Vector2(700, 92)
 	b.focus_mode = Control.FOCUS_NONE
 	for st in ["normal", "hover", "focus"]:
-		b.add_theme_stylebox_override(st, UITheme.box(col, 22, col.darkened(0.35), 3, 6))
-	b.add_theme_stylebox_override("pressed", UITheme.box(col.darkened(0.12), 22, col.darkened(0.35), 3, 2))
+		b.add_theme_stylebox_override(st, UITheme.box(col, 10, col.darkened(0.3), 0, 4))
+	b.add_theme_stylebox_override("pressed", UITheme.box(col.darkened(0.12), 10, col.darkened(0.3), 0, 1))
 	var v := VBoxContainer.new()
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(v)
 	var l1 := UITheme.title_label(title, 34, Color.WHITE)
-	l1.add_theme_constant_override("outline_size", 8)
-	l1.add_theme_color_override("font_outline_color", col.darkened(0.45))
 	l1.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(l1)
 	var l2 := Label.new()

@@ -284,13 +284,24 @@ func _make_head() -> void:
 		_sphere(side + "Eye", Color.WHITE, Vector3(-0.011, -0.014, 0.014), 0.0055, Vector3(1, 1, 0.5), Vector3.ZERO, 6, 4)
 		# sobrancelha curta e arqueada
 		_capsule(side + "Brow", a.hair_color.darkened(0.12), Vector3.ZERO, 0.0075, 0.058, Vector3(1, 1, 0.7), Vector3(0, 12 * sx, 90 - 9 * sx), 6)
+		if a.girl:
+			# cílios: três tracinhos no canto de fora do olho
+			for k in 3:
+				_capsule(side + "Eye", Color("1a120d"), Vector3((0.028 + k * 0.007) * sx, 0.036 - k * 0.006, 0.006), 0.0035, 0.016, Vector3.ONE, Vector3(0, 0, (35 + k * 20) * sx), 4)
 	# sorriso (arco de pontinhos)
-	var lip := Color("8f2f3d")
+	var lip := Color("c2405a") if a.girl else Color("8f2f3d")
 	for k in 9:
 		var t := (k - 4) / 4.0
 		_sphere("Mouth", lip, Vector3(t * 0.04, t * t * 0.016, -absf(t) * 0.012), 0.0068, Vector3(1.3, 0.95, 0.7), Vector3.ZERO, 6, 4)
 
 	_make_hair()
+	if a.girl and not a.cap:
+		# laço no alto da cabeça, na cor do detalhe do uniforme
+		var bow := a.shirt_trim.lightened(0.1)
+		var bc := c + Vector3(0.1, R * 0.86, -0.04)
+		for sx: float in [1.0, -1.0]:
+			_sphere("Head", bow, bc + Vector3(0.045 * sx, 0, 0), 0.04, Vector3(1.2, 0.8, 0.5), Vector3(0, 0, 20 * sx), 10, 6)
+		_sphere("Head", bow.darkened(0.2), bc, 0.022, Vector3.ONE, Vector3.ZERO, 8, 5)
 
 	if a.glasses:
 		var fr := Color("1c1c1c")

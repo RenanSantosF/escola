@@ -37,6 +37,8 @@ var cap_color := Color("2f6fd0")
 var glasses := false
 var height_scale := 1.0
 var build := 1.0  # 0.9 magro .. 1.15 forte
+## Menina: cílios, laço no cabelo e boca rosada (escolhido ao criar a conta).
+var girl := false
 
 
 func to_dict() -> Dictionary:
@@ -48,8 +50,17 @@ func to_dict() -> Dictionary:
 		"sock_color": sock_color.to_html(false), "shoe_color": shoe_color.to_html(false),
 		"shoe_sole": shoe_sole.to_html(false), "backpack": backpack,
 		"backpack_color": backpack_color.to_html(false), "cap": cap, "cap_color": cap_color.to_html(false),
-		"glasses": glasses, "height_scale": height_scale, "build": build,
+		"glasses": glasses, "height_scale": height_scale, "build": build, "girl": girl,
 	}
+
+
+## Ajusta o visual para menino ou menina (cabelo de partida).
+func set_girl(on: bool) -> void:
+	girl = on
+	if on and hair_style in ["curto", "espetado", "raspado"]:
+		hair_style = "rabo"
+	elif not on and hair_style in ["longo", "rabo"]:
+		hair_style = "curto"
 
 
 static func from_dict(d: Dictionary) -> CharacterAppearance:

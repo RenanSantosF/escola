@@ -10,6 +10,13 @@ const DARK := Color("1f2a44")
 const CREAM := Color("fff8e7")
 const GREEN := Color("3aa45b")
 const RED := Color("e04a3a")
+## Paleta nova (lobby e telas): marinho + verde-água, sem laranja.
+const NAVY := Color("0f1a3d")
+const NAVY_2 := Color("1a2a5c")
+const TEAL := Color("1fb5a3")
+const SKY := Color("4cc9f0")
+const MIST := Color("eef3fa")
+const LINE := Color("c9d4e8")
 
 static var _theme: Theme
 static var _bold: FontVariation
@@ -32,26 +39,28 @@ static func get_theme() -> Theme:
 	t.set_font("font", "Label", ThemeDB.fallback_font)
 	t.set_color("font_color", "Label", DARK)
 	t.set_font_size("font_size", "Button", 28)
-	t.set_color("font_color", "Button", DARK)
-	t.set_color("font_hover_color", "Button", DARK)
-	t.set_color("font_pressed_color", "Button", DARK)
-	t.set_color("font_focus_color", "Button", DARK)
-	t.set_stylebox("normal", "Button", box(YELLOW, 18, DARK.lerp(YELLOW, 0.5), 0, 6))
-	t.set_stylebox("hover", "Button", box(YELLOW.lightened(0.15), 18, DARK.lerp(YELLOW, 0.5), 0, 6))
-	t.set_stylebox("pressed", "Button", box(ORANGE, 18, DARK.lerp(ORANGE, 0.5), 0, 2))
-	t.set_stylebox("focus", "Button", box(Color(0, 0, 0, 0), 18, Color.WHITE, 3, 0))
-	t.set_stylebox("disabled", "Button", box(Color("cfcfcf"), 18, Color("9a9a9a"), 0, 4))
-	t.set_stylebox("panel", "PanelContainer", box(CREAM, 26, Color("e2c98a"), 4, 0))
-	t.set_stylebox("panel", "Panel", box(CREAM, 26, Color("e2c98a"), 4, 0))
+	t.set_color("font_color", "Button", Color.WHITE)
+	t.set_color("font_hover_color", "Button", Color.WHITE)
+	t.set_color("font_pressed_color", "Button", Color.WHITE)
+	t.set_color("font_focus_color", "Button", Color.WHITE)
+	t.set_color("font_disabled_color", "Button", Color("6b7690"))
+	# botões com cantos discretos (nada de "pílula" exagerada)
+	t.set_stylebox("normal", "Button", box(TEAL, 10, TEAL.darkened(0.35), 0, 4))
+	t.set_stylebox("hover", "Button", box(TEAL.lightened(0.1), 10, TEAL.darkened(0.35), 0, 4))
+	t.set_stylebox("pressed", "Button", box(TEAL.darkened(0.15), 10, TEAL.darkened(0.35), 0, 1))
+	t.set_stylebox("focus", "Button", box(Color(0, 0, 0, 0), 10, Color.WHITE, 2, 0))
+	t.set_stylebox("disabled", "Button", box(Color("d5dbe6"), 10, Color("aab3c5"), 0, 3))
+	t.set_stylebox("panel", "PanelContainer", box(MIST, 14, LINE, 2, 0))
+	t.set_stylebox("panel", "Panel", box(MIST, 14, LINE, 2, 0))
 	# Sliders grandes para o dedo
 	var track := StyleBoxFlat.new()
-	track.bg_color = Color("e5d7b5")
+	track.bg_color = Color("d5dceb")
 	track.set_corner_radius_all(8)
 	track.content_margin_top = 8
 	track.content_margin_bottom = 8
 	t.set_stylebox("slider", "HSlider", track)
 	var fill := track.duplicate() as StyleBoxFlat
-	fill.bg_color = ORANGE
+	fill.bg_color = TEAL
 	t.set_stylebox("grabber_area", "HSlider", fill)
 	t.set_stylebox("grabber_area_highlight", "HSlider", fill)
 	t.set_icon("grabber", "HSlider", _circle_tex(34, BLUE))

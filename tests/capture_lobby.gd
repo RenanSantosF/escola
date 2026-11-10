@@ -1,0 +1,43 @@
+extends Node
+## Prints do lobby: conta (primeira vez), escolha menino/menina e o lobby.
+
+var out_dir := "user://"
+
+
+func _ready() -> void:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--out="):
+			out_dir = a.substr(6)
+	SaveManager.section("online").clear()
+	var main: Node = load("res://scenes/main/main.tscn").instantiate()
+	add_child(main)
+	while GameManager.player == null or main._menu == null:
+		await get_tree().process_frame
+	await _secs(1.5)
+	main._show_account()
+	await _snap("lobby_conta")
+	main._account_screen.show_gender()
+	await _snap("lobby_genero")
+	main._account_screen._set_gender(true)
+	var sec: Dictionary = SaveManager.section("online")
+	sec["token"] = "x"
+	sec["registered"] = true
+	sec["name"] = "Foguete_Azul"
+	main._account_screen.visible = false
+	main._show_menu()
+	main._refresh_hello()
+	await _secs(1.0)
+	await _snap("lobby")
+	main._on_friends_pressed()
+	await _snap("lobby_amigos")
+	get_tree().quit()
+
+
+func _secs(s: float) -> void:
+	await get_tree().create_timer(s).timeout
+
+
+func _snap(n: String) -> void:
+	await _secs(0.6)
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(out_dir.path_join(n + ".png"))

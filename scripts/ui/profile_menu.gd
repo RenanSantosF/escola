@@ -192,6 +192,30 @@ func _build_items(shop: bool) -> void:
 		_build_shop_header()
 	else:
 		_title("Seu guarda-roupa")
+		# menino ou menina
+		var gh := HBoxContainer.new()
+		gh.add_theme_constant_override("separation", 8)
+		_content.add_child(gh)
+		var cur_girl: bool = GameManager.player.visual.appearance.girl if GameManager.player else false
+		for opt in [["Menino", false], ["Menina", true]]:
+			var g_on: bool = opt[1] == cur_girl
+			var gb := Button.new()
+			gb.text = opt[0]
+			gb.focus_mode = Control.FOCUS_NONE
+			gb.custom_minimum_size = Vector2(150, 50)
+			gb.add_theme_font_size_override("font_size", 21)
+			for st in ["normal", "hover", "pressed", "focus"]:
+				gb.add_theme_stylebox_override(st, UITheme.box(UITheme.TEAL if g_on else Color("e3e8f2"), 8, Color(0, 0, 0, 0), 0, 3))
+			gb.add_theme_color_override("font_color", Color.WHITE if g_on else UITheme.DARK)
+			var girl: bool = opt[1]
+			gb.pressed.connect(func():
+				var a: CharacterAppearance = GameManager.player.visual.appearance
+				a.set_girl(girl)
+				GameManager.player.set_appearance(a)
+				if NetworkManager.is_online():
+					NetworkManager.send_look()
+				_refresh())
+			gh.add_child(gb)
 	# categorias (chips grandes)
 	var cats := HFlowContainer.new()
 	cats.add_theme_constant_override("h_separation", 8)
@@ -207,7 +231,7 @@ func _build_items(shop: bool) -> void:
 		b.custom_minimum_size = Vector2(0, 50)
 		var cid: String = c[0]
 		var on := cid == _cat
-		var col := UITheme.ORANGE if on else Color("fff8e7")
+		var col := UITheme.TEAL if on else Color("eef3fa")
 		if cid == "skin" and not on:
 			col = Color("e9ddff")
 		for st in ["normal", "hover", "pressed", "focus"]:

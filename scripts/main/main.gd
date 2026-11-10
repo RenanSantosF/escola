@@ -197,6 +197,58 @@ func _build_loading() -> void:
 
 # ------------------------------------------------------------- menu
 
+const GAME_TITLE := "Turma Viva"
+const GAME_SUB := "Recreio"
+var _stats_lbl: Label
+var _lobby_status: Label
+var _joining := false
+
+
+func _lobby_button(text: String, col: Color, cb: Callable, h := 64, fs := 24, border := Color(0, 0, 0, 0)) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(0, h)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.add_theme_font_size_override("font_size", fs)
+	for st in ["normal", "hover", "focus"]:
+		var sb := UITheme.box(col if st != "hover" else col.lightened(0.08), 8, border, 2 if border.a > 0 else 0, 0)
+		b.add_theme_stylebox_override(st, sb)
+	b.add_theme_stylebox_override("pressed", UITheme.box(col.darkened(0.15), 8, border, 2 if border.a > 0 else 0, 0))
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(c, Color.WHITE)
+	b.pressed.connect(func():
+		AudioManager.play_ui("ui_click")
+		cb.call())
+	return b
+
+
+## JOGAR: cai direto numa turma (a conta já foi criada antes de chegar aqui).
+func _on_play_quick() -> void:
+	if not AccountManager.has_account():
+		_show_account()
+		return
+	if _joining:
+		return
+	_lobby_status.text = "Entrando na escola..."
+	_join_online("quick", "")
+
+
+func _on_friends_pressed() -> void:
+	if not AccountManager.has_account():
+		_show_account()
+		return
+	_menu_box.visible = false
+	_online_menu.reset()
+	_online_menu.visible = true
+
+
+func _show_account() -> void:
+	_menu_box.visible = false
+	_account_screen.show_start()
+	_account_screen.visible = true
+
+
 func _build_menu() -> void:
 	_menu = Control.new()
 	_menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -205,8 +257,8 @@ func _build_menu() -> void:
 	var grad := TextureRect.new()
 	var gt := GradientTexture2D.new()
 	var g := Gradient.new()
-	g.set_color(0, Color(0.05, 0.1, 0.25, 0.0))
-	g.set_color(1, Color(0.05, 0.1, 0.25, 0.65))
+	g.set_color(0, Color(0.06, 0.1, 0.24, 0.0))
+	g.set_color(1, Color(0.06, 0.1, 0.24, 0.55))
 	gt.gradient = g
 	gt.fill_from = Vector2(1, 0)
 	gt.fill_to = Vector2(0, 0)
@@ -216,37 +268,63 @@ func _build_menu() -> void:
 	grad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_menu.add_child(grad)
 
+	# ---- lobby: coluna escura à esquerda com o nome, a saudação e o JOGAR
+	var side := PanelContainer.new()
+	var ssb := StyleBoxFlat.new()
+	ssb.bg_color = Color(UITheme.NAVY, 0.9)
+	ssb.border_color = Color(UITheme.TEAL, 0.9)
+	ssb.border_width_right = 3
+	ssb.content_margin_left = 64
+	ssb.content_margin_right = 48
+	ssb.content_margin_top = 56
+	ssb.content_margin_bottom = 40
+	side.add_theme_stylebox_override("panel", ssb)
+	side.anchor_bottom = 1.0
+	side.offset_right = 560
+	_menu.add_child(side)
 	_menu_box = VBoxContainer.new()
-	_menu_box.add_theme_constant_override("separation", 16)
-	_menu_box.set_anchors_preset(Control.PRESET_CENTER_LEFT)
-	_menu_box.position = Vector2(80, -250)
-	_menu.add_child(_menu_box)
-	var title := UITheme.title_label("RECREIO", 110, Color("ffcf3f"))
-	title.add_theme_constant_override("outline_size", 18)
-	title.add_theme_color_override("font_outline_color", Color("1f2a44"))
+	_menu_box.add_theme_constant_override("separation", 14)
+	side.add_child(_menu_box)
+	var title := UITheme.title_label(GAME_TITLE.to_upper(), 78, Color.WHITE)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_menu_box.add_child(title)
-	var sub := UITheme.title_label("Minha Vida na Escola", 36, Color.WHITE)
-	sub.add_theme_constant_override("outline_size", 10)
-	sub.add_theme_color_override("font_outline_color", Color("1f2a44"))
+	var sub := UITheme.title_label("  ".join(GAME_SUB.to_upper().split("")), 26, UITheme.TEAL)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_menu_box.add_child(sub)
+	var line := ColorRect.new()
+	line.color = Color(1, 1, 1, 0.12)
+	line.custom_minimum_size = Vector2(0, 2)
+	_menu_box.add_child(line)
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 16)
+	spacer.custom_minimum_size = Vector2(0, 8)
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_menu_box.add_child(spacer)
-	_hello_lbl = UITheme.title_label("", 28, Color("ffe08a"))
-	_hello_lbl.add_theme_constant_override("outline_size", 8)
-	_hello_lbl.add_theme_color_override("font_outline_color", Color("1f2a44"))
+	_hello_lbl = UITheme.title_label("", 30, Color.WHITE)
 	_hello_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_menu_box.add_child(_hello_lbl)
-	var play_btn := UITheme.make_button("Jogar", _on_online_pressed, 360)
-	play_btn.add_theme_font_size_override("font_size", 40)
-	play_btn.custom_minimum_size = Vector2(360, 90)
+	_stats_lbl = Label.new()
+	_stats_lbl.add_theme_font_size_override("font_size", 20)
+	_stats_lbl.add_theme_color_override("font_color", Color(UITheme.MIST, 0.75))
+	_menu_box.add_child(_stats_lbl)
+	var play_btn := _lobby_button("JOGAR", UITheme.TEAL, _on_play_quick, 88, 38)
 	_menu_box.add_child(play_btn)
-	_menu_box.add_child(UITheme.make_button("Configurações", _open_menu_settings, 360))
-	_menu_box.add_child(UITheme.make_button("Créditos", _open_credits, 360))
+	_menu_box.add_child(_lobby_button("Amigos  ·  criar sala ou entrar com código", UITheme.NAVY_2, _on_friends_pressed, 64, 22, UITheme.SKY))
+	_lobby_status = Label.new()
+	_lobby_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_lobby_status.add_theme_font_size_override("font_size", 20)
+	_lobby_status.add_theme_color_override("font_color", UITheme.SKY)
+	_menu_box.add_child(_lobby_status)
+	var spacer2 := Control.new()
+	spacer2.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_menu_box.add_child(spacer2)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	_menu_box.add_child(row)
+	row.add_child(_lobby_button("Configurações", Color(1, 1, 1, 0.08), _open_menu_settings, 50, 19, Color(1, 1, 1, 0.25)))
+	row.add_child(_lobby_button("Créditos", Color(1, 1, 1, 0.08), _open_credits, 50, 19, Color(1, 1, 1, 0.25)))
 	if OS.get_name() not in ["Android", "iOS", "Web"]:
-		_menu_box.add_child(UITheme.make_button("Sair", func(): get_tree().quit(), 360))
+		row.add_child(_lobby_button("Sair", Color(1, 1, 1, 0.08), func(): get_tree().quit(), 50, 19, Color(1, 1, 1, 0.25)))
+	_menu_box = side  # o painel inteiro aparece/some junto
 
 	var ver := Label.new()
 	ver.text = "v%s" % ProjectSettings.get_setting("application/config/version")
@@ -279,6 +357,10 @@ func _build_menu() -> void:
 	_account_screen.visible = false
 	center.add_child(_account_screen)
 	_account_screen.back.connect(func():
+		# sem conta não tem lobby: volta para o começo da criação
+		if not AccountManager.has_account():
+			_account_screen.show_start()
+			return
 		_account_screen.visible = false
 		_menu_box.visible = true)
 	_account_screen.done.connect(func(imported):
@@ -288,8 +370,8 @@ func _build_menu() -> void:
 			# progresso de outro celular: recarrega o mundo com ele
 			get_tree().reload_current_scene()
 			return
-		_online_menu.reset()
-		_online_menu.visible = true)
+		# conta criada: agora sim o lobby
+		_menu_box.visible = true)
 
 	_credits = PanelContainer.new()
 	_credits.visible = false
@@ -298,7 +380,7 @@ func _build_menu() -> void:
 	_credits.add_child(cv)
 	cv.add_child(UITheme.title_label("Créditos", 40))
 	var txt := Label.new()
-	txt.text = "Recreio — Minha Vida na Escola\nFeito com Godot Engine 4.3 (licença MIT)\n\nModelos, texturas, animações e sons gerados\nproceduralmente para este projeto.\n\nPara todos que já esperaram ansiosos pelo sinal do recreio."
+	txt.text = "Turma Viva: Recreio\nFeito com Godot Engine 4.3 (licença MIT)\n\nModelos, texturas, animações e sons gerados\nproceduralmente para este projeto.\n\nPara todos que já esperaram ansiosos pelo sinal do recreio."
 	txt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cv.add_child(txt)
 	cv.add_child(UITheme.make_button("Voltar", func():
@@ -326,9 +408,19 @@ func _show_menu() -> void:
 	GameManager.set_state(GameManager.State.MENU)
 	_menu.visible = true
 	_menu_box.visible = true
+	_joining = false
+	if _lobby_status:
+		_lobby_status.text = ""
+	# primeira vez: cria a conta antes de ver o lobby
+	if not AccountManager.has_account() and not _is_test_run():
+		_show_account()
 	_menu.modulate.a = 1.0
 	camera_rig.set_showcase(true)
 	AudioManager.play_music("music_menu", -10.0)
+
+
+func _is_test_run() -> bool:
+	return " ".join(OS.get_cmdline_args()).contains("res://tests/")
 
 
 func _sync_start() -> void:
@@ -375,6 +467,8 @@ var _synced := false
 func _refresh_hello() -> void:
 	if _hello_lbl:
 		_hello_lbl.text = ("Olá, %s!" % AccountManager.nickname()) if AccountManager.has_account() else ""
+	if _stats_lbl:
+		_stats_lbl.text = "Nível %d  ·  %d moedas" % [GameManager.level(), GameManager.coins()] if AccountManager.has_account() else ""
 
 
 ## O jogo é só online: precisa de conta (criada uma vez) e de internet.
@@ -389,6 +483,7 @@ func _on_online_pressed() -> void:
 
 
 func _join_online(mode: String, code: String) -> void:
+	_joining = mode == "quick" and not _online_menu.visible
 	if online == null:
 		online = OnlineSession.new()
 		online.name = "Online"
@@ -405,14 +500,19 @@ func _join_online(mode: String, code: String) -> void:
 	NetworkManager.join(mode, code)
 	_join_timer = get_tree().create_timer(12.0)
 	_join_timer.timeout.connect(func():
-		if _online_menu.visible and not NetworkManager.is_online():
+		if (_online_menu.visible or _joining) and not NetworkManager.is_online():
+			_joining = false
+			_lobby_status.text = "Não consegui conectar. Confira a internet e tente de novo."
 			NetworkManager.leave()
 			_online_menu.set_status("Não consegui conectar. Confira a internet e tente de novo.", true))
 
 
 func _on_online_welcome(m: Dictionary) -> void:
-	if not _online_menu.visible:
+	if not (_online_menu.visible or _joining):
 		return
+	_joining = false
+	if _lobby_status:
+		_lobby_status.text = ""
 	_online_menu.visible = false
 	if _online_menu.last_mode == "create":
 		GameManager.show_toast("Sala %s criada! Passe o código para os amigos entrarem juntos." % m.get("code", ""))
@@ -420,6 +520,11 @@ func _on_online_welcome(m: Dictionary) -> void:
 
 
 func _on_online_error(text: String) -> void:
+	if _joining:
+		_joining = false
+		_lobby_status.text = text
+		NetworkManager.leave()
+		return
 	if _online_menu.visible:
 		NetworkManager.leave()
 		_online_menu.set_status(text, true)
