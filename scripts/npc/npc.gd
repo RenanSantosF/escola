@@ -62,6 +62,7 @@ func setup(entry: Dictionary, mgr: Node) -> void:
 	add_child(cs)
 	visual = CharacterVisual.new()
 	visual.appearance = NPCRoster.appearance_for(entry)
+	visual.detail = 0.45
 	visual.manual_update = true
 	add_child(visual)
 	visual.action_finished.connect(_on_action_finished)

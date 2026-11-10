@@ -43,6 +43,13 @@ var md := MeshData.new()
 var bone_index := {}
 var bone_global := {}
 var app: CharacterAppearance
+## 1.0 = malha completa; menor = menos segmentos (bots, vistos de longe).
+var detail := 1.0
+
+
+func _seg(n: int) -> int:
+	return maxi(int(round(n * detail)), 5 if detail >= 0.99 else 4)
+
 
 
 static func get_material() -> StandardMaterial3D:
@@ -60,9 +67,10 @@ static func get_material() -> StandardMaterial3D:
 
 
 ## Cria o Skeleton3D (com a malha como filha) para a aparência dada.
-static func build(appearance: CharacterAppearance) -> Skeleton3D:
+static func build(appearance: CharacterAppearance, detail_level := 1.0) -> Skeleton3D:
 	var b := CharacterModelBuilder.new()
 	b.app = appearance
+	b.detail = detail_level
 	var skel := b._make_skeleton()
 	var mi := MeshInstance3D.new()
 	mi.name = "Body"
@@ -74,9 +82,10 @@ static func build(appearance: CharacterAppearance) -> Skeleton3D:
 
 
 ## Reconstrói apenas a malha (troca de roupa) mantendo o esqueleto.
-static func rebuild_mesh(skel: Skeleton3D, appearance: CharacterAppearance) -> void:
+static func rebuild_mesh(skel: Skeleton3D, appearance: CharacterAppearance, detail_level := 1.0) -> void:
 	var b := CharacterModelBuilder.new()
 	b.app = appearance
+	b.detail = detail_level
 	for i in BONES.size():
 		b.bone_index[BONES[i][0]] = i
 	b._compute_globals()
@@ -123,12 +132,12 @@ func _xf(bone: String, local_pos: Vector3, scale := Vector3.ONE, rot_deg := Vect
 
 func _sphere(bone: String, col: Color, pos: Vector3, r: float, scale := Vector3.ONE, rot := Vector3.ZERO, seg := 14, rings := 9) -> void:
 	_bone(bone, col)
-	md.add_sphere(_xf(bone, pos, scale, rot), r, seg, rings)
+	md.add_sphere(_xf(bone, pos, scale, rot), r, _seg(seg), maxi(_seg(rings), 4))
 
 
 func _capsule(bone: String, col: Color, pos: Vector3, r: float, h: float, scale := Vector3.ONE, rot := Vector3.ZERO, seg := 14) -> void:
 	_bone(bone, col)
-	md.add_capsule(_xf(bone, pos, scale, rot), r, h, seg, 8 if seg > 8 else 4)
+	md.add_capsule(_xf(bone, pos, scale, rot), r, h, _seg(seg), (6 if detail >= 1.0 else 4) if seg > 8 else 4)
 
 
 func _box(bone: String, col: Color, pos: Vector3, size: Vector3, rot := Vector3.ZERO) -> void:
@@ -138,7 +147,7 @@ func _box(bone: String, col: Color, pos: Vector3, size: Vector3, rot := Vector3.
 
 func _cyl(bone: String, col: Color, pos: Vector3, rt: float, rb: float, h: float, rot := Vector3.ZERO, seg := 10) -> void:
 	_bone(bone, col)
-	md.add_cylinder(_xf(bone, pos, Vector3.ONE, rot), rt, rb, h, seg)
+	md.add_cylinder(_xf(bone, pos, Vector3.ONE, rot), rt, rb, h, _seg(seg))
 
 
 ## Calota esférica (cabelo/boné) orientada pela direção dir.
@@ -151,7 +160,7 @@ func _cap(bone: String, col: Color, pos: Vector3, r: float, dir: Vector3, angle_
 		var axis := up.cross(d).normalized()
 		basis = Basis(axis, up.angle_to(d))
 	basis = Basis.from_scale(scale) * basis
-	md.add_sphere(Transform3D(basis, bone_global[bone] + pos), r, 14, 8, deg_to_rad(angle_deg))
+	md.add_sphere(Transform3D(basis, bone_global[bone] + pos), r, _seg(16), _seg(9), deg_to_rad(angle_deg))
 
 
 # ------------------------------------------------------------ corpo

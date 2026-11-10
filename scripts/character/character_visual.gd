@@ -25,12 +25,12 @@ func set_appearance(a: CharacterAppearance) -> void:
 	appearance = a
 	if skeleton == null:
 		return
-	CharacterModelBuilder.rebuild_mesh(skeleton, a)
+	CharacterModelBuilder.rebuild_mesh(skeleton, a, detail)
 	scale = Vector3.ONE * a.height_scale
 
 
 func _build() -> void:
-	skeleton = CharacterModelBuilder.build(appearance)
+	skeleton = CharacterModelBuilder.build(appearance, detail)
 	add_child(skeleton)
 	scale = Vector3.ONE * appearance.height_scale
 	animator.setup(skeleton)
@@ -49,6 +49,8 @@ func _process(delta: float) -> void:
 
 
 var _shadow_on := true
+## Detalhe da malha: 1.0 = completo (jogador); bots usam menos polígonos.
+var detail := 1.0
 
 
 ## Liga/desliga a sombra do personagem (LOD de sombra dos NPCs).
