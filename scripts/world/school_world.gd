@@ -218,6 +218,73 @@ func _build_terrain_extras(parent: Node3D) -> void:
 var rides: Array = []
 
 
+## Atividades das salas que eram só cenário (XP uma vez por dia em cada uma).
+const ROOM_ACTIVITIES := [
+	["Enfermaria", "Medir a altura", "stretch", 2.5, 5, ["Você mede %d cm! Está crescendo!"], Vector2i(118, 152), Vector2(-1.5, 0)],
+	["Enfermaria", "Pegar um curativo", "interact", 2.5, 4, ["A enfermeira colocou um curativo de estrelinha!", "Curativo de dinossauro: agora sim!"], Vector2i.ZERO, Vector2(1.5, 0)],
+	["Banheiro Feminino", "Lavar as mãos", "interact", 2.0, 3, ["Mãos limpinhas! Lavar as mãos evita doenças."], Vector2i.ZERO, Vector2(-2.6, -2.0)],
+	["Banheiro Masculino", "Lavar as mãos", "interact", 2.0, 3, ["Mãos limpinhas! Lavar as mãos evita doenças."], Vector2i.ZERO, Vector2(-2.6, -2.0)],
+	["Brinquedoteca", "Montar uma torre de blocos", "interact", 3.0, 6, ["Torre de %d blocos! Não caiu!"], Vector2i(8, 25), Vector2(0, 0)],
+	["Sala de Jogos", "Jogar pingue-pongue", "throw", 4.0, 6, ["Que partida! Você ganhou de %d a 7!", "Ufa! Perdeu por pouco, 10 a %d."], Vector2i(8, 11), Vector2(0, 0)],
+	["Sala de Dança", "Dançar", "celebrate", 5.0, 6, ["Que passos incríveis!", "A turma bateu palmas para a sua dança!"], Vector2i.ZERO, Vector2(0, 0)],
+	["Sala de Xadrez", "Jogar uma partida de xadrez", "scratch_head", 4.0, 8, ["Xeque-mate em %d jogadas! Você venceu!", "Empate depois de %d jogadas. Bem jogado!"], Vector2i(9, 30), Vector2(0, 0)],
+	["Ateliê Maker", "Montar um robozinho", "interact", 4.0, 8, ["Seu robozinho anda e pisca as luzes!", "Funcionou! O robô acenou para você."], Vector2i.ZERO, Vector2(0, 0)],
+	["Sala de Robótica", "Programar o robô", "interact", 4.0, 8, ["O robô seguiu a linha até o fim!", "Programa certo: o robô desviou do obstáculo!"], Vector2i.ZERO, Vector2(0, 0)],
+	["Secretaria", "Ler o mural de avisos", "look_around", 2.5, 3, ["Aviso: amanhã tem aula de Ciências no laboratório!", "Aviso: beba água no recreio!", "Aviso: as férias estão chegando!"], Vector2i.ZERO, Vector2(0, 0)],
+	["Grêmio Estudantil", "Votar na ideia do recreio", "raise_hand", 2.5, 4, ["Voto contado: mais bolas para o futebol!", "Voto contado: gincana na sexta!"], Vector2i.ZERO, Vector2(0, 0)],
+	["Mirante", "Olhar pelo telescópio", "look_around", 3.0, 4, ["Dá para ver o Morro e a montanha-russa!", "Lá longe, a turma jogando bola na quadra!"], Vector2i.ZERO, Vector2(0, -3.0)],
+	["Depósito de Ed. Física", "Arrumar os materiais", "pickup", 3.0, 4, ["Cones e bolas no lugar! O professor agradece."], Vector2i.ZERO, Vector2(0, 0)],
+]
+
+
+func _zone_named(n: String) -> Dictionary:
+	for z in builder.zones:
+		if str(z.name) == n:
+			return z
+	return {}
+
+
+func _spawn_room_activities() -> void:
+	for a in ROOM_ACTIVITIES:
+		var z := _zone_named(a[0])
+		if z.is_empty():
+			continue
+		var r: Rect2 = z.rect
+		var fy := (float(z.y0) + 0.5) if z.has("y0") else 0.0
+		var off: Vector2 = a[7]
+		var c := r.get_center() + off
+		var ra := RoomActivity.new()
+		ra.key = "%s_%s" % [a[0], a[1]]
+		ra.prompt = a[1]
+		ra.anim = a[2]
+		ra.secs = a[3]
+		ra.xp = a[4]
+		ra.results = a[5]
+		ra.number_range = a[6]
+		ra.position = Vector3(c.x, fy + 0.05, c.y)
+		add_child(ra)
+	for cm in builder.cinemas:
+		var cs := CinemaScreen.new()
+		cs.room_rect = cm.rect
+		cs.room_name = cm.room
+		var z2 := _zone_named(cm.room)
+		cs.floor_y = (float(z2.y0) + 0.5) if z2.has("y0") else 0.0
+		var lbl := Label3D.new()
+		lbl.font = UITheme.bold_font()
+		lbl.font_size = 52
+		lbl.pixel_size = 0.006
+		lbl.modulate = Color("2c3e50")
+		lbl.outline_size = 0
+		lbl.width = 900.0
+		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		lbl.visibility_range_end = 24.0
+		cs.label = lbl
+		cs.add_child(lbl)
+		add_child(cs)
+		lbl.global_position = cm.pos + Vector3(0, cs.floor_y, 0)
+		lbl.rotation.y = cm.rot
+
+
 func _spawn_interactables() -> void:
 	for sl in builder.slides:
 		var ss := SlideSpot.new()
@@ -236,6 +303,7 @@ func _spawn_interactables() -> void:
 		rt.position = r.base
 		add_child(rt)
 		rides.append(rt)
+	_spawn_room_activities()
 	for tp in builder.trampolines:
 		var tr := Trampoline.new()
 		tr.position = tp

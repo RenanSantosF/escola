@@ -84,6 +84,7 @@ func _ready() -> void:
 	await _test_portas()
 	await _test_contador_e_brilho()
 	await _test_atracoes()
+	await _test_salas_uso()
 	await _test_dicas()
 	await _test_tela_amigos()
 	await _test_duas_turmas()
@@ -518,6 +519,20 @@ func _test_task_generator() -> void:
 					if t.item == "" or t.item_name == "":
 						ok = false
 	check(ok, "tarefas: 240 tarefas geradas com respostas consistentes")
+	# variedade: 15 perguntas de Ciências seguidas sem repetir nenhuma
+	var gen3 := ClassroomTasks.new(77, 5)
+	var seen := {}
+	var rep := 0
+	for i in 15:
+		var t3: Dictionary = gen3.make("quiz", "Ciências")
+		if seen.has(t3.prompt):
+			rep += 1
+		seen[t3.prompt] = true
+	check(rep == 0, "perguntas: 15 de Ciências seguidas sem repetir (%d repetidas)" % rep)
+	var total_q := 0
+	for subj in QuestionBank.EXTRA.keys():
+		total_q += (QuestionBank.EXTRA[subj] as Array).size() + (ClassroomTasks.BANK.get(subj, []) as Array).size()
+	check(total_q >= 250, "perguntas: banco com %d perguntas" % total_q)
 	var lesson := gen.make_lesson(4)
 	var types := lesson.map(func(x): return x.type)
 	var no_repeat := true
@@ -2016,6 +2031,27 @@ func _test_portas() -> void:
 		if not (inf.rect as Rect2).has_point(Vector2(e2.x, e2.z)):
 			stuck.append("%s %s" % [nm, str(e2.snapped(Vector3.ONE * 0.1))])
 	check(stuck.is_empty(), "portas: entra em todas as salas de aula", ", ".join(stuck))
+	# TODAS as portas: entra andando e avança 1,3 m (nada de móvel tampando)
+	var blocked: Array = []
+	var b: SchoolBuilder = main.world.builder
+	for d in b.doors:
+		var into: float = d.into
+		if into == 0.0:
+			continue
+		var nrm := Vector3(0, 0, into) if d.axis == "h" else Vector3(into, 0, 0)
+		var base: Vector3 = d.pos + Vector3(0, float(b.chunk_offsets.get(d.chunk, 0.0)) + 0.1, 0)
+		var e3 := await _walk_through(base - nrm * 1.2, base + nrm * 3.0, 1.6)
+		if (e3 - base).dot(nrm) < 1.3:
+			blocked.append("%s | %s %s parou em %s" % [main.world.zone_at(base + nrm * 1.5).get("name", "?"), d.chunk, str(base.snapped(Vector3.ONE * 0.1)), str((e3 - base).dot(nrm)).substr(0, 4)])
+	print("PORTAS_BLOQUEADAS: ", blocked)
+	check(blocked.is_empty(), "portas: passa por todas as %d portas do jogo" % b.doors.size(), "%d bloqueadas" % blocked.size())
+	# escadas do Bloco C: a de fora (até a varanda) e a de dentro
+	var top_out := await _walk_through(Vector3(-60.2, 0.1, 47.3), Vector3(-80, 0, 47.3), 5.0)
+	check(top_out.y > 3.3 and top_out.x < -71.0, "escada externa do Bloco C: sobe até a varanda", str(top_out.snapped(Vector3.ONE * 0.1)))
+	var mid_out := await _walk_through(Vector3(-66.8, 0.1, 44.9), Vector3(-66.8, 0, 49.5), 1.5)
+	check(mid_out.z < 46.2 or mid_out.y > 1.0, "escada externa do Bloco C: não dá para entrar por baixo/dentro dela", str(mid_out.snapped(Vector3.ONE * 0.1)))
+	var top_in := await _walk_through(Vector3(-66.3, 0.1, 23.6), Vector3(-80, 0, 23.6), 4.0)
+	check(top_in.y > 3.3, "escada interna do Bloco C: sobe", str(top_in.snapped(Vector3.ONE * 0.1)))
 
 
 
@@ -2108,15 +2144,17 @@ func _test_dicas() -> void:
 	await _frames(2)
 	var hud: HUD = main.hud
 	check(hud._hint != null and hud._hint.modulate.a > 0.0 and "VERDE" in hud._hint_lbl.text, "dicas: errou 2 vezes, aparece a dica certa")
+	var vsz := hud.get_viewport_rect().size
+	check(hud._hint.size.y < vsz.y * 0.32 and hud._hint.position.y > vsz.y * 0.3, "dicas: o balão é pequeno (não cobre a tela)", "%s" % hud._hint.size)
 	var shown := hud._hint_lbl.text
 	bk.break_combo()
 	bk.break_combo()
 	check(bk._hinted.has("miss") and hud._hint_lbl.text == shown, "dicas: a mesma dica não repete na partida")
 	bk._idle_t = 7.5
 	await _frames(2)
-	check(hud._hint_lbl.text == str(bk.hints().idle), "dicas: parado sem jogar, aparece a dica do que fazer")
+	check(hud._hint_lbl.text.replace("\n", " ") == str(bk.hints().idle), "dicas: parado sem jogar, aparece a dica do que fazer")
 	await _wait(6.0)
-	check(hud._hint.modulate.a < 0.05, "dicas: a dica some sozinha (não é permanente)")
+	check(hud._hint.modulate.a < 0.05 and not hud._hint.visible, "dicas: a dica some sozinha (não é permanente)")
 	bk.time_left = 0.05
 	await _frames(3)
 	check(hud._result != null and is_instance_valid(hud._result), "fim de brincadeira: cartão de resultado com estrelas")
@@ -2132,6 +2170,56 @@ func _test_dicas() -> void:
 		if mm.active:
 			mm.active.end_game(0, "fim", 0, 0)
 			await _frames(3)
+
+
+func _test_salas_uso() -> void:
+	await _recess()
+	var acts: Array = []
+	for n in main.world.get_children():
+		if n is RoomActivity:
+			acts.append(n)
+	check(acts.size() == SchoolWorld.ROOM_ACTIVITIES.size(), "salas: todas as atividades das salas existem (%d)" % acts.size())
+	# cada atividade fica num lugar que dá para chegar (não dentro de parede/móvel)
+	var far: Array = []
+	for a in acts:
+		var z: Dictionary = main.world.zone_at((a as Node3D).global_position + Vector3(0, 0.3, 0))
+		if z.is_empty():
+			far.append(a.prompt)
+	check(far.is_empty(), "salas: atividades dentro das salas certas", ", ".join(far))
+	var ra: RoomActivity = acts[0]
+	if player.mode == PlayerController.Mode.SITTING:
+		player.force_stand()
+	player.global_position = ra.global_position + Vector3(0.6, 0, 0)
+	var xp0 := _xp_total()
+	ra.interact(player)
+	await _wait(ra.secs + 0.8)
+	check(_xp_total() > xp0 and player.input_enabled, "salas: atividade (%s) dá XP e devolve o controle" % ra.prompt)
+	var xp1 := _xp_total()
+	ra.interact(player)
+	await _wait(ra.secs + 0.8)
+	check(_xp_total() == xp1, "salas: XP só uma vez por dia em cada atividade")
+	# cinema: a tela troca de cena e assistir sentado dá XP
+	var cs: CinemaScreen = null
+	for n in main.world.get_children():
+		if n is CinemaScreen:
+			cs = n
+	check(cs != null and cs.label.text != "", "cinema: a tela mostra o filme")
+	if cs:
+		var seat_c: Seat = null
+		for st in main.world.seats:
+			if cs.room_rect.has_point(Vector2(st.global_position.x, st.global_position.z)) and absf(st.global_position.y - cs.floor_y) < 1.5:
+				seat_c = st
+				break
+		player.global_position = seat_c.global_position + Vector3(0.5, 0, 0)
+		player.sit_on(seat_c)
+		var t0: String = cs.label.text
+		var xp2 := _xp_total()
+		Engine.time_scale = 4.0
+		await _wait(22.0)
+		Engine.time_scale = 1.0
+		check(cs.label.text != t0, "cinema: o filme passa cenas")
+		check(_xp_total() > xp2, "cinema: assistir sentado dá XP")
+		player.force_stand()
 
 
 func _test_atracoes() -> void:

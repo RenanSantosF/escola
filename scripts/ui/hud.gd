@@ -796,18 +796,26 @@ func show_hint(text: String, secs := 4.5) -> void:
 		_hint_lbl.add_theme_font_override("font", UITheme.bold_font())
 		_hint_lbl.add_theme_font_size_override("font_size", 24)
 		_hint_lbl.add_theme_color_override("font_color", Color("5a3e00"))
-		_hint_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_hint_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_hint_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
+		_hint_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bulb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		h.add_child(_hint_lbl)
 		add_child(_hint)
 		_hint.modulate.a = 0.0
-	_hint_lbl.text = text
 	var vs := get_viewport_rect().size
 	var w := minf(vs.x * 0.56, 720.0)
-	_hint.custom_minimum_size = Vector2(w, 0)
-	_hint.size = Vector2(w, 0)
+	# quebra as linhas medindo as palavras (o autowrap do Godot media com
+	# largura zero: uma letra por linha, e o balão cobria a tela até em cima)
+	_hint_lbl.text = UITheme.wrap_text(text, UITheme.bold_font(), 24, w - 120.0)
+	_hint_lbl.custom_minimum_size = Vector2.ZERO
+	_hint.custom_minimum_size = Vector2.ZERO
+	_hint.visible = true
+	_hint.size = Vector2.ZERO
 	_hint.reset_size()
-	_hint.position = Vector2((vs.x - w) * 0.5, vs.y * 0.6 - _hint.size.y * 0.5)
+	var hsz := _hint.get_combined_minimum_size()
+	hsz.y = minf(hsz.y, vs.y * 0.3)
+	_hint.size = hsz
+	_hint.position = Vector2((vs.x - hsz.x) * 0.5, vs.y * 0.6 - hsz.y * 0.5)
 	if _hint_tween:
 		_hint_tween.kill()
 	_hint.scale = Vector2(0.9, 0.9)
@@ -818,6 +826,7 @@ func show_hint(text: String, secs := 4.5) -> void:
 	_hint_tween.tween_property(_hint, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_hint_tween.chain().tween_interval(secs)
 	_hint_tween.chain().tween_property(_hint, "modulate:a", 0.0, 0.5)
+	_hint_tween.chain().tween_callback(func(): _hint.visible = false)
 	AudioManager.play_ui("ui_confirm", -12.0)
 
 
@@ -826,6 +835,7 @@ func hide_hint() -> void:
 		if _hint_tween:
 			_hint_tween.kill()
 		_hint.modulate.a = 0.0
+		_hint.visible = false
 
 
 func show_toast(message: String) -> void:

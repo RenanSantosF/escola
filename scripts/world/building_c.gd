@@ -126,11 +126,11 @@ static func _balcony_and_outer_stairs(sb: SchoolBuilder) -> void:
 		b.box("concrete", Vector3(x, hk - 0.1, 47.3), Vector3(run + 0.01, 0.2, 2.2), Color("cdb68c").darkened((i % 2) * 0.04))
 	var ang := atan2(y, x_bot - x_top)
 	var mid := Vector3((x_top + x_bot) * 0.5, y * 0.5, 47.3)
-	b.collider_xf(Transform3D(Basis(Vector3.BACK, ang), mid + Vector3(0, 0.02, 0)), Vector3((x_bot - x_top) / cos(ang), 0.08, 2.2))
-	b.box_xf("concrete", Transform3D(Basis(Vector3.BACK, ang), mid + Vector3(0, -0.25, 0)), Vector3((x_bot - x_top) / cos(ang), 0.3, 2.2), Color("bfa77f"))
+	b.collider_xf(Transform3D(Basis(Vector3.BACK, -ang), mid + Vector3(0, 0.02, 0)), Vector3((x_bot - x_top) / cos(ang), 0.08, 2.2))
+	b.box_xf("concrete", Transform3D(Basis(Vector3.BACK, -ang), mid + Vector3(0, -0.25, 0)), Vector3((x_bot - x_top) / cos(ang), 0.3, 2.2), Color("bfa77f"))
 	for zz: float in [46.15, 48.45]:
-		b.box_xf("metal", Transform3D(Basis(Vector3.BACK, ang), mid + Vector3(0, 0.95, zz - 47.3)), Vector3((x_bot - x_top) / cos(ang), 0.06, 0.06), Color("7b4fb0"))
-		b.collider_xf(Transform3D(Basis(Vector3.BACK, ang), mid + Vector3(0, 0.6, zz - 47.3)), Vector3((x_bot - x_top) / cos(ang), 1.2, 0.08))
+		b.box_xf("metal", Transform3D(Basis(Vector3.BACK, -ang), mid + Vector3(0, 0.95, zz - 47.3)), Vector3((x_bot - x_top) / cos(ang), 0.06, 0.06), Color("7b4fb0"))
+		b.collider_xf(Transform3D(Basis(Vector3.BACK, -ang), mid + Vector3(0, 0.6, zz - 47.3)), Vector3((x_bot - x_top) / cos(ang), 1.2, 0.08))
 	# navegação: base -> degraus -> varanda -> corredor de cima
 	var pts := [Vector3(-60.4, 0.05, 47.3)]
 	for k in 5:

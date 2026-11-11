@@ -40,17 +40,17 @@ static func _decorate_kind(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary,
 		"hall":
 			_hall(sb, b, r, rng)
 		"computer":
-			_computer(sb, b, r)
+			_computer(sb, b, room, r)
 		"art":
 			_art(sb, b, r, rng)
 		"bathroom_f", "bathroom_m":
-			_bathroom(sb, b, r, room.kind == "bathroom_f")
+			_bathroom(sb, b, room, r, room.kind == "bathroom_f")
 		"storage":
 			_storage(sb, b, r, rng)
 		"corridor":
 			_corridor(sb, b, room, r, rng)
 		"lab":
-			_lab(sb, b, r, rng)
+			_lab(sb, b, room, r, rng)
 		"music":
 			_music(sb, b, r, rng)
 		"cantina":
@@ -84,6 +84,28 @@ static func wall_rect(b: WorldBatcher, r: Rect2, side: String, along: float, y: 
 	var p: Array = wp(r, side, along, y, depth)
 	b.box(mat, p[0], Vector3(w, h, 0.02), col, p[1], false)
 	return p[0]
+
+
+## Centros das portas da sala (no chão, coordenadas x/z).
+static func _door_points(room: Dictionary, r: Rect2) -> Array:
+	var out := []
+	for d in room.get("doors", []):
+		var side: String = d[0]
+		var along: float = d[1]
+		match side:
+			"n": out.append(Vector2(along, r.position.y))
+			"s": out.append(Vector2(along, r.end.y))
+			"w": out.append(Vector2(r.position.x, along))
+			_: out.append(Vector2(r.end.x, along))
+	return out
+
+
+## Ponto perto demais de uma porta? (a entrada fica sempre livre)
+static func _near_door(room: Dictionary, r: Rect2, p: Vector3, clear := 1.8) -> bool:
+	for dp in _door_points(room, r):
+		if (dp as Vector2).distance_to(Vector2(p.x, p.z)) < clear:
+			return true
+	return false
 
 
 static func _door_side(room: Dictionary) -> String:
@@ -408,7 +430,7 @@ static func _hall(sb: SchoolBuilder, b: WorldBatcher, r: Rect2, rng: RandomNumbe
 
 # --------------------------------------------------------------- informática
 
-static func _computer(sb: SchoolBuilder, b: WorldBatcher, r: Rect2) -> void:
+static func _computer(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: Rect2) -> void:
 	for side: String in ["w", "e", "s"]:
 		var length := r.size.y if side in ["w", "e"] else r.size.x
 		var start := r.position.y if side in ["w", "e"] else r.position.x
@@ -418,6 +440,8 @@ static func _computer(sb: SchoolBuilder, b: WorldBatcher, r: Rect2) -> void:
 			var p: Array = wp(r, side, along, FY, 0.45)
 			var o: Vector3 = p[0]
 			var rot: float = p[1]
+			if _near_door(room, r, o, 2.0):
+				continue  # a porta fica livre
 			b.box("plain", o + Vector3(0, 0.74, 0), Vector3(1.3, 0.04, 0.7), Color("ecf0f1"), rot)
 			b.box("metal", o + Vector3(0, 0.37, 0), Vector3(1.2, 0.72, 0.04), Color("95a5a6"), rot)
 			var back := Vector3(0, 0, -0.18).rotated(Vector3.UP, rot)
@@ -458,12 +482,12 @@ static func _art(sb: SchoolBuilder, b: WorldBatcher, r: Rect2, rng: RandomNumber
 
 # --------------------------------------------------------------- banheiros
 
-static func _bathroom(sb: SchoolBuilder, b: WorldBatcher, r: Rect2, female: bool) -> void:
+static func _bathroom(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: Rect2, female: bool) -> void:
 	var stall_col := Color("e84393") if female else Color("2e86de")
 	# cabines ao longo da parede leste
 	var x_wall := r.end.x - T * 0.5
 	for k in 4:
-		var z0 := r.position.y + 1.0 + k * 1.6
+		var z0 := r.position.y + 2.4 + k * 1.6  # a entrada (porta no norte) fica livre
 		b.box("plain", Vector3(x_wall - 0.75, 1.0, z0), Vector3(1.5, 1.8, 0.05), stall_col)
 		b.collider(Vector3(x_wall - 0.75, 1.0, z0), Vector3(1.5, 1.8, 0.08))
 		var zc := z0 + 0.8
@@ -473,7 +497,7 @@ static func _bathroom(sb: SchoolBuilder, b: WorldBatcher, r: Rect2, female: bool
 		b.box("plain", Vector3(x_wall - 0.35, 0.22, zc), Vector3(0.45, 0.42, 0.38), Color("fdfefe"))
 		b.cylinder("plain", Vector3(x_wall - 0.55, 0.44, zc), 0.2, 0.18, 0.06, Color("f4f6f7"), 10)
 		b.box("plain", Vector3(x_wall - 0.18, 0.7, zc), Vector3(0.18, 0.5, 0.4), Color("fdfefe"))
-	b.box("plain", Vector3(x_wall - 0.75, 1.0, r.position.y + 1.0 + 4 * 1.6), Vector3(1.5, 1.8, 0.05), stall_col)
+	b.box("plain", Vector3(x_wall - 0.75, 1.0, r.position.y + 2.4 + 4 * 1.6), Vector3(1.5, 1.8, 0.05), stall_col)
 	# pias e espelhos na parede oeste
 	for k in 3:
 		var z := r.position.y + 2.0 + k * 1.8
@@ -545,7 +569,7 @@ static func _corridor(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: R
 
 # --------------------------------------------------------------- laboratório
 
-static func _lab(sb: SchoolBuilder, b: WorldBatcher, r: Rect2, rng: RandomNumberGenerator) -> void:
+static func _lab(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: Rect2, rng: RandomNumberGenerator) -> void:
 	for i in 2:
 		for j in 2:
 			var c := Vector3(r.position.x + 3.8 + i * 4.6, FY, r.position.y + 3.0 + j * 4.2)
@@ -570,6 +594,10 @@ static func _lab(sb: SchoolBuilder, b: WorldBatcher, r: Rect2, rng: RandomNumber
 	b.box("plain", sk + Vector3(0, 0.75, 0), Vector3(0.05, 0.6, 0.05), Color("f5f0e1"))
 	b.cylinder("plain", sk + Vector3(0, 0.05, 0), 0.25, 0.25, 0.05, Color("566573"), 10)
 	var sh: Array = wp(r, "e", r.get_center().y + 3.0, FY, 0.22)
+	if _near_door(room, r, sh[0], 2.4):
+		sh = wp(r, "e", r.get_center().y - 3.0, FY, 0.22)
+	if _near_door(room, r, sh[0], 2.4):
+		sh = wp(r, "s", r.get_center().x, FY, 0.22)
 	Props.bookshelf(b, sh[0], sh[1], rng, 2.0, 2.0)
 	_poster(sb, b, r, "n", r.get_center().x, 1.8, "TABELA PERIÓDICA", Color("48c9b0"))
 	_door_sign(sb, b, {"doors": [["w", -18.0, 1.2]]}, r, "LABORATÓRIO")
@@ -703,24 +731,30 @@ static func _auditorium(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r:
 	b.collider(Vector3(sx, FY + 0.25, r.get_center().y), Vector3(2.6, 0.5, r.size.y - 0.6))
 	var scr: Array = wp(r, "w", r.get_center().y, 2.0, 0.04)
 	b.box("plain", scr[0], Vector3(minf(r.size.y - 2.0, 6.0), 2.2, 0.03), Color("f8f8f8"), scr[1], false)
-	sb.add_label(str(room.get("screen", "SESSÃO DE CINEMA\nHoje: O ciclo da água")), scr[0] + Vector3(0.03, 0, 0), scr[1], 48, Color("2c3e50"), Color(0, 0, 0, 0), 0.006, 22.0)
+	# o "filme" é passado em cenas pelo CinemaScreen (school_world)
+	sb.cinemas.append({"room": room.name, "pos": scr[0] + Vector3(0.03, 0, 0), "rot": scr[1], "rect": r})
 	# cortinas
 	for zz: float in [r.position.y + 0.6, r.end.y - 0.6]:
 		b.box("plain", Vector3(sx, 2.0, zz), Vector3(0.2, 3.2, 1.0), Color("8e1b2b"))
-	var x := sx + 2.6
+	# menos cadeiras: fileiras bem espaçadas, corredores dos lados e no meio,
+	# e nada perto da porta
+	var x := sx + 2.8
 	var row := 0
-	while x < r.end.x - 1.0:
-		var z := r.position.y + 1.2
-		while z < r.end.y - 1.0:
-			if absf(z - r.get_center().y) > 0.7:
-				var o := Vector3(x, FY, z)
+	while x < r.end.x - 1.2 and row < 5:
+		var z := r.position.y + 1.6
+		var run_start := -1.0
+		var run_end := -1.0
+		while z < r.end.y - 1.4:
+			var o := Vector3(x, FY, z)
+			var ok := absf(z - r.get_center().y) > 0.8 and not _near_door(room, r, o, 2.2)
+			if ok:
 				b.box("plain", o + Vector3(0, 0.42, 0), Vector3(0.5, 0.12, 0.5), Color("a93226"))
 				b.box("plain", o + Vector3(0.22, 0.75, 0), Vector3(0.1, 0.6, 0.5), Color("a93226"))
 				b.box("metal", o + Vector3(0, 0.18, 0), Vector3(0.08, 0.36, 0.4), Color("2c3e50"))
 				Props.add_seat(o, -PI * 0.5, Vector3.ZERO, FY + 0.48, "Sentar")
-			z += 0.75
-		b.collider(Vector3(x + 0.05, 0.5, r.get_center().y), Vector3(0.55, 1.0, r.size.y - 2.4))
-		x += 1.5
+				b.collider(o + Vector3(0.05, 0.5, 0), Vector3(0.55, 1.0, 0.55))
+			z += 0.9
+		x += 1.9
 		row += 1
 	_door_sign(sb, b, room, r, room.name.to_upper())
 

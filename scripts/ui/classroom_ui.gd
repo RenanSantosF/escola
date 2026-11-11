@@ -104,6 +104,19 @@ func show_task(task: Dictionary, index: int, total: int, results: Array) -> void
 	var tw := create_tween().set_parallel(true).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_property(_panel, "scale", Vector2.ONE, 0.3)
 	tw.tween_property(_panel, "modulate:a", 1.0, 0.2)
+	tw.finished.connect(_fit)
+
+
+## Garante que o quadro inteiro cabe na tela (diminui se estiver alto demais).
+func _fit() -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(_panel):
+		return
+	var vh := get_viewport_rect().size.y
+	var h := _panel.get_combined_minimum_size().y
+	var s := clampf((vh - 24.0) / maxf(h, 1.0), 0.6, 1.0)
+	_panel.pivot_offset = _panel.size * 0.5
+	_panel.scale = Vector2(s, s)
 
 
 func hide_panel() -> void:
@@ -152,9 +165,12 @@ func _on_choice(i: int, b: Button) -> void:
 	var ok := ClassroomTasks.check_choice(_task, i)
 	_color_button(b, ok)
 	if not ok:
-		# mostra a resposta certa
+		# mostra a resposta certa e some com as outras (sobra espaço para a explicação)
 		var g := (_body.get_child(0) as CenterContainer).get_child(0)
 		_color_button(g.get_child(int(_task.answer)), true)
+		for k in g.get_child_count():
+			if k != int(_task.answer) and g.get_child(k) != b:
+				(g.get_child(k) as Control).visible = false
 	_finish(ok, "" if ok else "A resposta era: %s" % _task.options[_task.answer])
 
 
@@ -339,9 +355,11 @@ func _finish(ok: bool, extra: String) -> void:
 	if ok:
 		_feedback.text = "Muito bem! +10" + ("" if extra == "" else "\n" + extra)
 	else:
-		_feedback.text = "Não foi dessa vez..." + ("" if extra == "" else "\n" + extra)
+		_feedback.text = "Não foi dessa vez... " + extra
 		if explain != "":
 			_feedback.text += "\nPor quê? " + explain
+	# explicação longa: letra um pouco menor (e o painel encolhe se precisar)
+	_feedback.add_theme_font_size_override("font_size", 26 if _feedback.text.length() < 90 else (22 if _feedback.text.length() < 170 else 19))
 	_feedback.add_theme_color_override("font_color", Color("9dff9d") if ok else Color("ffd9d2"))
 	AudioManager.play_ui("ui_confirm" if ok else "bonk", -2.0 if ok else -10.0)
 	if ok:
@@ -368,5 +386,6 @@ func _finish(ok: bool, extra: String) -> void:
 		visible = false
 		answered.emit(false)
 	btn.pressed.connect(go)
+	_fit()
 	# segurança: segue sozinho depois de um tempo longo
 	get_tree().create_timer(25.0).timeout.connect(go)

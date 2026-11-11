@@ -370,7 +370,7 @@ func _word() -> Dictionary:
 
 
 func _bank_for(subject: String) -> Array:
-	var list: Array = BANK.get(subject, [])
+	var list: Array = (BANK.get(subject, []) as Array) + (QuestionBank.EXTRA.get(subject, []) as Array)
 	var fit := list.filter(func(q): return level >= int(q[0]) and level <= int(q[1]))
 	if fit.is_empty():
 		# sem pergunta da faixa: usa a mais próxima
@@ -384,10 +384,42 @@ func _quiz(subject: String) -> Dictionary:
 	if subject == "" or subject == "Matemática" or not BANK.has(subject):
 		subject = BANK.keys()[rng.randi() % BANK.size()]
 	var fit := _bank_for(subject)
-	var q: Array = fit[rng.randi() % fit.size()]
-	var t := _shuffle_options(q[3], q.slice(4))
-	t.merge({"type": "quiz", "subject": subject, "prompt": q[2], "explain": Explanations.for_quiz(q[2], q[3])})
+	var q: Array = _pick_fresh(fit)
+	var wrong: Array = q.slice(4, 7)
+	var t := _shuffle_options(q[3], wrong)
+	var explain: String = str(q[7]) if q.size() > 7 else Explanations.for_quiz(q[2], q[3])
+	t.merge({"type": "quiz", "subject": subject, "prompt": q[2], "explain": explain})
 	return t
+
+
+## Memória das perguntas já feitas (as últimas 120): escolhe uma que não
+## apareceu há pouco; se todas apareceram, a mais antiga.
+static func _recent() -> Array:
+	var sec: Dictionary = SaveManager.section("learning")
+	if not sec.has("recent_q"):
+		sec["recent_q"] = []
+	return sec["recent_q"]
+
+
+func _pick_fresh(fit: Array) -> Array:
+	var recent := _recent()
+	var fresh := fit.filter(func(q): return not (str(q[2]) in recent))
+	var q: Array
+	if not fresh.is_empty():
+		q = fresh[rng.randi() % fresh.size()]
+	else:
+		var best := 1 << 30
+		q = fit[0]
+		for c in fit:
+			var i := recent.find(str(c[2]))
+			if i < best:
+				best = i
+				q = c
+	recent.erase(str(q[2]))
+	recent.append(str(q[2]))
+	while recent.size() > 120:
+		recent.pop_front()
+	return q
 
 
 func _order(subject: String) -> Dictionary:

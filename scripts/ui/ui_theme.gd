@@ -134,6 +134,22 @@ static func pin_top_right(c: Control, from_right: float, top: float, w: float, h
 
 
 ## Botão de fundo claro: texto escuro em todos os estados.
+## Quebra o texto em linhas que cabem em max_w (medindo cada palavra).
+static func wrap_text(text: String, font: Font, size: int, max_w: float) -> String:
+	var out: PackedStringArray = []
+	for para in text.split("\n"):
+		var line := ""
+		for word in para.split(" ", false):
+			var test := word if line == "" else line + " " + word
+			if line != "" and font.get_string_size(test, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > max_w:
+				out.append(line)
+				line = word
+			else:
+				line = test
+		out.append(line)
+	return "\n".join(out)
+
+
 static func dark_text(b: Button) -> void:
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		b.add_theme_color_override(c, DARK)

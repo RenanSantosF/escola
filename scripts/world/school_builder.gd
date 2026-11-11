@@ -32,6 +32,8 @@ var slides: Array = []  # escorregadores {start, points}
 var rides: Array = []  # tobogã gigante e montanha-russa (FunRides)
 var trampolines: Array = []  # camas elásticas
 var lakes: Array = []  # lagos {center, radius}
+var cinemas: Array = []  # telas de cinema {room, pos, rot, rect}
+var doors: Array = []  # todas as portas: {pos (y local do andar), axis, into, w, chunk}
 var chunk_offsets := {}  # chunk -> altura (prédios de vários andares)
 var floor_tag := ""
 var interior_rects := {}  # chunk do interior -> retângulo da sala (para mostrar de perto, de fora)  # sufixo de chunks compartilhados (placas) no andar sendo construído
@@ -450,15 +452,16 @@ func _door(b: WorldBatcher, axis: String, coord: float, o0: float, o1: float, h:
 	b.box("wood", _p_on(axis, coord, c, h - 0.03), _sz(axis, w, 0.06, T + 0.06), Color("7a4b2a"))
 	if w > 2.4:
 		return
-	# folha da porta aberta para dentro do ambiente
+	# folha da porta escancarada, encostada na parede do lado de dentro (ao
+	# lado do vão): nunca parece fechada nem tampa a passagem
+	doors.append({"pos": _p_on(axis, coord, c, 0.0), "axis": axis, "into": into, "w": w, "chunk": b.name})
 	var leaf_w := w - 0.08
-	var n := into * (T * 0.5 + leaf_w * 0.5)
-	var p := _p_on(axis, coord, o0 + 0.07, h * 0.5 - 0.02, n)
-	var size := Vector3(0.045, h - 0.06, leaf_w) if axis == "h" else Vector3(leaf_w, h - 0.06, 0.045)
+	var side := into if into != 0.0 else 1.0
+	var p := _p_on(axis, coord, o0 - leaf_w * 0.5 - 0.02, h * 0.5 - 0.02, side * (T * 0.5 + 0.04))
+	var size := _sz(axis, leaf_w, h - 0.06, 0.045)
 	b.box("wood", p, size, trim.darkened(0.05))
-	var knob := p + (Vector3(0.05, -0.05, into * leaf_w * 0.35) if axis == "h" else Vector3(into * leaf_w * 0.35, -0.05, 0.05))
+	var knob := p + _sz(axis, -leaf_w * 0.35, 0.0, 0.0) + (Vector3(0, -0.05, side * 0.05) if axis == "h" else Vector3(side * 0.05, -0.05, 0))
 	b.sphere("metal", knob, 0.03, Color("d4af37"), Vector3.ONE, 6, 4)
-	b.collider(p, size)
 
 
 ## Telhado de duas águas com telha colonial. roof: {rect, axis, pitch, overhang, color}

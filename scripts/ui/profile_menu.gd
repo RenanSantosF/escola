@@ -128,6 +128,8 @@ func open_menu() -> void:
 	visible = true
 	get_parent().move_child(self, -1)
 	GameManager.overlay_open = true
+	# a mochila cobre a tela toda: não precisa desenhar a escola por trás
+	get_viewport().disable_3d = true
 	if not from_lobby:
 		GameManager.set_state(GameManager.State.PAUSED)
 	_stage.set_appearance(Progression.appearance_with())
@@ -138,6 +140,7 @@ func open_menu() -> void:
 func close_menu() -> void:
 	visible = false
 	if not from_lobby:
+		get_viewport().disable_3d = false
 		GameManager.set_state(GameManager.State.PLAYING)
 	from_lobby = false
 	GameManager.overlay_open = false
