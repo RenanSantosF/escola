@@ -153,7 +153,9 @@ func end_game(won: int, summary: String, coins: int, xp: int, extra := {}) -> vo
 	if mgr and not is_net() and summary != "O sinal tocou!" and summary != "Mudou de sala":
 		var gid := id
 		var m = mgr
-		again = func(): m.start(gid)
+		again = func():
+			if not m.start(gid):
+				GameManager.show_toast("Agora não dá: brincadeiras só no recreio!" if not m.is_recess() else "Espere um pouquinho e tente de novo.")
 	hud.show_result(title, head, summary, stars, xp, rec_txt, again)
 	if won > 0:
 		player.visual.play("celebrate")
