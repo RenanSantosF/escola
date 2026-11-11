@@ -1918,20 +1918,26 @@ func _test_duas_turmas() -> void:
 	await _recess()
 	NetworkManager.my_id = "eu"
 	var marcia := npcm.teacher
-	# o servidor me pôs na carteira 18: Turma B, Sala 6 (carteira 2 de lá)
-	npcm.apply_desks({"eu": 18, "amigo": 0, "amiga": 17}, "eu")
-	check(NPCManager.CLASS_ROOM == "Sala 6" and npcm.player_desk == npcm.desk_seats("Sala 6")[2], "turmas: carteira 18 = Turma B na Sala 6")
-	check(npcm.desk_owner.get(npcm.desk_seats("Sala 5")[0], "") == "amigo" and npcm.desk_owner.get(npcm.desk_seats("Sala 6")[1], "") == "amiga", "turmas: sabe de quem é cada carteira nas duas salas")
-	check(npcm.teacher != marcia and npcm.teacher_other == marcia, "turmas: Sala 6 tem o Professor Carlos; a Márcia fica na Sala 5")
+	# o servidor me pôs na carteira 18: Turma B, Sala 6 (carteira 6 de lá)
+	npcm.apply_desks({"eu": 18, "amigo": 0, "amiga": 17, "colega": 25}, "eu")
+	check(NPCManager.CLASS_ROOM == "Sala 6" and npcm.player_desk == npcm.desk_seats("Sala 6")[6], "turmas: carteira 18 = Turma B na Sala 6")
+	check(npcm.desk_seats("Sala 6").size() == 12, "turmas: 12 carteiras por turma (as da frente)")
+	check(npcm.desk_owner.get(npcm.desk_seats("Sala 5")[0], "") == "amigo" and npcm.desk_owner.get(npcm.desk_seats("Sala 6")[5], "") == "amiga" and npcm.desk_owner.get(npcm.desk_seats("Sala 4")[1], "") == "colega", "turmas: sabe de quem é cada carteira nas três salas")
+	check(npcm.teacher == npcm.room_teachers["Sala 6"] and npcm.room_teachers["Sala 5"] == marcia, "turmas: Sala 6 tem o Professor Carlos; a Márcia fica na Sala 5")
 	sd._start_return()
 	await _frames(3)
 	check(sd.room_for_class(1) == "Sala 6" or not SchoolDay.SPECIAL_ROOMS, "turmas: a aula da Turma B é na Sala 6")
-	check(npcm.teacher_other.active and npcm.world.zone_at(npcm.teacher_other.global_position).get("name", "") == "Sala 5", "turmas: com alunos na Turma A, o professor dela está na Sala 5")
+	var ok_t := true
+	for r in ["Sala 5", "Sala 4"]:
+		var t: NPC = npcm.room_teachers[r]
+		if not t.active or npcm.world.zone_at(t.global_position).get("name", "") != r:
+			ok_t = false
+	check(ok_t, "turmas: as outras turmas com alunos têm professor na sala delas")
 	var a := Learning.subjects_shared(7, 0)
 	check(a == Learning.subjects_shared(7, 0) and a != Learning.subjects_shared(7, 1), "turmas: matérias iguais na turma, diferentes entre turmas")
 	# volta para a Turma A
 	npcm.apply_desks({"eu": 0}, "eu")
-	check(NPCManager.CLASS_ROOM == "Sala 5" and npcm.teacher == marcia and not npcm.teacher_other.active, "turmas: voltou para a Turma A (Sala 5) e o outro professor some sem alunos")
+	check(NPCManager.CLASS_ROOM == "Sala 5" and npcm.teacher == marcia and not npcm.room_teachers["Sala 6"].active and not npcm.room_teachers["Sala 4"].active, "turmas: voltou para a Turma A (Sala 5) e os outros professores somem sem alunos")
 	npcm.apply_desks({}, "")
 	NetworkManager.my_id = ""
 

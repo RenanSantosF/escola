@@ -525,15 +525,15 @@ test('contas: nome único digitado com checagem ao vivo, senha e login', async (
   srv.close();
 });
 
-test('salas: até 32 jogadores em duas turmas (Sala 5: 0-15, Sala 6: 16-31)', () => {
+test('salas: até 36 jogadores em três turmas de 12 (Sala 5, Sala 6, Sala 4)', () => {
   const rm = new RoomManager();
   const first = { id: 'p0' };
   const room = rm.create(first);
-  for (let i = 1; i < 32; i++) assert.ok(!rm.joinCode({ id: 'p' + i }, room.code).error);
-  assert.equal(room.players.size, 32);
+  for (let i = 1; i < 36; i++) assert.ok(!rm.joinCode({ id: 'p' + i }, room.code).error);
+  assert.equal(room.players.size, 36);
   const desks = [...room.desks.values()].sort((a, b) => a - b);
-  assert.deepEqual(desks, [...Array(32).keys()], 'uma carteira para cada, 16 por turma');
-  assert.ok(rm.joinCode({ id: 'extra' }, room.code).error, 'a 33ª pessoa não entra');
+  assert.deepEqual(desks, [...Array(36).keys()], 'uma carteira para cada, 12 por turma');
+  assert.ok(rm.joinCode({ id: 'extra' }, room.code).error, 'a 37ª pessoa não entra');
   const other = rm.quick({ id: 'novo' });
   assert.notEqual(other.code, room.code, 'entrada rápida abre outra escola quando lota');
   // saiu alguém da Turma A: quem chega ocupa a vaga dela (a turma A enche primeiro)

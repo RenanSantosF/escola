@@ -8,11 +8,12 @@ extends Node3D
 signal dialogue_requested(npc: NPC, lines: Array)
 signal npc_bumped(npc: NPC, intensity: float)
 
-## Sala da MINHA turma. Online a escola tem 2 turmas de 16 (carteiras 0-15
-## na Sala 5, 16-31 na Sala 6); o servidor diz em qual carteira eu fico.
+## Sala da MINHA turma. Online a escola tem 3 turmas de 12 (carteiras 0-11
+## na Sala 5, 12-23 na Sala 6, 24-35 na Sala 4); o servidor diz qual é a minha.
 static var CLASS_ROOM := "Sala 5"
-const TURMA_ROOMS := ["Sala 5", "Sala 6"]
-const DESKS_PER_TURMA := 16
+const TURMA_ROOMS := ["Sala 5", "Sala 6", "Sala 4"]
+const TURMA_TEACHERS := ["teacher", "teacher_b", "teacher_c"]
+const DESKS_PER_TURMA := 12
 signal turma_changed(room: String)
 const COUNTS := {0: [9, 3], 1: [11, 5], 2: [12, 8]}  # qualidade -> [colegas, outras turmas]
 const VIS_RANGE := {0: 45.0, 1: 65.0, 2: 90.0}
@@ -44,7 +45,8 @@ var online_players := 1
 var classmates: Array[NPC] = []
 var others: Array[NPC] = []
 var teacher: NPC  # professora da MINHA turma
-var teacher_other: NPC  # professor da outra turma (só aparece se ela tiver alunos)
+var room_teachers := {}  # sala da turma -> professor(a) dela
+var turma_players := {}  # sala -> quantos colegas online estão nela (fora eu)
 var other_turma_players := 0
 var director: NPC
 var inspector: NPC
@@ -137,9 +139,19 @@ var _class_roster: Array[NPC] = []  # todos os colegas-bot, na ordem (os com mis
 var desk_owner := {}
 
 
-## Carteiras da sala da turma numa ordem que é IGUAL em todos os celulares.
+## Carteiras da turma (as 12 mais perto da lousa) numa ordem que é IGUAL em
+## todos os celulares. As do fundo da sala ficam vazias.
 func desk_seats(room := "") -> Array:
-	var list: Array = room_seats.get(room if room != "" else CLASS_ROOM, []).duplicate()
+	var rname: String = room if room != "" else CLASS_ROOM
+	var list: Array = room_seats.get(rname, []).duplicate()
+	var info: Dictionary = world.builder.classrooms.get(rname, {}) if world else {}
+	if list.size() > DESKS_PER_TURMA and info.has("teacher"):
+		var tp: Vector3 = info.teacher
+		list.sort_custom(func(a: Seat, b: Seat):
+			var da := snappedf(a.global_position.distance_to(tp), 0.05)
+			var db := snappedf(b.global_position.distance_to(tp), 0.05)
+			return da < db if da != db else (a.global_position.x < b.global_position.x if absf(a.global_position.x - b.global_position.x) > 0.05 else a.global_position.z < b.global_position.z))
+		list = list.slice(0, DESKS_PER_TURMA)
 	list.sort_custom(func(a: Seat, b: Seat):
 		var za := snappedf(a.global_position.z, 0.1)
 		var zb := snappedf(b.global_position.z, 0.1)
@@ -163,6 +175,7 @@ func apply_desks(map: Dictionary, my_id: String) -> void:
 		return
 	desk_owner.clear()
 	other_turma_players = 0
+	turma_players.clear()
 	var my_t := TURMA_ROOMS.find(CLASS_ROOM)
 	for id in map.keys():
 		var i := int(map[id])
@@ -173,6 +186,7 @@ func apply_desks(map: Dictionary, my_id: String) -> void:
 			continue
 		if t2 != my_t:
 			other_turma_players += 1
+		turma_players[TURMA_ROOMS[t2]] = int(turma_players.get(TURMA_ROOMS[t2], 0)) + 1
 		var list: Array = seats if t2 == my_t else desk_seats(TURMA_ROOMS[t2])
 		var k := i % DESKS_PER_TURMA
 		if k < list.size():
@@ -250,12 +264,10 @@ func apply_desks(map: Dictionary, my_id: String) -> void:
 ## Troca a sala da minha turma (a professora vai junto; a outra sala fica com o professor da outra turma).
 func _set_turma_room(room: String) -> void:
 	CLASS_ROOM = room
-	if teacher_other:
-		var tmp := teacher
-		teacher = teacher_other
-		teacher_other = tmp
-	if teacher_other and (teacher_other.sitting or teacher_other.seat):
-		teacher_other.force_unseat()
+	var old := teacher
+	teacher = room_teachers.get(room, teacher)
+	if old and old != teacher and (old.sitting or old.seat):
+		old.force_unseat()
 	if teacher:
 		teacher.set_active(true)
 		var ts := teacher_spot()
@@ -268,35 +280,41 @@ func _set_turma_room(room: String) -> void:
 			if sofa:
 				teacher.teleport(sofa.global_position, sofa.global_rotation.y)
 				teacher.sit_on(sofa)
-	if teacher_other and phase == "recess":
-		teacher_other.set_active(false)
-		teacher_other.teleport(Vector3(0, -50, 0))
+	_place_other_teacher()
 	turma_changed.emit(room)
 
 
-func _other_turma_room() -> String:
+## Professores das OUTRAS turmas.
+func other_teachers() -> Array:
+	var out := []
 	for r in TURMA_ROOMS:
-		if r != CLASS_ROOM:
-			return r
-	return ""
+		var t: NPC = room_teachers.get(r)
+		if t and t != teacher:
+			out.append(t)
+	return out
 
 
-## O professor da outra turma fica na sala dela durante as aulas (se ela tiver alunos).
+## Professor de outra turma fica na sala dela durante as aulas (se ela tiver alunos);
+## no recreio e sem alunos, some.
 func _place_other_teacher() -> void:
-	if teacher_other == null:
-		return
-	var room := _other_turma_room()
-	var info: Dictionary = world.builder.classrooms.get(room, {})
-	var want := other_turma_players > 0 and phase in ["arrival", "class", "return"] and not info.is_empty()
-	if not want:
-		if teacher_other.active and phase != "recess":
-			teacher_other.set_active(false)
-		return
-	var spot: Vector3 = info.teacher
-	if not teacher_other.active or teacher_other.global_position.distance_to(spot) > 3.0:
-		teacher_other.set_active(true)
-		teacher_other.teleport(spot, info.board_yaw)
-	teacher_other.activity = "teach"
+	for r in TURMA_ROOMS:
+		var t: NPC = room_teachers.get(r)
+		if t == null or t == teacher:
+			continue
+		var info: Dictionary = world.builder.classrooms.get(r, {})
+		var want := int(turma_players.get(r, 0)) > 0 and phase in ["arrival", "class", "return"] and not info.is_empty()
+		if not want:
+			if t.active:
+				if t.sitting or t.seat:
+					t.force_unseat()
+				t.set_active(false)
+				t.teleport(Vector3(0, -50, 0))
+			continue
+		var spot: Vector3 = info.teacher
+		if not t.active or t.global_position.distance_to(spot) > 3.0:
+			t.set_active(true)
+			t.teleport(spot, info.board_yaw)
+		t.activity = "teach"
 
 
 func _bench(n: NPC) -> void:
@@ -404,13 +422,14 @@ func _spawn_all(n_class: int, n_other: int) -> void:
 		n2.activity_data["home"] = rooms[i % rooms.size()]
 		n2.set_active(false)
 		others.append(n2)
-	# Sala 5: Professora Márcia; Sala 6: Professor Carlos
-	var t_a := _make(NPCRoster.ADULTS.teacher)
-	var t_b := _make(NPCRoster.ADULTS.teacher_b)
-	teacher = t_a if CLASS_ROOM == TURMA_ROOMS[0] else t_b
-	teacher_other = t_b if teacher == t_a else t_a
-	teacher_other.set_active(false)
-	teacher_other.teleport(Vector3(0, -50, 0))
+	# um(a) professor(a) por turma: Sala 5 Márcia, Sala 6 Carlos, Sala 4 Helena
+	for i in TURMA_ROOMS.size():
+		var t := _make(NPCRoster.ADULTS[TURMA_TEACHERS[i]])
+		room_teachers[TURMA_ROOMS[i]] = t
+		if TURMA_ROOMS[i] != CLASS_ROOM:
+			t.set_active(false)
+			t.teleport(Vector3(0, -50, 0))
+	teacher = room_teachers.get(CLASS_ROOM, room_teachers[TURMA_ROOMS[0]])
 	director = _make(NPCRoster.ADULTS.director)
 	inspector = _make(NPCRoster.ADULTS.inspector)
 	cook = _make(NPCRoster.ADULTS.cook)
@@ -538,10 +557,7 @@ func begin_recess() -> void:
 		delay += rng.randf_range(0.05, 0.3)
 		get_tree().create_timer(delay).timeout.connect(func(): _start_recess_for(dn2, true))
 	teacher.activity = "break"
-	if teacher_other and teacher_other.active:
-		if teacher_other.sitting or teacher_other.seat:
-			teacher_other.force_unseat()
-		teacher_other.set_active(false)
+	_place_other_teacher()
 	var sofa := _seat_in_room("Sala dos Professores")
 	if sofa:
 		teacher.sit_on(sofa)
