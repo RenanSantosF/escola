@@ -289,7 +289,13 @@ func interior_hidden_at(pos: Vector3) -> bool:
 			var rid: String = z.roof
 			if rid == "" or rid == "C":
 				return false
-			return not _hidden_roofs.get(rid, false)
+			if _hidden_roofs.get(rid, false):
+				return false
+			# sala pertinho da câmera também mostra quem está dentro
+			var cam := get_viewport().get_camera_3d()
+			if cam and cam.global_position.distance_to(pos) < NEAR_ROOM + 4.0 and absf(cam.global_position.y - pos.y) < 3.5:
+				return false
+			return true
 	return false
 
 
@@ -314,6 +320,10 @@ func surface_at(pos: Vector3) -> String:
 func _process(delta: float) -> void:
 	if _player == null or builder == null:
 		return
+	_near_t -= delta
+	if _near_t <= 0.0:
+		_near_t = 0.3
+		_update_near_rooms()
 	_zone_timer -= delta
 	if _zone_timer > 0.0:
 		return
@@ -399,12 +409,45 @@ func _update_indoor_light() -> void:
 	_light_tween.tween_property(env, "ambient_light_sky_contribution", 0.4 if inside else 0.55, 1.2)
 
 
+var _inside_ids := {}
+var _near_rooms := {}
+var _near_t := 0.0
+const NEAR_ROOM := 12.0
+
+
 func _set_interiors_visible(id: String, vis: bool) -> void:
+	_inside_ids[id] = vis
 	for cname in builder.interior_chunks.get(id, []):
 		var node: Node3D = _chunk_nodes.get(cname)
 		if node:
-			node.visible = vis
+			node.visible = vis or _near_rooms.has(cname)
 			# colisões continuam ativas mesmo invisíveis
+
+
+## Salas pertinho da câmera (mesmo de fora, pela porta/janela) aparecem.
+func _update_near_rooms() -> void:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return
+	var cp := cam.global_position
+	var near := {}
+	for cname in builder.interior_rects.keys():
+		var r: Rect2 = builder.interior_rects[cname]
+		var fy: float = builder.chunk_offsets.get(cname, 0.0)
+		if absf(cp.y - (fy + 1.6)) > 3.2:
+			continue
+		var q := Vector2(clampf(cp.x, r.position.x, r.end.x), clampf(cp.z, r.position.y, r.end.y))
+		if q.distance_to(Vector2(cp.x, cp.z)) < NEAR_ROOM:
+			near[cname] = true
+	if near.hash() == _near_rooms.hash():
+		return
+	_near_rooms = near
+	for id in builder.interior_chunks.keys():
+		var inside: bool = _inside_ids.get(id, false)
+		for cname in builder.interior_chunks[id]:
+			var node: Node3D = _chunk_nodes.get(cname)
+			if node:
+				node.visible = inside or _near_rooms.has(cname)
 
 
 # ------------------------------------------------------------ qualidade

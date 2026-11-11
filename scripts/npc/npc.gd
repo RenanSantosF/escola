@@ -109,6 +109,16 @@ func set_active(on: bool) -> void:
 		remove_from_group("interactable")
 
 
+## Deixa o jogador passar (sem colisão por alguns segundos).
+func let_pass(secs: float) -> void:
+	if not active:
+		return
+	collision_layer = 0
+	get_tree().create_timer(secs).timeout.connect(func():
+		if active and is_instance_valid(self):
+			collision_layer = 4)
+
+
 ## Sai do assento imediatamente (sem animação/tween).
 func force_unseat() -> void:
 	if _seat_tween and _seat_tween.is_valid():

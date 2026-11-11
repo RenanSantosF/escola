@@ -122,7 +122,7 @@ func _build_sign(st: Node3D, g: Dictionary) -> void:
 ## Tutorial de primeira vez: [botão, explicação]
 const TUTORIALS := {
 	"futebol": [["Joystick", "Corra pelo campo com o analógico."], ["Amarelo", "Perto da bola, toque para CHUTAR (a mira ajuda)."], ["Verde", "Toque para PASSAR a bola para um colega."], ["", "Faça mais gols que o outro time!"]],
-	"queimada": [["Verde", "Chegue perto da bola e toque para PEGAR."], ["Amarelo", "SEGURE para mirar (aparece a linha) e SOLTE para jogar."], ["", "Acertou um adversário? Ele vai para o cemitério!"], ["Joystick", "Fuja das bolas do outro time."]],
+	"queimada": [["Verde", "Chegue perto da bola e toque para PEGAR."], ["Amarelo", "SEGURE para mirar (aparece a linha) e SOLTE para jogar."], ["Amarelo", "Sem a bola: toque para DESVIAR (pulinho para o lado)."], ["", "Acertou um adversário? Ele fica 15 s no cemitério!"]],
 	"gude": [["Joystick", "Gire para mirar nas bolinhas do círculo."], ["Amarelo", "SEGURE para dar força e SOLTE para jogar."], ["", "Tire as bolinhas do círculo e elas viram suas!"]],
 	"amarelinha": [["Amarelo", "SEGURE e SOLTE quando o círculo ficar VERDE: a pedrinha cai na casa certa."], ["Azul", "Toque em Pular para ir de casa em casa (não precisa ter pressa)."], ["", "Pule a casa da pedrinha, vá até o céu e volte pegando ela!"]],
 	"aviao": [["Amarelo", "Toque quando a barra estiver no MEIO para dobrar bem (3 vezes)."], ["Joystick", "Mire para os lados e para cima (a linha mostra o voo)."], ["Amarelo", "SEGURE para dar força e SOLTE para lançar."], ["Joystick", "No ar, faça curvas para passar nas argolas!"]],

@@ -133,6 +133,12 @@ static func pin_top_right(c: Control, from_right: float, top: float, w: float, h
 	c.offset_bottom = top + h
 
 
+## Botão de fundo claro: texto escuro em todos os estados.
+static func dark_text(b: Button) -> void:
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		b.add_theme_color_override(c, DARK)
+
+
 static func make_button(text: String, cb: Callable, min_w := 320) -> Button:
 	var b := Button.new()
 	b.text = text

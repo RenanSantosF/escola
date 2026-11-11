@@ -55,6 +55,7 @@ func _ready() -> void:
 	root.add_child(tabs)
 	for t in TABS:
 		var b := Button.new()
+		UITheme.dark_text(b)
 		b.text = t[1]
 		b.custom_minimum_size = Vector2(196, 58)
 		b.focus_mode = Control.FOCUS_NONE
@@ -200,6 +201,7 @@ func _build_items(shop: bool) -> void:
 		for opt in [["Menino", false], ["Menina", true]]:
 			var g_on: bool = opt[1] == cur_girl
 			var gb := Button.new()
+			UITheme.dark_text(gb)
 			gb.text = opt[0]
 			gb.focus_mode = Control.FOCUS_NONE
 			gb.custom_minimum_size = Vector2(150, 50)
@@ -225,6 +227,7 @@ func _build_items(shop: bool) -> void:
 		if not shop and c[0] in ["gude", "figurinha", "decoracao", "pacote"]:
 			continue
 		var b := Button.new()
+		UITheme.dark_text(b)
 		b.text = c[1]
 		b.focus_mode = Control.FOCUS_NONE
 		b.add_theme_font_size_override("font_size", 21)
@@ -290,6 +293,7 @@ func _build_shop_header() -> void:
 func _deal_card(item: Dictionary, off: int) -> Control:
 	var flash := off >= 50
 	var b := Button.new()
+	UITheme.dark_text(b)
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(196 if flash else 148, 132)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -364,6 +368,7 @@ func _coin_pill(amount: int, size := 24) -> Control:
 
 func _card(item: Dictionary, owned: bool, shop := true) -> Control:
 	var b := Button.new()
+	UITheme.dark_text(b)
 	b.custom_minimum_size = Vector2(212, 150)
 	b.focus_mode = Control.FOCUS_NONE
 	var locked := GameManager.level() < int(item.lvl)

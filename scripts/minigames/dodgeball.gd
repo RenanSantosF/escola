@@ -10,6 +10,9 @@ const CENTER_X := -40.0
 const COURT := Rect2(-52, -56, 24, 12)
 const TIME := 90.0
 const TARGET := 6
+const OUT_SECS := 15.0  # tempo no cemitério
+const DODGE_SECS := 0.55  # desvio: a bola não queima nesse tempinho
+const DODGE_CD := 1.4
 
 var ball: KickBall
 var team_a: Array[NPC] = []  # do jogador, lado oeste (x < -40)
@@ -33,6 +36,8 @@ var _state: Dictionary = {}
 var _state_age := 0.0
 var _puppets: Array[NPC] = []
 var _me_out := false
+var _dodge_until := {}  # quem -> ms até quando está desviando
+var _dodge_cd := 0.0
 
 
 func begin() -> void:
@@ -144,7 +149,30 @@ var _arc: AimArc
 func on_play() -> bool:
 	if _holder == player and _countdown <= 0.0:
 		_aiming = true
+	elif _holder != player:
+		_dodge()
 	return true
+
+
+## Desviar: pulinho para o lado e meio segundo sem queimar.
+func _dodge() -> void:
+	if _dodge_cd > 0.0 or _out.has(player) or _me_out or _countdown > 0.0:
+		return
+	_dodge_cd = DODGE_CD
+	var fwd := Vector3(sin(player.yaw), 0, cos(player.yaw))
+	var side := Vector3(-fwd.z, 0, fwd.x) * (1.0 if randf() < 0.5 else -1.0)
+	# desvia para longe da bola, se ela estiver vindo
+	if ball and ball.linear_velocity.length() > 2.0:
+		var bv := ball.linear_velocity
+		bv.y = 0
+		side = Vector3(-bv.z, 0, bv.x).normalized()
+		if side.dot(player.global_position - ball.global_position) < 0.0:
+			side = -side
+	player.velocity = side * 7.5 + Vector3.UP * 3.2
+	player.visual.play("jump")
+	_dodge_until[player] = Time.get_ticks_msec() + int(DODGE_SECS * 1000.0)
+	if net_role == "client":
+		NetworkManager.mg_send_relay(str(net.gid), {"k": "dodge"})
 
 
 func on_play_release() -> bool:
@@ -207,10 +235,13 @@ func _throw(who: Node3D, target: Node3D, team: int) -> void:
 			if target is CharacterBody3D:
 				tv = (target as CharacterBody3D).velocity if target == player else Vector3.ZERO
 			aim = target.global_position + Vector3(0, 1.0, 0) + tv * 0.3
+			if from_holder is NPC:
+				# colega de treino erra às vezes (dá para desviar e correr)
+				aim += Vector3(randf_range(-1.1, 1.1), randf_range(-0.3, 0.4), randf_range(-1.1, 1.1))
 		else:
 			aim = start + Vector3(sin(_yaw(from_holder)), 0, cos(_yaw(from_holder))) * 10.0
 		var d := aim - start
-		var speed := 10.5 if from_holder is NPC else 13.0
+		var speed := 9.0 if from_holder is NPC else 13.0
 		var vel := AimArc.solve(start, aim, speed)
 		ball.throw_from(start, vel, team)
 		AudioManager.play_3d("whoosh", start, -3.0))
@@ -218,6 +249,10 @@ func _throw(who: Node3D, target: Node3D, team: int) -> void:
 
 func _on_ball_hit(body: Node) -> void:
 	if not running or _hit_cd > 0.0:
+		return
+	if int(_dodge_until.get(body, 0)) > Time.get_ticks_msec():
+		if body == player:
+			GameManager.show_toast("Desviou!")
 		return
 	var team := _team_of(body)
 	if team == -1 or ball.live_team == -1 or team == ball.live_team or _out.has(body):
@@ -235,14 +270,14 @@ func _on_ball_hit(body: Node) -> void:
 
 
 func _eliminate(body: Node) -> void:
-	_out[body] = 6.0
+	_out[body] = OUT_SECS
 	var team := _team_of(body)
 	# cemitério: atrás do time adversário
 	var cx := -29.0 if team == 0 else -51.0
 	var pos := Vector3(cx, 0.05, randf_range(-55, -45))
 	if body == player:
 		player.visual.play("hit")
-		GameManager.show_toast("Você foi queimado! Volta em 6 segundos.")
+		GameManager.show_toast("Você foi queimado! Volta em %d segundos." % int(OUT_SECS))
 		player.global_position = pos
 		player.velocity = Vector3.ZERO
 		player.movement_locked = true
@@ -263,6 +298,7 @@ func tick(delta: float) -> void:
 		_client_tick(delta)
 		return
 	_hit_cd = maxf(_hit_cd - delta, 0.0)
+	_dodge_cd = maxf(_dodge_cd - delta, 0.0)
 	if net_role == "host":
 		_net_send(delta)
 	if counting(delta):
@@ -471,6 +507,8 @@ func _on_relay(gid: String, from: String, d: Variant) -> void:
 			"grab":
 				if _can_grab(r):
 					_grab(r)
+			"dodge":
+				_dodge_until[r] = Time.get_ticks_msec() + int(DODGE_SECS * 1000.0)
 			"throw":
 				if _holder == r:
 					var dv: Array = d.get("d", [])
@@ -535,6 +573,7 @@ func _client_can_grab() -> bool:
 
 func _client_tick(delta: float) -> void:
 	_state_age += delta
+	_dodge_cd = maxf(_dodge_cd - delta, 0.0)
 	if _state.is_empty():
 		if _state_age > 20.0:
 			end_game(0, "Quem começou não respondeu", 2, 4)
@@ -558,7 +597,7 @@ func _client_tick(delta: float) -> void:
 	var is_out := me in outs
 	if is_out and not _me_out:
 		player.visual.play("hit")
-		GameManager.show_toast("Você foi queimado! Volta em 6 segundos.")
+		GameManager.show_toast("Você foi queimado! Volta em %d segundos." % int(OUT_SECS))
 		player.global_position = Vector3(CENTER_X - _side() * 11.0, 0.05, randf_range(-55, -45))
 		player.movement_locked = true
 	elif not is_out and _me_out:

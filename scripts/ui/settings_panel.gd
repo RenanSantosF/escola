@@ -32,6 +32,7 @@ func _ready() -> void:
 	var group := ButtonGroup.new()
 	for i in 3:
 		var b := Button.new()
+		UITheme.dark_text(b)
 		b.text = names[i]
 		b.toggle_mode = true
 		b.button_group = group

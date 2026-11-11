@@ -79,6 +79,8 @@ func _ready() -> void:
 	await _test_guia_missao()
 	await _test_mapa_toque()
 	await _test_sala_materia()
+	await _test_salas_alcancaveis()
+	await _test_portas()
 	_finish()
 
 
@@ -782,7 +784,20 @@ func _test_minigames() -> void:
 	dg._on_ball_hit(player)
 	check(dg.score_b == 1 and player.movement_locked, "queimada: jogador queimado fica fora")
 	await _wait(6.5)
+	check(dg._out.has(player), "queimada: queimado fica mais tempo fora (15 s)")
+	dg._out[player] = 0.3
+	await _wait(0.6)
 	check(not dg._out.has(player) and not player.movement_locked, "queimada: volta do cemitério")
+	# desviar: a bola não queima durante o pulinho
+	dg._dodge_cd = 0.0
+	player.request_play()
+	dg.ball.live = true
+	dg.ball.live_team = 1
+	dg._hit_cd = 0.0
+	var sb: int = dg.score_b
+	dg._on_ball_hit(player)
+	check(dg.score_b == sb and not dg._out.has(player), "queimada: o botão Desviar funciona (não queima)")
+	await _wait(0.8)
 	# pegar e arremessar
 	for n in dg.team_a + dg.team_b:
 		dg._out[n] = 99.0  # tira a IA do caminho para testar o jogador
@@ -1806,3 +1821,48 @@ func _test_sala_materia() -> void:
 	NetworkManager.my_id = ""
 	NetworkManager.clock = {}
 	SchoolDay.SPECIAL_ROOMS = false
+
+
+func _test_salas_alcancaveis() -> void:
+	var sd: SchoolDay = main.school_day
+	var nav: NavGraph = main.npcs.nav
+	var rooms: Array = SchoolDay.SUBJECT_ROOMS.values()
+	rooms.append("Sala 5")
+	var bad: Array = []
+	for rn in rooms:
+		var tgt := sd.room_point(rn)
+		var p := nav.path(Vector3(0, 0.05, -2), tgt)
+		var ok := p.size() > 1 and p[p.size() - 2].distance_to(tgt) < 6.0
+		if not ok:
+			bad.append("%s(%d pts, fim %s)" % [rn, p.size(), str(p[p.size() - 2]) if p.size() > 1 else "-"])
+	check(bad.is_empty(), "salas: dá para chegar em todas as salas de aula pelo pátio", ", ".join(bad))
+
+
+func _walk_through(from: Vector3, to: Vector3, secs: float) -> Vector3:
+	player.force_stand()
+	player.global_position = from
+	player.velocity = Vector3.ZERO
+	await _frames(3)
+	var d := to - from
+	d.y = 0
+	player.forced_dir = d.normalized()
+	await _wait(secs)
+	player.forced_dir = Vector3.ZERO
+	return player.global_position
+
+
+func _test_portas() -> void:
+	var info: Dictionary = main.world.builder.classrooms["Sala 5"]
+	var outp: Vector3 = info.door_out + (info.door_out - info.door_in).normalized() * 1.5
+	var endp := await _walk_through(outp, info.door_in, 2.5)
+	var r: Rect2 = info.rect
+	check(r.has_point(Vector2(endp.x, endp.z)) and endp.y > 3.0, "porta: entra andando na Sala 5 (1º andar)", str(endp))
+	# todas as salas de aula do 1º andar
+	var stuck: Array = []
+	for nm in main.world.builder.classrooms.keys():
+		var inf: Dictionary = main.world.builder.classrooms[nm]
+		var o2: Vector3 = inf.door_out + (inf.door_out - inf.door_in).normalized() * 1.2
+		var e2 := await _walk_through(o2, inf.door_in, 2.0)
+		if not (inf.rect as Rect2).has_point(Vector2(e2.x, e2.z)):
+			stuck.append("%s %s" % [nm, str(e2.snapped(Vector3.ONE * 0.1))])
+	check(stuck.is_empty(), "portas: entra em todas as salas de aula", ", ".join(stuck))

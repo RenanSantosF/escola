@@ -112,6 +112,7 @@ func hide_panel() -> void:
 
 func _chalk_button(text: String, w := 330) -> Button:
 	var b := Button.new()
+	UITheme.dark_text(b)
 	b.text = text
 	b.custom_minimum_size = Vector2(w, 66)
 	b.focus_mode = Control.FOCUS_NONE

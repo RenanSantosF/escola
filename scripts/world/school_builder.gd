@@ -31,7 +31,8 @@ var heightfields: Array = []  # relevo com colisão {center, w, d, data}
 var slides: Array = []  # escorregadores {start, points}
 var lakes: Array = []  # lagos {center, radius}
 var chunk_offsets := {}  # chunk -> altura (prédios de vários andares)
-var floor_tag := ""  # sufixo de chunks compartilhados (placas) no andar sendo construído
+var floor_tag := ""
+var interior_rects := {}  # chunk do interior -> retângulo da sala (para mostrar de perto, de fora)  # sufixo de chunks compartilhados (placas) no andar sendo construído
 var spawn := Vector3(0, 0.05, 70)
 var spawn_yaw := PI
 var rng := RandomNumberGenerator.new()
@@ -242,6 +243,7 @@ func build_building(def: Dictionary) -> void:
 		var ib := chunk(inner_chunk_name, 0.0 if always else 55.0)
 		if not always:
 			interior_chunks[id].append(inner_chunk_name)
+			interior_rects[inner_chunk_name] = r
 		var fmat: String = room.get("floor", "tile")
 		if not room.get("no_floor", false):
 			shell.slab(fmat, Vector3(r.get_center().x, FLOOR_TOP - 0.03, r.get_center().y), Vector3(r.size.x, 0.06, r.size.y), room.get("floor_col", Color("dfe5ec")))

@@ -51,6 +51,7 @@ var _prev_speed := 0.0
 var _coyote := 0.0
 var _jump_buffer := 0.0
 var _bonk_cd := 0.0
+var _block_t := 0.0
 var _scan_timer := 0.0
 var _idle_time := 0.0
 var _busy_action := ""
@@ -534,6 +535,20 @@ func _check_bump(pre_vel: Vector3) -> void:
 	if mode != Mode.FREE:
 		return
 	var hspeed := Vector2(pre_vel.x, pre_vel.z).length()
+	# alguém parado na passagem (ex.: no batente da porta): empurrando por meio
+	# segundo, ele deixa passar (vira "fantasma" um instante)
+	var blocker: NPC = null
+	for i in get_slide_collision_count():
+		var bn := get_slide_collision(i).get_collider() as NPC
+		if bn:
+			blocker = bn
+	if blocker and _read_move_input().length() > 0.3 and Vector2(velocity.x, velocity.z).length() < walk_speed * 0.5:
+		_block_t += get_physics_process_delta_time()
+		if _block_t > 0.5:
+			_block_t = 0.0
+			blocker.let_pass(1.6)
+	else:
+		_block_t = 0.0
 	# esbarrões em outros personagens (acidental andando / forte correndo)
 	for i in get_slide_collision_count():
 		var npc := get_slide_collision(i).get_collider() as NPC
