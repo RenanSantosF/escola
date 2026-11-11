@@ -822,7 +822,7 @@ func _finish() -> void:
 		t["round"] = int(t.get("round", 0)) + 1
 		if int(t.wins) % 3 == 0:
 			extra = "  ·  CAMPEÃO DO TORNEIO!"
-			GameManager.add_rewards(60, 50)
+			GameManager.add_rewards(110, 0)
 			GameManager.unlock_achievement("campeao_torneio")
 	stats["torneio"] = t
 	GameManager.add_stat("gols", score_a)

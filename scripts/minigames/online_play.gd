@@ -394,8 +394,8 @@ func _show_results(gid: String, ev: Dictionary) -> void:
 				if not old.is_empty():
 					lines.append("NOVO RECORDE DA SALA!")
 	if won:
-		lines.append("Você foi o campeão! +15 moedas")
-		GameManager.add_rewards(20, 15)
+		lines.append("Você foi o campeão! +35 XP")
+		GameManager.add_rewards(35, 0)
 		player.visual.play("celebrate")
 	# jogar de novo: abre outra espera para quem quiser
 	var again := func():

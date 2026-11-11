@@ -634,6 +634,37 @@ func set_day_text(t: String) -> void:
 	_sub_label.text = t
 
 
+## Contador grande e fácil de ver: "Aula em 3:12", "Castigo 0:32"...
+var _timer_chip: Label
+
+
+func set_timer_chip(text: String, col := Color("2f6fd0")) -> void:
+	if _timer_chip == null:
+		_timer_chip = Label.new()
+		_timer_chip.add_theme_font_override("font", UITheme.bold_font())
+		_timer_chip.add_theme_font_size_override("font_size", 24)
+		_timer_chip.add_theme_color_override("font_color", Color.WHITE)
+		_timer_chip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_timer_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_timer_chip)
+	if text == "" or not controls.visible or minimap.full:
+		_timer_chip.visible = false
+		return
+	if _timer_chip.text != text or not _timer_chip.visible:
+		_timer_chip.text = text
+		var sb := UITheme.box(Color(col, 0.92), 10, Color(1, 1, 1, 0.5), 2, 0)
+		sb.content_margin_left = 16
+		sb.content_margin_right = 16
+		sb.content_margin_top = 4
+		sb.content_margin_bottom = 4
+		_timer_chip.add_theme_stylebox_override("normal", sb)
+		_timer_chip.reset_size()
+	var vs := get_viewport_rect().size
+	var card_bottom := (_obj_card.position.y + _obj_card.size.y) if _obj_card.visible else 12.0
+	_timer_chip.position = Vector2((vs.x - _timer_chip.size.x) * 0.5, card_bottom + 6.0)
+	_timer_chip.visible = true
+
+
 func show_toast(message: String) -> void:
 	_toast.text = message
 	if _toast_tween:

@@ -134,11 +134,12 @@ func end_game(won: int, summary: String, coins: int, xp: int, extra := {}) -> vo
 	if player.camera_rig:
 		player.camera_rig.set_override(null)
 	var mult: float = mgr.get("reward_mult") if mgr and mgr.get("reward_mult") != null else 1.0
-	coins = int(coins * mult)
-	xp = int(xp * mult)
-	GameManager.add_rewards(xp, coins)
+	# moedas só vêm das aulas (incentivo a estudar); brincar dá XP
+	xp = int((xp + coins) * mult)
+	coins = 0
+	GameManager.add_rewards(xp, 0)
 	var head := "Vitória!" if won > 0 else ("Empate!" if won == 0 else "Não foi dessa vez!")
-	hud.show_banner(head, "%s  (+%d moedas, +%d XP)" % [summary, coins, xp])
+	hud.show_banner(head, "%s  (+%d XP)" % [summary, xp])
 	if won > 0:
 		player.visual.play("celebrate")
 		AudioManager.play_ui("celebrate", -4.0)

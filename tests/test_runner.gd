@@ -81,6 +81,7 @@ func _ready() -> void:
 	await _test_sala_materia()
 	await _test_salas_alcancaveis()
 	await _test_portas()
+	await _test_contador_e_brilho()
 	_finish()
 
 
@@ -1064,10 +1065,10 @@ func _test_events_missions() -> void:
 	player.held_item = item
 	var giver: NPC = ev.mission.giver
 	check(giver.get_prompt(player).begins_with("Devolver"), "missão: prompt para devolver")
-	var coins := GameManager.coins()
+	var xp0 := _xp_total()
 	giver.interact(player)
 	await _frames(2)
-	check(ev.mission.is_empty() and GameManager.coins() > coins, "missão: devolver dá recompensa")
+	check(ev.mission.is_empty() and _xp_total() > xp0, "missão: devolver dá recompensa (XP; moedas só nas aulas)")
 	# missão: recado
 	ev._start_deliver_mission()
 	if not ev.mission.is_empty():
@@ -1130,7 +1131,7 @@ func _test_progression() -> void:
 	prog.ensure_daily(99)
 	check(prog.daily_list().size() == 3, "missões: 3 missões diárias geradas")
 	var e: Dictionary = prog.daily_list()[0]
-	var coins := GameManager.coins()
+	var xp_d0 := _xp_total()
 	var st: Dictionary = SaveManager.section("stats")
 	if str(e.key).begins_with("mg_"):
 		var s: Dictionary = st.get(e.key, {"played": 0})
@@ -1139,7 +1140,7 @@ func _test_progression() -> void:
 	else:
 		st[e.key] = int(st.get(e.key, 0)) + int(e.target)
 	await _wait(1.3)
-	check(e.done and GameManager.coins() > coins, "missões: completar dá recompensa automática")
+	check(e.done and _xp_total() > xp_d0, "missões: completar dá recompensa automática (XP)")
 	# conquistas
 	SaveManager.section("achievements").erase("rico")
 	await _wait(1.2)
@@ -1866,3 +1867,27 @@ func _test_portas() -> void:
 		if not (inf.rect as Rect2).has_point(Vector2(e2.x, e2.z)):
 			stuck.append("%s %s" % [nm, str(e2.snapped(Vector3.ONE * 0.1))])
 	check(stuck.is_empty(), "portas: entra em todas as salas de aula", ", ".join(stuck))
+
+
+
+func _xp_total() -> int:
+	var p: Dictionary = SaveManager.section("player")
+	return int(p.get("level", 1)) * 100000 + int(p.get("xp", 0))
+
+
+func _test_contador_e_brilho() -> void:
+	var sd: SchoolDay = main.school_day
+	await _recess()
+	await _frames(3)
+	var chip: Label = main.hud._timer_chip
+	check(chip != null and chip.visible and chip.text.begins_with("Aula em"), "contador: no recreio mostra quanto falta para a aula", chip.text if chip else "")
+	main.school_day._start_return()
+	await _frames(3)
+	var glow: Node3D = sd._desk_glow
+	check(glow != null and glow.visible and glow.global_position.distance_to(main.npcs.player_desk.global_position) < 0.1, "carteira: a minha brilha (só para mim) até eu sentar")
+	if player.mode == PlayerController.Mode.SITTING:
+		player.force_stand()
+	player.global_position = main.npcs.player_desk.global_position + main.npcs.player_desk.global_basis.z * 0.5
+	player.sit_on(main.npcs.player_desk)
+	await _wait(0.6)
+	check(not sd._desk_glow.visible, "carteira: sentou, o brilho some")

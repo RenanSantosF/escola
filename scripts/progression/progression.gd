@@ -328,8 +328,8 @@ func _process(delta: float) -> void:
 	for e in daily_list():
 		if not e.done and progress_of(e) >= int(e.target):
 			e.done = true
-			GameManager.add_rewards(10, int(e.coins))
-			GameManager.show_toast("Missão diária completa: %s (+%d moedas)" % [str(e.desc) % e.target, e.coins])
+			GameManager.add_rewards(10 + int(e.coins), 0)
+			GameManager.show_toast("Missão diária completa: %s (+%d XP)" % [str(e.desc) % e.target, 10 + int(e.coins)])
 			AudioManager.play_ui("ui_confirm")
 			daily_changed.emit()
 	_check_achievements()

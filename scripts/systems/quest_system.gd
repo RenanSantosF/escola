@@ -295,7 +295,7 @@ func npc_interact(npc: NPC) -> bool:
 func offer(qid: String, npc: NPC) -> void:
 	var q: Dictionary = QUESTS[qid]
 	var lines: Array = q.intro.duplicate()
-	lines.append("Recompensa: %d moedas e %d XP." % [q.coins, q.xp])
+	lines.append("Recompensa: %d XP. (Moedas você ganha nas aulas!)" % [int(q.xp) + int(q.coins)])
 	player.input_enabled = false
 	player.velocity = Vector3.ZERO
 	hud.controls.visible = false
@@ -456,17 +456,17 @@ func _advance() -> void:
 func _complete() -> void:
 	if party_role == "host":
 		_party_broadcast({"done": true})
-		GameManager.add_rewards(5, 5)
-		GameManager.show_toast("Missão em grupo! Bônus de equipe: +5 moedas")
+		GameManager.add_rewards(10, 0)
+		GameManager.show_toast("Missão em grupo! Bônus de equipe: +10 XP")
 		party_role = ""
 		party_members.clear()
 	var q: Dictionary = QUESTS[active_id]
 	_state()[active_id] = {"day": day.day, "count": int(_state().get(active_id, {}).get("count", 0)) + 1}
-	GameManager.add_rewards(int(q.xp), int(q.coins))
+	GameManager.add_rewards(int(q.xp) + int(q.coins), 0)  # moedas só nas aulas
 	GameManager.add_stat("missoes")
 	Telemetry.track("quest_done", {"id": active_id})
 	Effects.burst(player.global_position + Vector3(0, 2, 0), "confetti")
-	hud.show_banner("Missão cumprida!", "%s  (+%d moedas, +%d XP)" % [q.title, q.coins, q.xp])
+	hud.show_banner("Missão cumprida!", "%s  (+%d XP)" % [q.title, int(q.xp) + int(q.coins)])
 	var giver := _giver_node(q.giver)
 	if giver and giver.role == "student":
 		Friendship.add(giver.data.get("id", ""), 6, "missao")
@@ -583,8 +583,8 @@ func _open_activity(st: Dictionary) -> void:
 		hud.controls.visible = true
 		var bonus := int(round(score * 10.0))
 		if bonus > 0:
-			GameManager.add_rewards(0, bonus)
-			GameManager.show_toast("Bônus de capricho: +%d moedas" % bonus)
+			GameManager.add_rewards(bonus, 0)
+			GameManager.show_toast("Bônus de capricho: +%d XP" % bonus)
 		Learning.record(score >= 0.6)
 		if active_id != "" and active_id == q0 and step_i == s0:
 			_advance())
@@ -1070,8 +1070,8 @@ func _party_apply(d: Dictionary) -> void:
 		party_role = ""
 		party_host = ""
 		_complete()
-		GameManager.add_rewards(5, 5)
-		GameManager.show_toast("Bônus de equipe: +5 moedas")
+		GameManager.add_rewards(10, 0)
+		GameManager.show_toast("Bônus de equipe: +10 XP")
 		return
 	var q := str(d.get("q", ""))
 	if not QUESTS.has(q):

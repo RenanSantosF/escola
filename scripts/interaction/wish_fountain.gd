@@ -95,8 +95,8 @@ func interact(player: Node) -> void:
 	if r < 0.12:
 		Stickers.give_random(randf() < 0.2)
 	elif r < 0.4:
-		GameManager.add_rewards(5, 3)
-		GameManager.show_toast("O pedido deu sorte: +3 moedas!")
+		GameManager.add_rewards(8, 0)
+		GameManager.show_toast("O pedido deu sorte: +8 XP!")
 	else:
 		GameManager.add_rewards(2, 0)
 		GameManager.show_toast(["Que seu pedido se realize!", "A água brilhou... será sorte?", "Pedido feito!"].pick_random())

@@ -319,12 +319,12 @@ func _test_party() -> void:
 		var st2 := await _until(func(): return qs.step_i == 1, 4.0)
 		check(st2, "missão em grupo: acompanho a etapa do dono")
 		await barrier("party_step2")
-		var coins_before := int(SaveManager.section("player").get("coins", 0))
+		var coins_before := int(SaveManager.section("player").get("level", 1)) * 100000 + int(SaveManager.section("player").get("xp", 0))
 		for a in main.hud.find_children("*", "QuestActivity", true, false):
 			(a as QuestActivity)._finish(1.0)
 		var done2 := await _until(func(): return qs.active_id == "" and qs._state().has("reciclagem"), 6.0)
 		check(done2, "missão em grupo: concluída para mim também")
-		check(int(SaveManager.section("player").get("coins", 0)) > coins_before, "missão em grupo: ganhei a recompensa")
+		check(int(SaveManager.section("player").get("level", 1)) * 100000 + int(SaveManager.section("player").get("xp", 0)) > coins_before, "missão em grupo: ganhei a recompensa (XP)")
 		await barrier("party_end")
 
 

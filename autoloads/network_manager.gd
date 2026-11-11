@@ -295,7 +295,7 @@ func _handle(m: Dictionary) -> void:
 
 ## Mesmas durações do servidor (server/src/clock.js).
 const PHASE_IDS := ["arrival", "class1", "recess", "return", "class2", "end"]
-const PHASE_SECS := [75.0, 240.0, 480.0, 60.0, 180.0, 45.0]
+const PHASE_SECS := [75.0, 240.0, 720.0, 60.0, 180.0, 45.0]
 var _local_clock := false
 
 

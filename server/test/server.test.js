@@ -319,8 +319,12 @@ test('servidor: relógio igual para todos e brincadeira compartilhada pelo webso
   assert.ok(b.inbox.some((m) => m.t === 'mg_relay' && m.d.ball), 'estado do anfitrião chega aos outros');
   assert.ok(a.inbox.some((m) => m.t === 'mg_relay' && m.d.k === 'chute'), 'comando do colega chega ao anfitrião');
   // fora do recreio a brincadeira acaba com resultado para todos
-  await wait(2200);
-  assert.ok(b.inbox.some((m) => m.t === 'mg_event' && m.kind === 'results' && m.gid === 'futebol'));
+  for (let i = 0; i < 80 && !b.inbox.some((m) => m.t === 'mg_event' && m.kind === 'results' && m.gid === 'futebol'); i++) await wait(100);
+  const gotResults = b.inbox.some((m) => m.t === 'mg_event' && m.kind === 'results' && m.gid === 'futebol');
+  a.ws.close(); b.ws.close();
+  srv.close();
+  assert.ok(gotResults);
+  return;
   a.ws.close(); b.ws.close();
   srv.close();
 });

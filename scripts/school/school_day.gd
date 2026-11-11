@@ -11,7 +11,7 @@ signal day_finished(summary: Dictionary)
 
 enum Phase { ARRIVAL, CLASS_1, RECESS, RETURN, CLASS_2, DAY_END }
 
-const RECESS_SECONDS := 480.0
+const RECESS_SECONDS := 720.0  # 12 minutos (igual ao servidor)
 ## Prazo para chegar e sentar na carteira (chegada / volta do recreio).
 const ARRIVAL_LIMIT := 90.0
 const RETURN_LIMIT := 75.0  # 8 minutos de recreio
@@ -264,6 +264,7 @@ func _goto_phase(p: int) -> void:
 				var s := _exit_summary
 				_exit_summary = {}
 				hud.show_day_summary(s, func(): pass)
+			_day_transition()
 			_init_day()
 			_drop_lesson()
 			npcs.begin_arrival()
@@ -288,6 +289,24 @@ func _goto_phase(p: int) -> void:
 		Phase.DAY_END:
 			_drop_lesson()
 			_end_day()
+
+
+## Dia seguinte: a tela apaga, a criança chega de novo pelo portão e a tela acende.
+func _day_transition() -> void:
+	player.input_enabled = false
+	await hud.fade(1.0, 0.6).finished
+	if player.mode == PlayerController.Mode.SITTING:
+		player.force_stand()
+	if player.minigame == null and not (discipline and discipline.in_cutscene):
+		player.global_position = GATE + Vector3(0, 0, -1.5)
+		player.yaw = PI
+		player.velocity = Vector3.ZERO
+		if player.camera_rig:
+			player.camera_rig.yaw = player.yaw + PI
+			player.camera_rig.snap_to_target()
+	await get_tree().create_timer(0.4).timeout
+	hud.fade(0.0, 0.8)
+	player.input_enabled = true
 
 
 ## O sinal tocou no meio das tarefas: fecha o que estava aberto.
@@ -412,7 +431,7 @@ func _on_answered(ok: bool) -> void:
 		GameManager.add_stat("acertos")
 		npcs.teacher.visual.play("clap")
 		npcs.teacher.say(["Muito bem!", "Isso mesmo!", "Excelente!", "Parabéns!"].pick_random(), 2.0)
-		GameManager.add_rewards(10, 2)
+		GameManager.add_rewards(10, 6)  # moedas vêm das aulas
 	else:
 		npcs.teacher.say(["Quase! Vamos tentar a próxima.", "Tudo bem, errar faz parte!", "Presta atenção na próxima!"].pick_random(), 2.4)
 	Learning.record(ok)
@@ -705,7 +724,7 @@ func _finish_find(ok: bool) -> void:
 	if ok:
 		day_correct += 1
 		GameManager.add_stat("acertos")
-		GameManager.add_rewards(15, 3)
+		GameManager.add_rewards(15, 8)
 		AudioManager.play_ui("ui_confirm")
 		npcs.teacher.visual.play("clap")
 	task_finished.emit(ok)
@@ -826,6 +845,8 @@ func _process(delta: float) -> void:
 	_update_deadline()
 	_update_clock()
 	_update_marker(delta)
+	_update_timer_chip()
+	_update_desk_glow(delta)
 
 
 ## Prazo para sentar: contagem na tela; acabou o tempo, a aula começa sem
@@ -881,6 +902,109 @@ func _update_marker(delta: float) -> void:
 	_marker.rotate_y(delta * 2.0)
 	hud.set_objective_point(pos + Vector3(0, 1.0, 0))
 	hud.minimap.set_markers("objetivo", [{"pos": pos, "color": Color("ffcf3f"), "icon": "★"}])
+
+
+## Contador grande: quanto falta para a aula / para acabar a aula / castigo.
+func _update_timer_chip() -> void:
+	var left := 0.0
+	if synced:
+		left = NetworkManager.phase_left()
+	elif phase == Phase.RECESS:
+		left = recess_left
+	elif phase in [Phase.ARRIVAL, Phase.RETURN]:
+		left = (ARRIVAL_LIMIT if phase == Phase.ARRIVAL else RETURN_LIMIT) - _phase_time
+	var t := Minigame.fmt_time(maxf(left, 0.0))
+	var text := ""
+	var col := Color("2f6fd0")
+	if discipline and discipline._bench_t >= 0.0:
+		text = "Castigo: %s" % Minigame.fmt_time(discipline._bench_t)
+		col = Color("c0392b")
+	elif player.minigame == null:
+		match phase:
+			Phase.RECESS:
+				text = "Aula em %s" % t
+				col = Color("1fb5a3") if left > 60.0 else Color("e67e22")
+			Phase.ARRIVAL, Phase.RETURN:
+				text = "Aula em %s" % t
+				col = Color("e67e22")
+			Phase.CLASS_1, Phase.CLASS_2:
+				if synced:
+					text = "Aula acaba em %s" % t
+			Phase.DAY_END:
+				if synced:
+					text = "Próximo dia em %s" % t
+	hud.set_timer_chip(text, col)
+
+
+# ---- brilho na MINHA carteira (só eu vejo), piscando até eu sentar
+var _desk_glow: Node3D
+var _glow_t := 0.0
+
+
+func _update_desk_glow(delta: float) -> void:
+	var desk: Seat = npcs.player_desk
+	var want := desk != null and not _player_at_desk() and class_room == NPCManager.CLASS_ROOM \
+		and phase in [Phase.ARRIVAL, Phase.CLASS_1, Phase.RETURN, Phase.CLASS_2] \
+		and (phase != Phase.RETURN or room_for_class(1) == NPCManager.CLASS_ROOM)
+	if not want:
+		if _desk_glow:
+			_desk_glow.visible = false
+		return
+	if _desk_glow == null:
+		_desk_glow = _make_desk_glow()
+		world.add_child(_desk_glow)
+	_desk_glow.visible = true
+	_glow_t += delta
+	_desk_glow.global_position = desk.global_position
+	_desk_glow.rotation.y = desk.global_rotation.y
+	var a := 0.35 + 0.45 * (0.5 + 0.5 * sin(_glow_t * 6.0))
+	for c in _desk_glow.get_children():
+		var mi := c as MeshInstance3D
+		if mi:
+			(mi.material_override as StandardMaterial3D).albedo_color.a = a
+	var sc := 1.0 + 0.08 * sin(_glow_t * 6.0)
+	_desk_glow.scale = Vector3(sc, 1.0, sc)
+
+
+func _make_desk_glow() -> Node3D:
+	var n := Node3D.new()
+	n.name = "MinhaCarteira"
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(1.0, 0.85, 0.2, 0.6)
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.no_depth_test = false
+	# anel dourado no chão em volta da cadeira e da mesa
+	var ring := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.62
+	tm.outer_radius = 0.74
+	tm.rings = 24
+	tm.ring_segments = 6
+	ring.mesh = tm
+	ring.material_override = mat
+	ring.position = Vector3(0, 0.05, 0.25)
+	ring.scale = Vector3(1.0, 0.2, 1.25)
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	n.add_child(ring)
+	# coluna de luz suave sobre a cadeira
+	var col := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.42
+	cyl.bottom_radius = 0.5
+	cyl.height = 2.2
+	cyl.radial_segments = 16
+	cyl.cap_top = false
+	cyl.cap_bottom = false
+	col.mesh = cyl
+	var m2 := mat.duplicate() as StandardMaterial3D
+	m2.albedo_color = Color(1.0, 0.9, 0.35, 0.3)
+	col.material_override = m2
+	col.position = Vector3(0, 1.1, 0.2)
+	col.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	n.add_child(col)
+	return n
 
 
 func _update_clock() -> void:

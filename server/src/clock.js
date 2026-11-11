@@ -8,7 +8,7 @@
 const PHASES = [
   { id: 'arrival', ms: 75000 },
   { id: 'class1', ms: 240000 },
-  { id: 'recess', ms: 480000 },
+  { id: 'recess', ms: 720000 }, // 12 min: tempo de sobra para brincar
   { id: 'return', ms: 60000 },
   { id: 'class2', ms: 180000 },
   { id: 'end', ms: 45000 },

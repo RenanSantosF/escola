@@ -239,10 +239,10 @@ func _finish(results: Array) -> void:
 			my_rank = i
 	if my_rank >= 0:
 		var rw: Array = REWARDS[my_rank] if my_rank < REWARDS.size() else [8, 15]
-		GameManager.add_rewards(rw[1], rw[0])
+		GameManager.add_rewards(rw[1] + rw[0], 0)
 		GameManager.add_stat("vitorias" if my_rank == 0 else "mg_pique")
 		Telemetry.track("minigame", {"id": "pique_pega_online", "won": my_rank == 0})
-		hud.show_banner("%dº lugar no pique-pega!" % (my_rank + 1), "+%d moedas, +%d XP" % [rw[0], rw[1]])
+		hud.show_banner("%dº lugar no pique-pega!" % (my_rank + 1), "+%d XP" % (rw[0] + rw[1]))
 		if my_rank == 0:
 			Effects.burst(player.global_position + Vector3(0, 2, 0), "confetti")
 			AudioManager.play_ui("celebrate", -4.0)

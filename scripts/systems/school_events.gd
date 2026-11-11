@@ -3,7 +3,7 @@ extends Node
 ## Eventos espontâneos (variam a cada dia, sem repetir no mesmo dia) e
 ## pequenas missões pedidas por colegas.
 ##
-## Eventos: bola nova, torneio relâmpago (moedas em dobro), inspetora
+## Eventos: bola nova, torneio relâmpago (XP em dobro), inspetora
 ## chamando atenção de um aluno, figurinha rara, colega pede ajuda (missão),
 ## diretor no pátio, lanche especial na cantina, recado para um amigo.
 
@@ -236,9 +236,9 @@ func _complete_mission(npc: NPC, line: String) -> void:
 	npc.say(line, 3.0)
 	Friendship.add(npc.data.get("id", ""), 8, "missao")
 	discipline.change_reputation(4)
-	GameManager.add_rewards(25, 15)
+	GameManager.add_rewards(40, 0)
 	GameManager.add_stat("missoes")
-	hud.show_banner("Missão cumprida!", "+15 moedas, +25 XP, amizade e reputação")
+	hud.show_banner("Missão cumprida!", "+40 XP, amizade e reputação")
 	if npc.activity in ["waiting_help"]:
 		npc.activity = "wander"
 	mission = {}
