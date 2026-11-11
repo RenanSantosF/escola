@@ -38,6 +38,7 @@ func _ready() -> void:
 	world.name = "World"
 	add_child(world)
 	await world.build(_on_progress)
+	await _warm_up()
 
 	player = preload("res://scenes/character/player.tscn").instantiate()
 	var sp := world.spawn_point()
@@ -161,6 +162,42 @@ func _on_progress(f: float, text: String) -> void:
 
 
 # ------------------------------------------------------------- carregamento
+
+## Aquecimento (atrás da tela de carregamento): desenha uma vez todas as
+## partes da escola, salas escondidas e efeitos, para o celular compilar os
+## shaders AGORA e não travar no meio do jogo na primeira vez que algo aparece.
+func _warm_up() -> void:
+	_on_progress(0.97, "Preparando tudo para não travar...")
+	var hidden: Array = []
+	for n in world._chunk_nodes.values():
+		var node := n as Node3D
+		if node and not node.visible:
+			node.visible = true
+			hidden.append(node)
+	var vp := get_viewport()
+	var occl := vp.use_occlusion_culling
+	vp.use_occlusion_culling = false
+	var cam := Camera3D.new()
+	cam.far = 600.0
+	cam.fov = 100.0
+	add_child(cam)
+	cam.make_current()
+	var sp: Vector3 = world.spawn_point().origin
+	for e in Effects.TYPES:
+		Effects.burst(sp + Vector3(0, 1.0, -2.0), e)
+	var views := [[Vector3(0, 90, 20), Vector3(0, 0, -10)], [Vector3(0, 60, -100), Vector3(0, 0, -100)],
+		[sp + Vector3(0, 2, 4), sp + Vector3(0, 1, 0)]]
+	for v in views:
+		cam.global_position = v[0]
+		cam.look_at(v[1], Vector3.FORWARD if absf((v[0] - v[1]).normalized().y) > 0.95 else Vector3.UP)
+		for i in 2:
+			await get_tree().process_frame
+	for node in hidden:
+		(node as Node3D).visible = false
+	vp.use_occlusion_culling = occl
+	cam.queue_free()
+	await get_tree().process_frame
+
 
 func _build_loading() -> void:
 	_loading = Control.new()

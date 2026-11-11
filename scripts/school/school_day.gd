@@ -292,9 +292,22 @@ func _goto_phase(p: int) -> void:
 
 
 ## Dia seguinte: a tela apaga, a criança chega de novo pelo portão e a tela acende.
+var _transition_n := 0
+
+
 func _day_transition() -> void:
+	_transition_n += 1
+	var my_n := _transition_n
 	player.input_enabled = false
 	await hud.fade(1.0, 0.6).finished
+	# a fase mudou durante o escurecer (trocou de sala, reconectou): não leva ao portão
+	if my_n != _transition_n or phase != Phase.ARRIVAL:
+		hud.fade(0.0, 0.4)
+		player.input_enabled = true
+		return
+	for r in get_tree().get_nodes_in_group("interactable"):
+		if r is RideTrack:
+			(r as RideTrack).eject()
 	if player.mode == PlayerController.Mode.SITTING:
 		player.force_stand()
 	if player.minigame == null and not (discipline and discipline.in_cutscene):
@@ -943,9 +956,14 @@ var _glow_t := 0.0
 
 func _update_desk_glow(delta: float) -> void:
 	var desk: Seat = npcs.player_desk
-	var want := desk != null and not _player_at_desk() and class_room == NPCManager.CLASS_ROOM \
-		and phase in [Phase.ARRIVAL, Phase.CLASS_1, Phase.RETURN, Phase.CLASS_2] \
-		and (phase != Phase.RETURN or room_for_class(1) == NPCManager.CLASS_ROOM)
+	# sala da aula atual (ou da próxima, na chegada e na volta do recreio)
+	var room := class_room
+	if phase == Phase.ARRIVAL:
+		room = room_for_class(0)
+	elif phase == Phase.RETURN:
+		room = room_for_class(1)
+	var want := desk != null and not _player_at_desk() and room == NPCManager.CLASS_ROOM \
+		and phase in [Phase.ARRIVAL, Phase.CLASS_1, Phase.RETURN, Phase.CLASS_2]
 	if not want:
 		if _desk_glow:
 			_desk_glow.visible = false

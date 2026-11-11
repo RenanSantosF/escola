@@ -4,6 +4,7 @@ extends Node
 ## e brilho (itens, conquistas). Quantidade reduzida na qualidade Baixa.
 
 const POOL := 3
+const TYPES := ["confetti", "dust", "sparkle"]
 
 var _pools := {}
 var _next := {}

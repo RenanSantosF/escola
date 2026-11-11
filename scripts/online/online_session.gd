@@ -5,6 +5,8 @@ extends Node
 ## mostra o painel de chat seguro. Só existe quando o modo online está ativo.
 
 const SEND_DT := 0.1
+const INTERP_DELAY := 0.2  # mostra os colegas 200 ms no passado: movimento liso
+const SNAP_DIST := 8.0  # pulo maior que isso é teleporte de verdade
 
 var player: PlayerController
 var world: Node3D
@@ -145,7 +147,8 @@ func _add_remote(p: Dictionary) -> void:
 	var pos := _vec(p.get("pos", [0, 0, 70]))
 	root.global_position = pos
 	remotes[id] = {"root": root, "visual": vis, "label": label, "name": str(p.get("name", "")), "name_text": label.text,
-		"from": pos, "to": pos, "t": 1.0, "yaw": float(p.get("yaw", 0.0)), "anim": str(p.get("anim", "idle")), "seat": null}
+		"from": pos, "to": pos, "t": 1.0, "yaw": float(p.get("yaw", 0.0)), "anim": str(p.get("anim", "idle")), "seat": null,
+		"buf": [[_now(), pos]]}
 	if remotes[id].anim == "sit":
 		_on_remote_anim(remotes[id], "idle", "sit")
 
@@ -163,9 +166,17 @@ func _on_states(list: Array) -> void:
 		var r: Variant = remotes.get(str(s.get("id", "")))
 		if r == null:
 			continue
-		r.from = r.root.global_position
-		r.to = _vec(s.get("pos", [0, 0, 0]))
-		r.t = 0.0
+		var pos := _vec(s.get("pos", [0, 0, 0]))
+		var buf: Array = r.buf
+		var now := _now()
+		# pulou longe (porta de sala, reconexão): vai direto, sem deslizar pelo mapa
+		if buf.is_empty() or (buf[buf.size() - 1][1] as Vector3).distance_to(pos) > SNAP_DIST:
+			buf.clear()
+			r.root.global_position = pos
+		buf.append([now, pos])
+		while buf.size() > 12:
+			buf.pop_front()
+		r.to = pos
 		r.yaw = float(s.get("yaw", 0.0))
 		var anim := str(s.get("anim", "idle"))
 		if anim != r.anim:
@@ -211,12 +222,45 @@ func _on_chat(id: String, sender: String, text: String) -> void:
 				r.label.text = r.name_text)
 
 
+## Tempo local em segundos (para o buffer de interpolação).
+static func _now() -> float:
+	return Time.get_ticks_usec() / 1000000.0
+
+
+## Posição do colega "um pouquinho no passado" (INTERP_DELAY): sempre há duas
+## amostras para interpolar, então ele anda liso mesmo com a internet oscilando.
+## Se as amostras atrasarem, continua andando na mesma direção por até 0,35 s.
+static func _sample(buf: Array, t: float) -> Vector3:
+	var n := buf.size()
+	if n == 0:
+		return Vector3.ZERO
+	if n == 1 or t <= float(buf[0][0]):
+		return buf[0][1]
+	for i in range(n - 1, 0, -1):
+		var a: Array = buf[i - 1]
+		var b: Array = buf[i]
+		if t >= float(a[0]) and t <= float(b[0]):
+			var span := maxf(float(b[0]) - float(a[0]), 0.001)
+			return (a[1] as Vector3).lerp(b[1], (t - float(a[0])) / span)
+	# passou da última amostra: extrapola um pouco
+	var last: Array = buf[n - 1]
+	var prev: Array = buf[n - 2]
+	var dt := maxf(float(last[0]) - float(prev[0]), 0.001)
+	var vel: Vector3 = ((last[1] as Vector3) - (prev[1] as Vector3)) / dt
+	if vel.length() > 12.0:
+		vel = vel.normalized() * 12.0
+	var ahead := minf(t - float(last[0]), 0.35)
+	return (last[1] as Vector3) + vel * ahead
+
+
 func _process(delta: float) -> void:
+	var render_t := _now() - INTERP_DELAY
 	for r in remotes.values():
-		r.t = minf(r.t + delta / SEND_DT, 1.6)
 		var root: Node3D = r.root
 		var prev := root.global_position
-		root.global_position = r.from.lerp(r.to, minf(r.t, 1.0))
+		var target := _sample(r.buf, render_t)
+		# suaviza a volta da extrapolação (sem tranco)
+		root.global_position = prev.lerp(target, 1.0 - exp(-20.0 * delta)) if prev.distance_to(target) < SNAP_DIST else target
 		var vis: CharacterVisual = r.visual
 		vis.rotation.y = lerp_angle(vis.rotation.y, r.yaw, 1.0 - exp(-12.0 * delta))
 		var sp := Vector2(root.global_position.x - prev.x, root.global_position.z - prev.z).length() / maxf(delta, 0.001)
@@ -232,7 +276,7 @@ func _process(delta: float) -> void:
 		return
 	_send_t += delta
 	if _send_t >= SEND_DT:
-		_send_t = 0.0
+		_send_t = minf(_send_t - SEND_DT, SEND_DT)
 		var anim := "idle"
 		if player.riding:
 			anim = "bike" if player.vehicle == "bike" else "ride"

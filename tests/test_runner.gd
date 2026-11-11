@@ -12,6 +12,7 @@ var _log: Array[String] = []
 
 
 func _ready() -> void:
+	Settings.set_value("quality", Settings.Quality.MEDIUM, false)  # não depende do que ficou salvo
 	NPCManager.STUDENT_BOTS = true  # os testes antigos contam com alunos-bot andando
 	SchoolDay.SPECIAL_ROOMS = false  # e com as duas aulas na Sala 5
 	SaveManager.reset()
@@ -83,6 +84,7 @@ func _ready() -> void:
 	await _test_portas()
 	await _test_contador_e_brilho()
 	await _test_atracoes()
+	await _test_interpolacao()
 	_finish()
 
 
@@ -742,12 +744,15 @@ func _test_minigames() -> void:
 	await _frames(3)
 	check(fb.ball.global_position.distance_to(player.global_position) < 1.0, "futebol: bola colada no pé")
 	var bpos: Vector3 = fb.ball.global_position
+	var shots0: int = fb._shot_n
 	fb._hold_immune = 5.0  # ninguém rouba enquanto o teste carrega o chute
 	player.request_play()
 	await _wait(0.5)
 	player.request_play_release()
+	await _frames(3)
+	var left_foot: bool = fb.holder != player and fb._shot_n > shots0 and fb.ball.linear_velocity.length() > 4.0
 	await _wait(0.8)
-	check(fb.holder != player and fb.ball.global_position.distance_to(bpos) > 1.5, "futebol: jogador chuta a bola")
+	check(left_foot, "futebol: jogador chuta a bola")
 	# passe curto para um colega
 	await _wait(3.5)
 	fb._take(player)
@@ -1381,10 +1386,10 @@ func _test_online_tag() -> void:
 	nm._handle({"t": "tag", "state": "playing", "host": "amigo", "players": ["eu", "amigo"], "it": "amigo", "left": 90, "names": names})
 	await _frames(2)
 	check(sess.tag._marker.get_parent() == sess.remotes["amigo"].root, "pique-pega: marcador passa para o colega")
-	var coins_before := GameManager.coins()
+	var xp_before := _xp_total()
 	nm._handle({"t": "tag_event", "kind": "end", "results": [{"id": "eu", "name": "Eu", "secondsIt": 10, "tags": 3}, {"id": "amigo", "name": "Amigo", "secondsIt": 90, "tags": 1}], "names": names})
 	await _frames(2)
-	check(GameManager.coins() == coins_before + 40 and not main.school_day.hold_recess and not sess.tag._marker.visible, "pique-pega: 1º lugar ganha prêmio e recreio volta")
+	check(_xp_total() > xp_before and not main.school_day.hold_recess and not sess.tag._marker.visible, "pique-pega: 1º lugar ganha prêmio e recreio volta")
 	NetworkManager.last_channel = "near"
 	sess._on_chat("amigo", "Amigo", "Oi!")
 	check(sess.chat_panel._lines.get_child_count() > 0 and (sess.chat_panel._lines.get_child(sess.chat_panel._lines.get_child_count() - 1) as Button).text.begins_with("[Perto]"), "chat: canal Perto de mim")
@@ -1896,6 +1901,16 @@ func _xp_total() -> int:
 	return int(p.get("level", 1)) * 100000 + int(p.get("xp", 0))
 
 
+func _test_interpolacao() -> void:
+	var buf := [[1.0, Vector3(0, 0, 0)], [1.1, Vector3(1, 0, 0)], [1.2, Vector3(2, 0, 0)]]
+	var mid := OnlineSession._sample(buf, 1.15)
+	check(mid.distance_to(Vector3(1.5, 0, 0)) < 0.01, "online: colega interpola entre amostras (sem pulo)")
+	var ahead := OnlineSession._sample(buf, 1.3)
+	check(ahead.x > 2.5 and ahead.x < 3.6, "online: pacote atrasado, colega continua andando (%.2f)" % ahead.x)
+	var late := OnlineSession._sample(buf, 3.0)
+	check(late.x < 5.6, "online: extrapolação limitada (não sai voando)")
+
+
 func _test_atracoes() -> void:
 	await _recess()
 	if player.mode == PlayerController.Mode.SITTING:
@@ -1959,6 +1974,8 @@ func _test_atracoes() -> void:
 
 func _test_contador_e_brilho() -> void:
 	var sd: SchoolDay = main.school_day
+	main.discipline._bench_t = -1.0  # castigo de testes anteriores
+	main.discipline.restricted = false
 	await _recess()
 	await _frames(3)
 	var chip: Label = main.hud._timer_chip

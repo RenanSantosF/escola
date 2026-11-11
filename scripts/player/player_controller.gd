@@ -616,11 +616,38 @@ func _push_ball(_delta: float) -> void:
 
 # ------------------------------------------------------------- interativos
 
+var _near_cache: Array = []
+var _near_cache_t := 0.0
+var _near_cache_pos := Vector3(INF, 0, 0)
+
+
+## Lista curta dos interativos perto (refeita a cada 1 s ou ao andar 4 m):
+## a varredura de 0,1 s olha só essa lista em vez de ~1000 nós.
+func _refresh_near_cache() -> void:
+	_near_cache.clear()
+	_near_cache_t = 1.0
+	_near_cache_pos = global_position
+	var gp := global_position
+	for n in get_tree().get_nodes_in_group("interactable"):
+		var n3 := n as Node3D
+		if n3 == null:
+			continue
+		var dx := n3.global_position.x - gp.x
+		var dz := n3.global_position.z - gp.z
+		if dx * dx + dz * dz < 144.0:
+			_near_cache.append(n3)
+
+
 func _scan_interactables() -> void:
+	_near_cache_t -= 0.1
+	if _near_cache_t <= 0.0 or global_position.distance_squared_to(_near_cache_pos) > 16.0:
+		_refresh_near_cache()
 	var fwd := Vector3(sin(yaw), 0, cos(yaw))
 	var best: Node = null
 	var best_score := INF
-	for n in get_tree().get_nodes_in_group("interactable"):
+	for n in _near_cache:
+		if not is_instance_valid(n) or not n.is_inside_tree():
+			continue
 		if n == held_item or not n.has_method("interact_point"):
 			continue
 		var p: Vector3 = n.interact_point()
