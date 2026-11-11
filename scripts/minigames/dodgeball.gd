@@ -195,7 +195,7 @@ func _grab(who: Node) -> void:
 	_holder = who
 	var slot: Node3D = _vis(who).hand_slot()
 	ball.hold(slot, who)
-	AudioManager.play_3d("pickup", ball.global_position, -4.0)
+	AudioManager.play_3d("catch", ball.global_position, -2.0)
 
 
 func _pick_target(from: Node3D, enemies: Array) -> Node3D:
@@ -221,6 +221,10 @@ func _pick_target(from: Node3D, enemies: Array) -> Node3D:
 	return best
 
 
+var _last_thrower: Node3D = null
+var my_hits := 0
+
+
 func _throw(who: Node3D, target: Node3D, team: int) -> void:
 	_vis(who).play("throw")
 	var from_holder := who
@@ -244,7 +248,8 @@ func _throw(who: Node3D, target: Node3D, team: int) -> void:
 		var speed := 9.0 if from_holder is NPC else 13.0
 		var vel := AimArc.solve(start, aim, speed)
 		ball.throw_from(start, vel, team)
-		AudioManager.play_3d("whoosh", start, -3.0))
+		_last_thrower = from_holder
+		AudioManager.play_3d("throw", start, -1.0))
 
 
 func _on_ball_hit(body: Node) -> void:
@@ -263,6 +268,17 @@ func _on_ball_hit(body: Node) -> void:
 		score_a += 1
 	else:
 		score_b += 1
+	# foi eu que queimei? festa!
+	if _last_thrower == player:
+		my_hits += 1
+		add_combo()
+		popup((body as Node3D).global_position + Vector3(0, 2.2, 0), "QUEIMOU!", Color("ff4d6d"), 80)
+		if player.camera_rig:
+			player.camera_rig.shake(0.12)
+	elif body == player:
+		break_combo()
+		if player.camera_rig:
+			player.camera_rig.shake(0.2)
 	_eliminate(body)
 	_update_hud()
 	if score_a >= TARGET or score_b >= TARGET:
@@ -287,7 +303,7 @@ func _eliminate(body: Node) -> void:
 		n.say(["Ahhh!", "Me queimaram!", "Não valeu!"].pick_random(), 1.5)
 		n.teleport(pos, 0.0)
 		n.stop()
-	AudioManager.play_3d("bonk", (body as Node3D).global_position, -6.0)
+	AudioManager.play_3d("hit", (body as Node3D).global_position, -1.0)
 	Effects.burst((body as Node3D).global_position + Vector3(0, 1.0, 0), "sparkle")
 
 

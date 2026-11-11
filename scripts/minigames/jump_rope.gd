@@ -10,6 +10,9 @@ var turners: Array[NPC] = []
 var _angle := PI * 0.5
 var _speed := 3.6
 var jumps := 0
+var points := 0
+var perfects := 0
+var _level := 0
 var _was_low := false
 var _rope: MeshInstance3D
 var _fail_t := 0.0
@@ -117,22 +120,34 @@ func tick(delta: float) -> void:
 		# perdoa um pouquinho: pulou há pouco ou está no ar
 		if feet_y > 0.14 or (_jump_t < 0.12 and not player.is_on_floor()):
 			jumps += 1
-			AudioManager.play_ui("ui_click", -6.0, 0.1)
-			if jumps % 10 == 0:
-				GameManager.show_toast("%d pulos!" % jumps)
+			# no alto do pulo quando a corda passa = perfeito (vale 2)
+			var perfect := feet_y - CENTER.y > 0.38
+			if perfect:
+				perfects += 1
+				points += 2
+				popup(player.global_position + Vector3(0, 2.1, 0), "Perfeito! +2", Color("6be36b"), 56)
+			else:
+				points += 1
+			AudioManager.play_combo(jumps % 9, -6.0)
+			var lv := jumps / 10
+			if lv > _level:
+				_level = lv
+				_speed = minf(_speed + 0.35, 7.5)
+				hud.show_banner("%d pulos!" % jumps, "A corda vai acelerar!")
+				AudioManager.play_ui("combo", -4.0)
 				for t in turners:
 					t.say(["Isso!", "Não para!", "Mais rápido!"].pick_random(), 1.2)
 		else:
 			_trip()
 			return
 	_was_low = low
-	hud.set_minigame_text("Pular corda  ·  %d pulos  ·  Vidas: %d  ·  pule quando a barra encher" % [jumps, lives])
+	hud.set_minigame_text("Pular corda  ·  %d pontos (%d pulos, %d perfeitos)  ·  Vidas: %d  ·  pule quando a barra encher" % [points, jumps, perfects, lives])
 
 
 func _trip() -> void:
 	lives -= 1
 	player.visual.play("hit")
-	AudioManager.play_ui("bonk", -6.0)
+	AudioManager.play_ui("trip", -4.0)
 	if lives <= 0:
 		_fail()
 		return
@@ -146,10 +161,10 @@ func _trip() -> void:
 
 func _fail() -> void:
 	hud.set_meter(-1.0)
-	var won := 1 if jumps >= 15 else (0 if jumps >= 7 else -1)
+	var won := 1 if points >= 25 else (0 if points >= 10 else -1)
 	if jumps >= 30:
 		GameManager.unlock_achievement("corda_30")
-	end_game(won, "%d pulos seguidos" % jumps, 4 + jumps / 2, 8 + jumps, {"score": jumps})
+	end_game(won, "%d pontos  ·  %d pulos (%d perfeitos)" % [points, jumps, perfects], 0, 8 + points, {"score": points})
 
 
 func cleanup() -> void:

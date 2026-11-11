@@ -857,8 +857,10 @@ func _test_minigames() -> void:
 	mb.aim_angle = (target.pos - s.pos).angle()
 	mb.on_play()
 	mb._power = 1.0
-	mb.on_play()
-	check(mb._sim, "gude: lançamento inicia a simulação")
+	mb._draw_aim()
+	check(mb._aim_line.visible and mb._aim_line.mesh.get_surface_count() > 0, "gude: mira mostra onde vai bater")
+	mb.on_play_release()
+	check(mb._sim, "gude: segurar e soltar lança (inicia a simulação)")
 	var start_pos: Array = mb.marbles.map(func(m): return m.pos)
 	for i in 400:
 		await get_tree().process_frame
@@ -898,6 +900,39 @@ func _test_minigames() -> void:
 			break
 	check(max_d > 10.0, "aviãozinho: física de voo plana", "%.1f m" % max_d)
 	check(max_h < 5.0 and not went_back, "aviãozinho: sem looping nem voo para trás", "h=%.1f" % max_h)
+	# o circuito de argolas é possível: voando bem e fazendo curva, passa pelas 4
+	var best_rings := 0
+	pp.fold_quality = 1.0
+	pp._wind = Vector3.ZERO
+	for pw3 in [0.4, 0.5, 0.6, 0.7, 0.8]:
+		for pt in [0.0, 0.06, 0.12, 0.18, 0.24]:
+			pp._power = pw3
+			pp.pitch = pt
+			pp.yaw = PI
+			var p3: Vector3 = pp.LAUNCH
+			var v3: Vector3 = pp._launch_vel()
+			var passed := 0
+			var ri := 0
+			for i in 900:
+				if ri >= pp.RINGS.size():
+					break
+				var rg: Vector3 = pp.RINGS[ri]
+				# piloto simples: vira para o x da próxima argola
+				var want := atan2(rg.x - p3.x, rg.z - p3.z)
+				var cur := atan2(v3.x, v3.z)
+				var steer := clampf(-wrapf(want - cur, -PI, PI) * 3.0, -1.0, 1.0)
+				var prev := p3
+				var r: Array = pp._step_flight(p3, v3, 1.0 / 120.0, steer)
+				p3 = r[0]
+				v3 = r[1]
+				if (prev.z - rg.z) * (p3.z - rg.z) <= 0.0:
+					if Vector2(p3.x - rg.x, p3.y - rg.y).length() < 1.0:
+						passed += 1
+					ri += 1
+				if p3.y < 0.04:
+					break
+			best_rings = maxi(best_rings, passed)
+	check(best_rings >= 3, "aviãozinho: dá para passar em %d de 4 argolas fazendo curva" % best_rings)
 	pp._finish()
 	await _frames(2)
 
@@ -906,6 +941,14 @@ func _test_minigames() -> void:
 	var rc2 = await _mg_start("corrida")
 	await _wait(3.3)
 	check(rc2.rivals.size() == 2 and rc2.rivals[0].moving, "corrida: adversários largam")
+	# barreira: no chão tropeça; pulando passa limpo e ganha impulso
+	player.global_position = Vector3(rc2.HURDLES[0] + 0.1, 0.05, -21)
+	await _frames(3)
+	check(rc2.trips == 1 and rc2._slow_t > 0.0, "corrida: passou no chão = tropeçou")
+	rc2.energy = 0.3
+	player.global_position = Vector3(rc2.HURDLES[1] + 0.1, 0.6, -21)
+	await _frames(2)
+	check(rc2.clean == 1 and rc2.energy > 0.4, "corrida: pulou a barreira = impulso")
 	player.global_position = Vector3(38.5, 0.05, -21)
 	await _wait(0.3)
 	check(mm.active == null and results[-1].id == "corrida", "corrida: chegada registrada")
@@ -932,14 +975,38 @@ func _test_minigames() -> void:
 	# Pontaria e guerra de papel
 	await _recess()
 	var ab = await _mg_start("pontaria")
-	for i in 10:
+	ab._countdown = 0.0
+	var tb: Vector3 = ab.BINS[1]
+	ab._yaw = fposmod(atan2(tb.x - ab.FROM.x, tb.z - ab.FROM.z), TAU)
+	# acha a força que acerta a lixeira do meio (simulação do voo)
+	var best_p := -1.0
+	for k in 41:
+		var pw2 := k / 40.0
+		var sp := lerpf(4.0, 10.0, pw2)
+		var d := Vector3(sin(ab._yaw), 0, cos(ab._yaw))
+		var v := d * sp * 0.8 + Vector3(0, sp * 0.6, 0)
+		var pos: Vector3 = ab.FROM + Vector3(0, 1.5, 0) + d * 0.3
+		var prev := pos
+		for i in 300:
+			prev = pos
+			v += Vector3(0, -9.8, 0) / 60.0
+			pos += v / 60.0
+			if prev.y > 0.75 and pos.y <= 0.75:
+				break
+		if Vector2(pos.x - tb.x, pos.z - tb.z).length() < 0.08:
+			best_p = pw2
+			break
+	for i in 4:
+		ab._cool = 0.0
 		ab.on_play()
-		await _wait(0.05)
-		ab._power = 0.55
+		ab._power = best_p
 		ab.on_play_release()
-		await _wait(0.15)
-	await _wait(2.5)
-	check(mm.active == null and results[-1].id == "pontaria", "pontaria: 10 arremessos e fim")
+		await _wait(0.3)
+	await _wait(1.6)
+	check(ab.hits >= 3 and ab.combo >= 3 and ab.score > 0, "pontaria: acertos seguidos somam combo (%d acertos)" % ab.hits)
+	ab.time_left = 0.05
+	await _wait(0.3)
+	check(mm.active == null and results[-1].id == "pontaria", "pontaria: acaba no tempo")
 	await _recess()
 	var pw = await _mg_start("guerra")
 	await _wait(3.3)
@@ -1252,12 +1319,31 @@ func _test_novas_brincadeiras() -> void:
 	# basquete: força certa = cesta
 	var bk = await _mg_start("basquete")
 	if bk:
+		bk._countdown = 0.0
 		bk.on_play()
 		bk._power = bk._ideal
 		bk.on_play_release()
-		await _wait(2.6)
-		check(bk.score >= 2, "basquete: força certa faz cesta", "%d" % bk.score)
-		bk._finish()
+		await _wait(2.0)
+		check(bk.score >= 2, "basquete: força e mira certas = cesta", "%d" % bk.score)
+		bk._cool = 0.0
+		bk.on_play()
+		bk._power = bk._ideal
+		bk._yaw = bk._aim_yaw + 0.3
+		bk.on_play_release()
+		var s0: int = bk.score
+		await _wait(2.0)
+		check(bk.score == s0 and bk.combo == 0, "basquete: mira torta erra e quebra o combo")
+		for i in 3:
+			bk._cool = 0.0
+			bk._yaw = bk._aim_yaw
+			bk.on_play()
+			bk._power = bk._ideal
+			bk.on_play_release()
+			await _wait(0.5)
+		await _wait(1.8)
+		check(bk.combo >= 3 and bk.combo_mult() == 2 and bk.spot_i >= 1, "basquete: 3 seguidas = combo x2 e muda de marca")
+		bk.time_left = 0.05
+		await _frames(3)
 		await _frames(3)
 	check(mm.active == null, "basquete: termina")
 	# esconde-esconde: colegas se escondem e dá para achar
@@ -1279,13 +1365,27 @@ func _test_novas_brincadeiras() -> void:
 	var tw = await _mg_start("cabo")
 	if tw:
 		await _wait(3.3)
+		var bc := 0
 		for i in 120:
 			tw._beat = 0.9
 			tw.on_play()
+			bc = maxi(bc, tw.best_combo)
 			await get_tree().physics_frame
 			if mm.active == null:
 				break
-		check(mm.active == null and results[-1].id == "cabo" and int(results[-1].won) > 0, "cabo de guerra: puxando rápido o time vence")
+		check(mm.active == null and results[-1].id == "cabo" and int(results[-1].won) > 0, "cabo de guerra: puxando no ritmo o time vence")
+		check(bc >= 3, "cabo de guerra: ritmo certo faz combo (%d)" % bc)
+	# cabo: arrancada avisada do outro time
+	await _recess()
+	var tw2 = await _mg_start("cabo")
+	if tw2:
+		tw2._countdown = 0.0
+		tw2._surge_t = 1.0
+		var off0: float = tw2.offset
+		await _wait(1.6)
+		check(tw2._surge > 0.0 and tw2.offset > off0 + 0.15, "cabo de guerra: arrancada do outro time puxa forte")
+		tw2._finish()
+		await _frames(3)
 	check(MinigameManager.GAMES.size() >= 12, "brincadeiras: %d no total" % MinigameManager.GAMES.size())
 	_place(Vector3(0, 0.05, -6), 0)
 
@@ -1353,6 +1453,18 @@ func _test_revisao5() -> void:
 	player._emit_context(true)
 	await _frames(2)
 	check(not ctl.btn_run.visible and ctl.btn_jump.visible, "amarelinha: só os botões que usa")
+	# ritmo: no tempo = perfeito; cedo demais = não pula
+	hs.stage = "hop"
+	hs._plan = hs.hop_plan(1)
+	hs._plan_i = 0
+	hs._beat_t = 0.05
+	hs.on_jump()
+	await _frames(2)
+	check(hs._plan_i == 0 and hs._early == 1, "amarelinha: tocou cedo demais = não pula")
+	hs._beat_t = hs.beat()
+	hs.on_jump()
+	await _wait(0.45)
+	check(hs.perfects == 1 and hs.points >= 3 and hs._plan_i == 1, "amarelinha: tocou no ritmo = Perfeito")
 	hs._finish()
 	await _frames(3)
 	player._emit_context(true)

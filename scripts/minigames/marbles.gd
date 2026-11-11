@@ -7,7 +7,7 @@ extends Minigame
 
 const CENTER := Vector2(-46, -9)
 const RING := 1.2
-const R := 0.03
+const R := 0.045
 const FRICTION := 0.55
 const REST := 0.9
 const TYPES := [
@@ -137,7 +137,7 @@ func _update_hud() -> void:
 func play_label() -> String:
 	if turn != 0 or _sim:
 		return "Aguarde"
-	return "Lançar!" if _charging else "Carregar força"
+	return "Soltar!" if _charging else "Segure: força"
 
 
 func interact_label() -> String:
@@ -156,8 +156,13 @@ func on_play() -> bool:
 		_charging = true
 		_power = 0.0
 		_power_dir = 1.0
-	else:
-		_shoot(_power)
+	return true
+
+
+## Segure para carregar a força e SOLTE para lançar (igual às outras brincadeiras).
+func on_play_release() -> bool:
+	if turn == 0 and not _sim and _charging:
+		_shoot(maxf(_power, 0.08))
 	return true
 
 
@@ -251,8 +256,8 @@ func _step(dt: float) -> void:
 					var imp := rel * (1.0 + REST) * 0.5
 					a.vel -= n * imp
 					b.vel += n * imp
-					if rel > 0.4:
-						AudioManager.play_3d("ui_click", Vector3(a.pos.x, 0.1, a.pos.y), -12.0, 0.3)
+					if rel > 0.25:
+						AudioManager.play_3d("clack", Vector3(a.pos.x, 0.1, a.pos.y), -14.0 + minf(rel * 6.0, 10.0), 0.25)
 	# bolinhas que saíram do círculo
 	for m in marbles:
 		if not m.out and m.pos.distance_to(CENTER) > RING:
@@ -262,7 +267,11 @@ func _step(dt: float) -> void:
 			if turn == 0:
 				captured_types.append(m.type)
 			m.node.visible = false
-			AudioManager.play_ui("pickup", -4.0)
+			if turn == 0:
+				add_combo()
+				popup(Vector3(m.pos.x, 0.3, m.pos.y), "+1 %s" % m.type.name, m.type.color.lightened(0.2), 48)
+			else:
+				AudioManager.play_ui("pickup", -8.0)
 			_update_hud()
 
 
@@ -285,6 +294,8 @@ func _end_shot() -> void:
 		_finish(false)
 		return
 	if _captured_this_shot == 0:
+		if turn == 0:
+			break_combo()
 		turn = 1 - turn
 	elif turn == 0:
 		GameManager.show_toast("Pegou! Jogue de novo.")
@@ -318,23 +329,70 @@ func _npc_shot() -> void:
 		opponent.say(["Essa é minha!", "Olha a mira!", "Vai!"].pick_random(), 1.2)
 
 
+## Mira estilo sinuca: linha até a primeira bolinha que vai bater, um
+## "fantasma" no ponto do choque e a direção para onde ela será empurrada.
 func _draw_aim() -> void:
 	var s: Dictionary = shooters[0]
+	var dir2 := Vector2.from_angle(aim_angle)
+	var hit_t := RING * 2.2
+	var hit_m: Dictionary = {}
+	for m in marbles + [shooters[1]]:
+		if m.get("out", false):
+			continue
+		var rel: Vector2 = m.pos - s.pos
+		var along: float = rel.dot(dir2)
+		if along <= 0.0:
+			continue
+		var perp: float = absf(rel.cross(dir2))
+		var rr := R * 2.0 * 1.1
+		if perp < rr:
+			var t: float = along - sqrt(rr * rr - perp * perp)
+			if t < hit_t:
+				hit_t = t
+				hit_m = m
 	var im := ImmediateMesh.new()
-	im.surface_begin(Mesh.PRIMITIVE_LINES)
-	var a := Vector3(s.pos.x, 0.03, s.pos.y)
-	var dir := Vector3(cos(aim_angle), 0, sin(aim_angle))
-	for k in 6:
-		im.surface_set_color(Color(1, 1, 1, 0.9))
-		im.surface_add_vertex(a + dir * (0.05 + k * 0.12))
-		im.surface_add_vertex(a + dir * (0.11 + k * 0.12))
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	var y := 0.03
+	var a: Vector3 = Vector3(s.pos.x, y, s.pos.y)
+	var d3 := Vector3(dir2.x, 0, dir2.y)
+	var reach := minf(hit_t, 0.25 + _power * 2.2) if not hit_m.is_empty() else 0.25 + _power * 2.2
+	var col := Color(1, 1, 1, 0.95)
+	var k := 0.04
+	while k < reach:
+		_quad(im, a + d3 * k, a + d3 * minf(k + 0.06, reach), 0.012, col)
+		k += 0.1
+	if not hit_m.is_empty() and hit_t <= 0.25 + _power * 2.2 + 0.4:
+		var ghost: Vector2 = s.pos + dir2 * hit_t
+		var g3 := Vector3(ghost.x, y, ghost.y)
+		for j in 12:
+			var a0 := j * TAU / 12.0
+			var a1 := (j + 1) * TAU / 12.0
+			_quad(im, g3 + Vector3(cos(a0), 0, sin(a0)) * R, g3 + Vector3(cos(a1), 0, sin(a1)) * R, 0.008, Color(1, 1, 1, 0.8))
+		var push: Vector2 = (hit_m.pos - ghost).normalized()
+		var m3 := Vector3(hit_m.pos.x, y, hit_m.pos.y)
+		_quad(im, m3, m3 + Vector3(push.x, 0, push.y) * 0.35, 0.016, Color("6be36b"))
 	im.surface_end()
 	_aim_line.mesh = im
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.vertex_color_use_as_albedo = true
-	_aim_line.material_override = m
+	if _aim_line.material_override == null:
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.vertex_color_use_as_albedo = true
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.no_depth_test = true
+		_aim_line.material_override = m
 	_aim_line.visible = true
+
+
+func _quad(im: ImmediateMesh, p0: Vector3, p1: Vector3, w: float, c: Color) -> void:
+	var d := p1 - p0
+	var side := Vector3(-d.z, 0, d.x).normalized() * w
+	im.surface_set_color(c)
+	im.surface_add_vertex(p0 - side)
+	im.surface_add_vertex(p1 - side)
+	im.surface_add_vertex(p1 + side)
+	im.surface_add_vertex(p0 - side)
+	im.surface_add_vertex(p1 + side)
+	im.surface_add_vertex(p0 + side)
 
 
 func _sync_nodes() -> void:

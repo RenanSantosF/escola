@@ -23,6 +23,8 @@ var _t := 0.0
 var _from := Vector3.ZERO
 var _cart: Node3D = null
 var _shouted := false
+var _wind: AudioStreamPlayer
+var _clack_d := 0.0
 
 
 func _ready() -> void:
@@ -37,6 +39,15 @@ func _ready() -> void:
 			acc += points[i - 1].distance_to(points[i])
 		_cum[i] = acc
 	_total = acc
+	_wind = AudioStreamPlayer.new()
+	_wind.bus = "SFX"
+	_wind.stream = AudioManager.get_stream("wind")
+	if _wind.stream is AudioStreamWAV:
+		var w := _wind.stream as AudioStreamWAV
+		w.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		w.loop_end = int(w.get_length() * w.mix_rate)
+	_wind.volume_db = -80.0
+	add_child(_wind)
 	if kind == "coaster":
 		_cart = _make_cart()
 		add_child(_cart)
@@ -113,6 +124,17 @@ func _physics_process(delta: float) -> void:
 	elif _v < 6.0:
 		_shouted = false
 	_s += _v * delta
+	# som: vento cresce com a velocidade; na corrente, clec-clec
+	if _wind and _wind.stream:
+		if not _wind.playing:
+			_wind.play()
+		_wind.volume_db = lerpf(-30.0, -4.0, clampf((_v - 3.0) / 11.0, 0.0, 1.0))
+		_wind.pitch_scale = lerpf(0.8, 1.4, clampf(_v / 15.0, 0.0, 1.0))
+	if on_lift:
+		_clack_d += _v * delta
+		if _clack_d > 0.6:
+			_clack_d = 0.0
+			AudioManager.play_ui("clack", -8.0, 0.05)
 	if _s >= _total:
 		_lap += 1
 		if _lap >= laps:
@@ -174,6 +196,8 @@ func _place_cart(s: float) -> void:
 
 func _end(ok: bool) -> void:
 	set_physics_process(false)
+	if _wind:
+		_wind.stop()
 	var p := _rider
 	_rider = null
 	if kind == "coaster":

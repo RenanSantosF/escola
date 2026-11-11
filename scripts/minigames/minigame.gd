@@ -42,6 +42,7 @@ func setup(manager: Node) -> void:
 ## Começa o jogo (subclasses chamam super.begin() no fim).
 func begin() -> void:
 	running = true
+	AudioManager.music_game(true)
 	player.minigame = self
 	player._emit_context(true)
 
@@ -115,10 +116,10 @@ func counting(delta: float) -> bool:
 	if now != before or _countdown <= 0.0:
 		if _countdown <= 0.0:
 			hud.show_banner("Valendo!", "")
-			AudioManager.play_ui("ui_confirm")
+			AudioManager.play_ui("countdown_go", -2.0)
 		else:
 			hud.show_banner(str(now), title)
-			AudioManager.play_ui("ui_click")
+			AudioManager.play_ui("countdown_tick", -3.0)
 	return _countdown > 0.0
 
 
@@ -142,16 +143,25 @@ func end_game(won: int, summary: String, coins: int, xp: int, extra := {}) -> vo
 	hud.show_banner(head, "%s  (+%d XP)" % [summary, xp])
 	if won > 0:
 		player.visual.play("celebrate")
-		AudioManager.play_ui("celebrate", -4.0)
+		AudioManager.play_ui("win", -3.0)
 		Effects.burst(player.global_position + Vector3(0, 1.8, 0), "confetti")
 	elif won < 0:
 		player.visual.play("sad")
+		AudioManager.play_ui("lose", -5.0)
+	else:
+		AudioManager.play_ui("reward", -4.0)
+	AudioManager.music_game(false)
 	for n in participants:
 		if is_instance_valid(n) and n.role == "student":
 			Friendship.add(n.data.get("id", ""), 2 if won >= 0 else 1, id)
 	var stats: Dictionary = SaveManager.section("stats")
 	var key := "mg_" + id
 	var s: Dictionary = stats.get(key, {"played": 0, "won": 0, "best": 0})
+	# recorde pessoal (pontuação maior = melhor; na corrida o "score" é a colocação)
+	if extra.has("score") and int(s.get("played", 0)) > 0 and int(extra.score) > int(s.get("best", 0)) and id != "corrida":
+		get_tree().create_timer(1.6).timeout.connect(func():
+			hud.show_banner("NOVO RECORDE!", "%s: %d (antes: %d)" % [title, int(extra.score), int(s.get("best", 0))])
+			AudioManager.play_ui("levelup", -4.0))
 	s["played"] = int(s.get("played", 0)) + 1
 	if won > 0:
 		s["won"] = int(s.get("won", 0)) + 1
@@ -177,6 +187,78 @@ func cleanup() -> void:
 				npcs._start_recess_for(n, false)
 	participants.clear()
 	player._emit_context(true)
+
+
+# ------------------------------------------------------------- diversão comum
+## Sequência de acertos: cada acerto soa um tom acima; 3 seguidos = x2, 6 = x3.
+var combo := 0
+var best_combo := 0
+var _last_tick_s := -1
+
+
+func combo_mult() -> int:
+	return 3 if combo >= 6 else (2 if combo >= 3 else 1)
+
+
+## Acertou: soma na sequência e devolve o multiplicador.
+func add_combo() -> int:
+	combo += 1
+	best_combo = maxi(best_combo, combo)
+	AudioManager.play_combo(mini(combo - 1, 8))
+	if combo == 3:
+		hud.show_banner("COMBO x2!", "3 seguidos: pontos em dobro")
+		AudioManager.play_ui("combo", -3.0)
+	elif combo == 6:
+		hud.show_banner("PEGANDO FOGO! x3", "6 seguidos!")
+		AudioManager.play_ui("crowd_cheer", -8.0)
+		Effects.burst(player.global_position + Vector3(0, 2.0, 0), "confetti")
+	return combo_mult()
+
+
+## Errou: a sequência acaba.
+func break_combo() -> void:
+	if combo >= 3:
+		GameManager.show_toast("Sequência de %d acabou!" % combo)
+	combo = 0
+
+
+## Número que sobe e some no lugar (ex.: "+20").
+func popup(pos: Vector3, text: String, color := Color("ffd23f"), size := 72) -> void:
+	var l := Label3D.new()
+	l.text = text
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	l.font = UITheme.bold_font()
+	l.font_size = size
+	l.outline_size = 18
+	l.outline_modulate = Color(0, 0, 0, 0.75)
+	l.modulate = color
+	l.pixel_size = 0.006
+	world.add_child(l)
+	l.global_position = pos
+	l.scale = Vector3.ONE * 0.4
+	var tw := l.create_tween()
+	tw.tween_property(l, "scale", Vector3.ONE * 1.15, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "scale", Vector3.ONE, 0.08)
+	tw.parallel().tween_property(l, "global_position", pos + Vector3(0, 1.2, 0), 0.9).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "modulate:a", 0.0, 0.3)
+	tw.tween_callback(l.queue_free)
+
+
+## Tique-taque nos últimos 10 segundos (chame todo quadro com o tempo que falta).
+func tick_clock(left: float) -> void:
+	var s := int(ceil(left))
+	if s != _last_tick_s:
+		_last_tick_s = s
+		if s <= 10 and s > 0:
+			AudioManager.play_ui("timer_warn", -6.0 if s > 5 else -2.0)
+			if s == 10:
+				hud.show_banner("10 segundos!", "Últimos segundos valem DOBRO" if double_end() else "")
+
+
+## Últimos 10 s valem dobro? (os jogos de tempo ligam)
+func double_end() -> bool:
+	return false
 
 
 static func fmt_time(t: float) -> String:

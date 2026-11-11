@@ -1,7 +1,8 @@
 extends Minigame
-## Pontaria: acertar bolinhas de papel nas lixeiras de coleta seletiva.
-## 10 bolinhas; mira com o joystick, força com o botão amarelo (toque
-## para carregar, toque de novo para arremessar). Cada lixeira vale pontos.
+## Pontaria relâmpago: 40 segundos acertando bolinhas de papel nas lixeiras
+## da coleta seletiva. Joystick mira, SEGURE o botão (o arco mostra a curva) e
+## SOLTE. Uma lixeira fica "BÔNUS x2" e troca a cada 6 s. Acertos seguidos
+## fazem combo e os últimos 10 segundos valem dobro.
 
 const BIN_Z := -24.0
 const BINS := [Vector3(23.4, 0.0, -24.0), Vector3(23.8, 0.0, -24.0), Vector3(24.2, 0.0, -24.0), Vector3(24.6, 0.0, -24.0)]
@@ -9,8 +10,14 @@ const BIN_POINTS := [10, 20, 30, 50]
 const BIN_NAMES := ["papel", "plástico", "vidro", "metal"]
 const FROM := Vector3(24, 0.05, -17.5)
 
-var balls_left := 10
+const GAME_TIME := 40.0
+var balls_left := 999
 var score := 0
+var hits := 0
+var _bonus_k := 3
+var _bonus_t := 6.0
+var _bonus_lbl: Label3D
+var _cool := 0.0
 var _yaw := PI
 var _power := 0.0
 var _power_dir := 1.0
@@ -31,12 +38,38 @@ func begin() -> void:
 	player.movement_locked = true
 	if player.camera_rig:
 		player.camera_rig.set_override(Transform3D(Basis(), FROM + Vector3(0.9, 2.2, 2.6)).looking_at(Vector3(24, 0.6, -24), Vector3.UP))
+	time_left = GAME_TIME
+	_bonus_lbl = Label3D.new()
+	_bonus_lbl.text = "x2"
+	_bonus_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_bonus_lbl.font = UITheme.bold_font()
+	_bonus_lbl.font_size = 64
+	_bonus_lbl.outline_size = 16
+	_bonus_lbl.modulate = Color("ffd23f")
+	_bonus_lbl.pixel_size = 0.005
+	_root.add_child(_bonus_lbl)
+	_move_bonus()
+	countdown(3.0)
 	super.begin()
 	_update_hud()
 
 
+func double_end() -> bool:
+	return true
+
+
+func _move_bonus() -> void:
+	var k := _bonus_k
+	while k == _bonus_k:
+		k = randi() % BINS.size()
+	_bonus_k = k
+	_bonus_t = 6.0
+	_bonus_lbl.global_position = BINS[k] + Vector3(0, 1.15, 0)
+
+
 func _update_hud() -> void:
-	hud.set_minigame_text("Pontaria  ·  %d pontos  ·  %d bolinhas  ·  azul=10 verm.=20 verde=30 amarela=50" % [score, balls_left])
+	var mult := combo_mult() * (2 if time_left <= 10.0 else 1)
+	hud.set_minigame_text("Pontaria  ·  %d pontos  ·  %s  ·  azul 10 · verm. 20 · verde 30 · amarela 50%s" % [score, Minigame.fmt_time(time_left), ("  ·  x%d" % mult) if mult > 1 else ""])
 
 
 func play_label() -> String:
@@ -53,7 +86,7 @@ func on_interact() -> bool:
 
 
 func on_play() -> bool:
-	if balls_left <= 0:
+	if _countdown > 0.0 or _cool > 0.0:
 		return true
 	if not _charging:
 		_charging = true
@@ -72,7 +105,8 @@ func on_play_release() -> bool:
 
 
 func _throw() -> void:
-	balls_left -= 1
+	_cool = 0.25
+	AudioManager.play_ui("throw", -8.0)
 	player.visual.play("throw")
 	var dir := Vector3(sin(_yaw), 0, cos(_yaw))
 	var speed := lerpf(4.0, 10.0, _power)
@@ -86,13 +120,22 @@ func _throw() -> void:
 	var start := FROM + Vector3(0, 1.5, 0) + dir * 0.3
 	mi.global_position = start
 	get_tree().create_timer(0.4).timeout.connect(func():
-		_flying.append({"node": mi, "pos": start, "vel": vel, "done": false}))
+		_flying.append({"node": mi, "pos": start, "vel": vel, "done": false, "hit": false}))
 	_update_hud()
 
 
 func tick(delta: float) -> void:
 	if not running:
 		return
+	if counting(delta):
+		return
+	time_left -= delta
+	tick_clock(time_left)
+	_cool = maxf(_cool - delta, 0.0)
+	_bonus_t -= delta
+	if _bonus_t <= 0.0:
+		_move_bonus()
+	_bonus_lbl.scale = Vector3.ONE * (1.0 + 0.12 * sin(Time.get_ticks_msec() * 0.012))
 	var mv := player.read_move_raw()
 	_yaw -= mv.x * delta * 0.7
 	_yaw = clampf(_yaw, PI - 0.6, PI + 0.6)
@@ -118,25 +161,37 @@ func tick(delta: float) -> void:
 			for k in BINS.size():
 				if Vector2(f.pos.x - BINS[k].x, f.pos.z - BINS[k].z).length() < 0.17:
 					f.done = true
-					score += BIN_POINTS[k]
-					AudioManager.play_ui("ui_confirm", -4.0)
-					GameManager.show_toast("Cesta no lixo de %s! +%d" % [BIN_NAMES[k], BIN_POINTS[k]])
+					f.hit = true
+					hits += 1
+					var mult := add_combo() * (2 if time_left <= 10.0 else 1) * (2 if k == _bonus_k else 1)
+					var pts: int = int(BIN_POINTS[k]) * mult
+					score += pts
+					popup(BINS[k] + Vector3(0, 1.0, 0), "+%d" % pts, Color("6be36b") if k == _bonus_k else Color("ffd23f"))
+					if k == _bonus_k:
+						AudioManager.play_ui("reward", -6.0)
+						_move_bonus()
 					f.node.visible = false
 		if f.pos.y < 0.04:
 			f.done = true
+			if not f.hit:
+				break_combo()
 	_update_hud()
 	player._emit_context()
-	if balls_left <= 0 and _flying.all(func(f): return f.done):
+	_flying = _flying.filter(func(f):
+		if f.done and is_instance_valid(f.node) and not f.node.visible:
+			f.node.queue_free()
+		return not f.done or (is_instance_valid(f.node) and f.node.visible))
+	if time_left <= 0.0:
 		_finish()
 
 
 func _finish() -> void:
 	if not running:
 		return
-	var won := 1 if score >= 100 else (0 if score >= 40 else -1)
-	if score >= 200:
+	var won := 1 if score >= 250 else (0 if score >= 100 else -1)
+	if score >= 400:
 		GameManager.unlock_achievement("mira_certeira")
-	end_game(won, "Pontaria: %d pontos" % score, 4 + score / 12, 8 + score / 6, {"score": score})
+	end_game(won, "Pontaria: %d pontos (%d acertos, combo %d)" % [score, hits, best_combo], 0, 10 + score / 12, {"score": score})
 
 
 func cleanup() -> void:

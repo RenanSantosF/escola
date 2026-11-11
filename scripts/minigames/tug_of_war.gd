@@ -25,6 +25,10 @@ var _pulls := {"a": 0.0, "b": 0.0}  # anfitrião: puxões recebidos
 var _net_t := 0.0
 var _state: Dictionary = {}
 var _state_age := 0.0
+var _surge_t := 6.0  # próxima arrancada do outro time
+var _surge := 0.0  # arrancada em andamento (segundos restantes)
+var _warned := false
+var beats_hit := 0
 
 
 func begin() -> void:
@@ -144,17 +148,25 @@ func on_play() -> bool:
 		return true
 	# no "PUXA!" (barra quase cheia) vale o dobro
 	var on_beat := fposmod(_beat, 1.0) > 0.78
-	if net_role == "client":
-		NetworkManager.mg_send_relay(str(net.gid), {"k": "pull", "beat": on_beat})
-	elif net_role == "host":
-		_pulls[my_team] += 0.09 if on_beat else 0.045
-	else:
-		offset -= 0.09 if on_beat else 0.045
-	player.visual.play("push")
+	var mult := 1.0
 	if on_beat:
-		AudioManager.play_ui("ui_confirm", -10.0)
+		beats_hit += 1
+		mult = float(add_combo())
+		if _surge > 0.0:
+			mult *= 1.6  # segurando a arrancada
+			popup(player.global_position + Vector3(0, 2.1, 0), "SEGURA!", Color("6be36b"), 48)
 		for n in team_a:
 			n.visual.play("push")
+	elif fposmod(_beat, 1.0) < 0.5 and combo > 0:
+		break_combo()  # puxou fora do ritmo
+	var amount := (0.09 if on_beat else 0.04) * mult
+	if net_role == "client":
+		NetworkManager.mg_send_relay(str(net.gid), {"k": "pull", "beat": on_beat, "m": mult})
+	elif net_role == "host":
+		_pulls[my_team] += amount
+	else:
+		offset -= amount
+	player.visual.play("push")
 	return true
 
 
@@ -175,15 +187,30 @@ func tick(delta: float) -> void:
 	time_left -= delta
 	_beat += delta / 0.55
 	hud.set_meter(fposmod(_beat, 1.0))
-	# força do outro time: constante + arrancadas
-	_their = 0.42 + 0.25 * maxf(sin(Time.get_ticks_msec() * 0.0021), 0.0)
+	tick_clock(time_left)
+	# força do outro time: constante + ARRANCADAS avisadas
+	_surge_t -= delta
+	if _surge_t <= 1.2 and not _warned:
+		_warned = true
+		hud.show_banner("Eles vão puxar forte!", "Acerte o PUXA! para segurar")
+		AudioManager.play_ui("whistle", -8.0)
+	if _surge_t <= 0.0:
+		_surge = 2.2
+		_surge_t = randf_range(6.0, 9.0)
+		_warned = false
+		for n in team_b:
+			n.visual.play("push")
+			n.say(["Agora!", "Puxa!", "Força!"].pick_random(), 1.0)
+	_surge = maxf(_surge - delta, 0.0)
+	_their = 0.42 + (0.9 if _surge > 0.0 else 0.0)
 	offset += _their * delta * 0.55
 	# nosso time ajuda um pouco sozinho
 	offset -= 0.12 * delta
 	if randf() < delta * 1.5:
 		for n in team_b:
 			n.visual.play("push")
-	hud.set_minigame_text("Cabo de guerra  ·  %s  ·  %d s  ·  toque RÁPIDO e no PUXA!" % ["Ganhando!" if offset < 0 else "Perdendo!", int(maxf(time_left, 0.0))])
+	var tag := "SEGURA!" if _surge > 0.0 else ("Ganhando!" if offset < 0 else "Perdendo!")
+	hud.set_minigame_text("Cabo de guerra  ·  %s  ·  %d s  ·  acerte o PUXA! (combo x%d)" % [tag, int(maxf(time_left, 0.0)), combo_mult()])
 	if offset <= -WIN_OFFSET or offset >= WIN_OFFSET or time_left <= 0.0:
 		_finish()
 
@@ -216,7 +243,7 @@ func _on_relay(gid: String, from: String, d: Variant) -> void:
 		return
 	if net_role == "host" and str(d.get("k", "")) == "pull" and running and _countdown <= 0.0:
 		var t := str((net.get("teams", {}) as Dictionary).get(from, "b"))
-		_pulls[t] += 0.09 if bool(d.get("beat", false)) else 0.045
+		_pulls[t] += (0.09 if bool(d.get("beat", false)) else 0.04) * clampf(float(d.get("m", 1.0)), 1.0, 4.8)
 	elif net_role == "client" and from == str(net.get("host", "")):
 		_state = d
 		_state_age = 0.0

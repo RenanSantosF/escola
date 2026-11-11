@@ -12,6 +12,7 @@ var hiders: Array = []  # [{npc, spot, found}]
 var found := 0
 var _counting := 4.5
 var _hint_t := 35.0
+var _heat_t := 0.0
 var _blind: ColorRect
 
 
@@ -111,22 +112,44 @@ func tick(delta: float) -> void:
 			AudioManager.play_ui("whistle", -6.0)
 		return
 	time_left -= delta
+	tick_clock(time_left)
 	var pp := player.global_position
+	var nearest := INF
 	for h in hiders:
 		if h.found:
 			continue
 		var n: NPC = h.npc
 		var d := n.global_position.distance_to(pp)
+		nearest = minf(nearest, d)
 		if d < FIND_DIST:
 			_found(h)
+		elif d < 6.0 and not h.get("ran", false) and randf() < 0.4:
+			# fujão! corre para outro esconderijo (dá para pegar correndo)
+			h["ran"] = true
+			var spots := _hide_spots()
+			var far: Vector3 = spots.pick_random() if not spots.is_empty() else n.global_position + Vector3(8, 0, 0)
+			n.visual.stop_action()
+			n.running = true
+			n.run_speed = 4.6
+			n.go_to(far, true, func():
+				if is_instance_valid(n) and not h.found:
+					n.visual.play("crouch"))
+			n.say("Não me pega!", 1.6)
+			AudioManager.play_3d("whoosh", n.global_position, -4.0)
 		elif d < 9.0 and randf() < delta * 0.25:
 			n.say(["hihi...", "shhh!", "*risadinha*"].pick_random(), 1.4)
+	# quente ou frio: batida mais rápida quanto mais perto
+	_heat_t -= delta
+	var heat := "Quente!" if nearest < 7.0 else ("Morno" if nearest < 15.0 else "Frio")
+	if nearest < 15.0 and _heat_t <= 0.0:
+		_heat_t = 0.25 if nearest < 7.0 else 0.6
+		AudioManager.play_ui("timer_warn", -14.0 if nearest >= 7.0 else -9.0)
 	_hint_t -= delta
 	if _hint_t <= 0.0:
 		_hint_t = 30.0
 		_hint()
 	var m := int(maxf(time_left, 0.0))
-	hud.set_minigame_text("Esconde-esconde  ·  achou %d de %d  ·  %d:%02d" % [found, hiders.size(), m / 60, m % 60])
+	hud.set_minigame_text("Esconde-esconde  ·  achou %d de %d  ·  %d:%02d  ·  %s" % [found, hiders.size(), m / 60, m % 60, heat])
 	if found >= hiders.size() or time_left <= 0.0:
 		_finish()
 
@@ -139,8 +162,8 @@ func _found(h: Dictionary) -> void:
 	n.face(player.global_position)
 	n.say(["Ah, me achou!", "Puxa! Achou!", "Como você me viu?!"].pick_random(), 2.2)
 	n.visual.play("sad" if randf() < 0.4 else "celebrate")
-	AudioManager.play_ui("ui_confirm", -2.0)
-	GameManager.show_toast("Achou %s! (%d de %d)" % [n.display_name, found, hiders.size()])
+	add_combo()
+	popup(n.global_position + Vector3(0, 2.2, 0), "Achei! %d/%d" % [found, hiders.size()], Color("6be36b"))
 	get_tree().create_timer(1.2).timeout.connect(func():
 		if is_instance_valid(n):
 			n.go_to(BASE + Vector3(randf_range(-3, 3), 0, randf_range(-1, 1)), true))

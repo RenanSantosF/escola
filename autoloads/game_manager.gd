@@ -91,8 +91,10 @@ func add_rewards(xp: int, coin_amount: int) -> void:
 		show_toast("Subiu para o nível %d!" % lv)
 		if player:
 			Effects.burst(player.global_position + Vector3(0, 2.0, 0), "confetti")
-		AudioManager.play_ui("celebrate", -4.0)
+		AudioManager.play_ui("levelup", -3.0)
 	p["xp"] = cur
+	if coin_amount > 0:
+		AudioManager.play_ui("coin", -5.0)
 	p["level"] = lv
 	rewards_changed.emit(cur, int(p.coins), lv)
 

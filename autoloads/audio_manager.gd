@@ -85,7 +85,9 @@ func get_stream(sound: String) -> AudioStream:
 		if entry is Array:
 			return entry.pick_random() if not entry.is_empty() else null
 		return entry
-	var path := AUDIO_DIR + sound + ".wav"
+	var path := AUDIO_DIR + sound + ".ogg"
+	if not ResourceLoader.exists(path):
+		path = AUDIO_DIR + sound + ".wav"
 	if ResourceLoader.exists(path):
 		_cache[sound] = load(path)
 		return _cache[sound]
@@ -127,6 +129,44 @@ func play_ui(sound: String, volume_db := 0.0, pitch_variation := 0.0) -> void:
 	p.play()
 
 
+## Som de interface com tom definido (sequências que sobem: combo, pontos seguidos).
+func play_ui_pitch(sound: String, pitch: float, volume_db := 0.0) -> void:
+	var stream := get_stream(sound)
+	if stream == null:
+		return
+	var p := _pool2d[_next2d]
+	_next2d = (_next2d + 1) % POOL_2D
+	p.stream = stream
+	p.volume_db = volume_db
+	p.pitch_scale = clampf(pitch, 0.5, 2.5)
+	p.play()
+
+
+## Pontos seguidos: cada um soa um tom acima (até 8 degraus da escala maior).
+func play_combo(n: int, volume_db := -4.0) -> void:
+	var scale := [0, 2, 4, 5, 7, 9, 11, 12, 14]
+	var k: int = scale[clampi(n, 0, scale.size() - 1)]
+	play_ui_pitch("point", pow(2.0, k / 12.0), volume_db)
+	if n > 0 and n % 5 == 0:
+		play_ui("combo", volume_db)
+
+
+var _music_before := ""
+var _music_before_db := -11.0
+var _music_db := -11.0
+
+
+## Música das brincadeiras por cima da do recreio (volta sozinha ao acabar).
+func music_game(on: bool) -> void:
+	if on:
+		if _music_current != "music_jogo":
+			_music_before = _music_current
+			_music_before_db = _music_db
+		play_music("music_jogo", -12.0, 0.8)
+	elif _music_current == "music_jogo":
+		play_music(_music_before if _music_before != "" else "music_recreio", _music_before_db, 1.5)
+
+
 ## Troca o som ambiente com crossfade suave.
 func set_ambient(sound: String, volume_db := -6.0, fade := 1.5) -> void:
 	if sound == _ambient_current:
@@ -156,6 +196,7 @@ func play_music(track: String, volume_db := -8.0, fade := 1.8) -> void:
 	if track == _music_current:
 		return
 	_music_current = track
+	_music_db = volume_db
 	var incoming := _music_b if _music.playing and _music.volume_db > -60.0 else _music
 	var outgoing := _music if incoming == _music_b else _music_b
 	if outgoing.playing:
@@ -175,6 +216,9 @@ func play_music(track: String, volume_db := -8.0, fade := 1.8) -> void:
 
 
 func _make_loop(stream: AudioStream) -> void:
+	if stream is AudioStreamOggVorbis:
+		(stream as AudioStreamOggVorbis).loop = true
+		return
 	if stream is AudioStreamWAV:
 		var wav := stream as AudioStreamWAV
 		if wav.loop_mode == AudioStreamWAV.LOOP_DISABLED:

@@ -640,13 +640,17 @@ func _goal(team: int) -> void:
 		score_a += 1
 		hud.show_banner("GOOOL!", "Seu time %d x %d" % [score_a, score_b])
 		player.visual.play("celebrate")
-		AudioManager.play_ui("applause", -4.0)
+		AudioManager.play_ui("goal", -2.0)
 		Effects.burst(ball.global_position, "confetti")
+		popup(ball.global_position + Vector3(0, 2.0, 0), "GOOOL!", Color("ffd23f"), 110)
+		if player.camera_rig:
+			player.camera_rig.shake(0.15)
 		for n in team_a:
 			n.visual.play("clap")
 	else:
 		score_b += 1
 		hud.show_banner("Gol do adversário", "Seu time %d x %d" % [score_a, score_b])
+		AudioManager.play_ui("crowd_cheer", -12.0)
 		for n in team_b:
 			n.visual.play("celebrate")
 	if player.camera_rig:
@@ -1167,7 +1171,7 @@ func _client_tick(delta: float) -> void:
 		hud.show_banner("GOOOL!" if ours else "Gol do adversário", "Seu time %d x %d" % _my_score())
 		if ours:
 			player.visual.play("celebrate")
-			AudioManager.play_ui("applause", -4.0)
+			AudioManager.play_ui("goal", -2.0)
 	var ko := int(st.get("ko", 0))
 	if ko != _client_ko:
 		if _client_ko >= 0:

@@ -153,6 +153,7 @@ func _physics_process(delta: float) -> void:
 	if is_on_floor():
 		if _air_time > 0.45:
 			Effects.burst(global_position + Vector3(0, 0.05, 0), "dust")
+			AudioManager.play_3d("land", global_position, -8.0, 0.1)
 		_coyote = 0.12
 		_air_time = 0.0
 	else:
@@ -162,6 +163,7 @@ func _physics_process(delta: float) -> void:
 	_jump_buffer -= delta
 	if _jump_buffer > 0.0 and _coyote > 0.0 and mode == Mode.FREE:
 		velocity.y = jump_velocity
+		AudioManager.play_3d("jump", global_position + Vector3.UP * 0.5, -12.0, 0.1)
 		_jump_buffer = 0.0
 		_coyote = 0.0
 		if visual.animator.is_playing():

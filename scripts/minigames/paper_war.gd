@@ -11,6 +11,8 @@ const SPEED := 11.0
 
 var foes: Array[NPC] = []
 var hits := 0
+var points := 0
+var dodges := 0
 var lives := 3
 var _shots: Array = []  # {node, pos, vel, from_player, alive, warn}
 var _root: Node3D
@@ -148,7 +150,7 @@ func _spawn_shot(start: Vector3, vel: Vector3, from_player: bool) -> void:
 		_root.add_child(warn)
 		warn.global_position = Vector3(land.x, 0.06, land.z)
 	_shots.append({"node": mi, "pos": start, "vel": vel, "from_player": from_player, "alive": true, "warn": warn})
-	AudioManager.play_3d("whoosh", start, -8.0)
+	AudioManager.play_3d("throw", start, -4.0)
 
 
 func tick(delta: float) -> void:
@@ -159,7 +161,9 @@ func tick(delta: float) -> void:
 	_cd = maxf(_cd - delta, 0.0)
 	_inv = maxf(_inv - delta, 0.0)
 	time_left -= delta
-	hud.set_minigame_text("Guerra de papel  ·  Acertos: %d  ·  Vidas: %s  ·  %s" % [hits, "♥".repeat(maxi(lives, 0)), fmt_time(time_left)])
+	tick_clock(time_left)
+	var mult := combo_mult() * (2 if time_left <= 10.0 else 1)
+	hud.set_minigame_text("Guerra de papel  ·  %d pontos  ·  Vidas: %d  ·  %s%s" % [points, maxi(lives, 0), fmt_time(time_left), ("  ·  x%d" % mult) if mult > 1 else ""])
 	if time_left <= 0.0:
 		_finish()
 		return
@@ -198,24 +202,39 @@ func tick(delta: float) -> void:
 		s.pos += s.vel * delta
 		s.node.global_position = s.pos
 		if s.pos.y < 0.05:
+			if s.from_player:
+				break_combo()
+			else:
+				# caiu pertinho e não te pegou: desviou!
+				var dd := Vector2(s.pos.x - player.global_position.x, s.pos.z - player.global_position.z).length()
+				if dd < 1.8 and _inv <= 0.0:
+					dodges += 1
+					points += 1
+					popup(player.global_position + Vector3(0, 2.0, 0), "Desviou! +1", Color("4cc9f0"), 48)
+					AudioManager.play_ui("whoosh", -10.0)
 			_kill_shot(s)
 			continue
 		if s.from_player:
 			for f in foes:
 				if (f.global_position + Vector3(0, 1.0, 0)).distance_to(s.pos) < 0.6:
 					hits += 1
+					var pts := 2 * add_combo() * (2 if time_left <= 10.0 else 1)
+					points += pts
+					popup(f.global_position + Vector3(0, 2.2, 0), "+%d" % pts, Color("ffd23f"))
 					_kill_shot(s)
 					f.visual.play("hit")
 					f.say(["Ai!", "Me pegou!", "Não valeu!"].pick_random(), 1.0)
-					AudioManager.play_3d("bonk", f.global_position, -8.0)
+					AudioManager.play_3d("hit", f.global_position, -4.0)
 					Effects.burst(s.pos, "sparkle")
 					break
 		elif _inv <= 0.0 and (player.global_position + Vector3(0, 1.0, 0)).distance_to(s.pos) < 0.5:
 			_kill_shot(s)
 			lives -= 1
 			_inv = 1.0
+			break_combo()
+			popup(player.global_position + Vector3(0, 2.0, 0), "Ai!", Color("ff6b6b"), 56)
 			player.visual.play("hit")
-			AudioManager.play_ui("bonk", -6.0)
+			AudioManager.play_ui("hit", -4.0)
 			if lives <= 0:
 				_finish()
 				return
@@ -237,8 +256,12 @@ func _kill_shot(s: Dictionary) -> void:
 func _finish() -> void:
 	if not running:
 		return
-	var won := 1 if hits >= 8 and lives > 0 else (0 if hits >= 4 else -1)
-	end_game(won, "%d acertos" % hits, 5 + hits * 2, 10 + hits * 3, {"score": hits})
+	var won := 1 if points >= 24 and lives > 0 else (0 if points >= 10 else -1)
+	end_game(won, "%d pontos  ·  %d acertos, %d desvios, combo %d" % [points, hits, dodges, best_combo], 0, 10 + points, {"score": points})
+
+
+func double_end() -> bool:
+	return true
 
 
 func cleanup() -> void:

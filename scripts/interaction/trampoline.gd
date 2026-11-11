@@ -41,7 +41,7 @@ func _physics_process(delta: float) -> void:
 	p.velocity.y = BOUNCE[mini(_n, BOUNCE.size() - 1)]
 	_n += 1
 	p.visual.play("jump")
-	AudioManager.play_3d("ball_bounce", global_position, -2.0, 0.15)
+	AudioManager.play_3d("boing", global_position, -3.0, 0.1)
 	if _n == 4:
 		GameManager.show_toast("Que alto!")
 		GameManager.add_stat("cama_elastica")

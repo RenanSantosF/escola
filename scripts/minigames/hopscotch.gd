@@ -2,8 +2,8 @@ extends Minigame
 ## Amarelinha pintada no pátio. Regras:
 ## 1) SEGURE o botão amarelo e solte na força certa para a pedrinha cair
 ##    na casa da vez (1 a 8).
-## 2) Pule (botão azul) no ritmo do círculo: casas simples com UM pé,
-##    casas duplas com um pé em cada — nunca na casa da pedrinha!
+## 2) Pule no RITMO: toque quando o anel fechar na casa (Perfeito = +3,
+##    Bom = +1; cedo ou atrasado quebra a sequência). O ritmo acelera a cada casa.
 ## 3) Vá até o CÉU, vire e volte pegando a pedrinha. 3 vidas.
 
 const ORIGIN := Vector3(-14, 0.05, -2)
@@ -27,6 +27,9 @@ var _beat_t := 0.0
 var _hopping := false
 var _beat_ring: MeshInstance3D
 var _root: Node3D
+var points := 0
+var perfects := 0
+var _early := 0
 
 
 static func cell_pos(n: int) -> Vector3:
@@ -120,7 +123,12 @@ func _to_start() -> void:
 
 func _update_hud() -> void:
 	var t := "Segure e solte quando o círculo ficar VERDE" if stage == "throw" else "Toque em Pular para cada casa"
-	hud.set_minigame_text("Amarelinha  ·  Casa %d de 8  ·  Vidas: %s  ·  %s" % [target, "♥".repeat(lives), t])
+	hud.set_minigame_text("Amarelinha  ·  %d pontos  ·  Casa %d de 8  ·  Vidas: %d  ·  %s" % [points, target, lives, t])
+
+
+## Ritmo da vez: começa calmo e acelera a cada casa.
+func beat() -> float:
+	return maxf(0.8 - (target - 1) * 0.05, 0.48)
 
 
 func play_label() -> String:
@@ -157,7 +165,28 @@ func on_play_release() -> bool:
 func on_jump() -> bool:
 	if stage != "hop" or _hopping:
 		return true
-	# sem castigo por ritmo: o círculo só ajuda a criança a achar o próximo pulo
+	# ritmo: o anel fecha em beat(); tocar perto disso vale mais
+	var err := _beat_t - beat()
+	if err < -0.32:
+		# cedo demais: desequilibra (não pula)
+		_early += 1
+		break_combo()
+		player.visual.play("hit")
+		popup(player.global_position + Vector3(0, 2.0, 0), "Calma!", Color("ff9f43"), 48)
+		_beat_t = maxf(_beat_t - 0.15, 0.0)
+		return true
+	if absf(err) < 0.12:
+		perfects += 1
+		var pts := 3 * add_combo()
+		points += pts
+		popup(_plan[_plan_i].pos + Vector3(0, 1.6, 0), "Perfeito! +%d" % pts, Color("6be36b"), 52)
+	elif absf(err) < 0.3:
+		var pts2 := add_combo()
+		points += pts2
+		popup(_plan[_plan_i].pos + Vector3(0, 1.6, 0), "Bom +%d" % pts2, Color("ffd23f"), 44)
+	else:
+		break_combo()
+		popup(_plan[_plan_i].pos + Vector3(0, 1.6, 0), "Atrasou", Color("cccccc"), 40)
 	_do_hop()
 	return true
 
@@ -176,7 +205,7 @@ func _throw_stone() -> void:
 	_stone_cell = _cell_at(land)
 	# perto o bastante da casa certa? a pedrinha "escorrega" para ela
 	var want := cell_pos(target)
-	if _stone_cell != target and absf(land.z - want.z) < 0.8:
+	if _stone_cell != target and absf(land.z - want.z) < maxf(0.7 - target * 0.04, 0.35):
 		var snap := create_tween()
 		snap.tween_property(_stone, "global_position", want + Vector3(0, 0.04, 0), 0.18)
 		_stone_cell = target
@@ -184,7 +213,8 @@ func _throw_stone() -> void:
 	if _stone_cell != target:
 		_fail("A pedrinha caiu fora da casa %d!" % target)
 		return
-	AudioManager.play_ui("ui_confirm", -6.0)
+	AudioManager.play_ui("point", -6.0)
+	popup(want + Vector3(0, 1.0, 0), "Na casa %d!" % target, Color("6be36b"), 48)
 	stage = "hop"
 	_plan = hop_plan(target)
 	_plan_i = 0
@@ -229,7 +259,9 @@ func _do_hop() -> void:
 
 func _round_done() -> void:
 	player.visual.stop_action()
-	GameManager.show_toast("Casa %d completa!" % target)
+	points += 10
+	AudioManager.play_ui("reward", -6.0)
+	hud.show_banner("Casa %d completa! +10" % target, "Agora mais rápido!" if target < 8 else "")
 	target += 1
 	if target > 8:
 		_finish()
@@ -240,7 +272,7 @@ func _round_done() -> void:
 func _fail(msg: String) -> void:
 	lives -= 1
 	player.visual.play("sad")
-	AudioManager.play_ui("bonk", -8.0)
+	AudioManager.play_ui("trip", -4.0)
 	GameManager.show_toast(msg)
 	_stone.visible = false
 	if lives <= 0:
@@ -264,7 +296,7 @@ func tick(delta: float) -> void:
 		_beat_ring.visible = true
 		_beat_ring.global_position = ORIGIN + Vector3(CELLS[target].x, 0.05, -dist)
 		# verde = vai cair na casa certa
-		var on_target := absf(-dist - (cell_pos(target).z - ORIGIN.z)) < 0.8
+		var on_target := absf(-dist - (cell_pos(target).z - ORIGIN.z)) < maxf(0.7 - target * 0.04, 0.35)
 		_beat_ring.scale = Vector3.ONE * (0.8 if on_target else 0.55)
 		(_beat_ring.mesh.surface_get_material(0) as StandardMaterial3D).albedo_color = Color("6be36b") if on_target else Color.WHITE
 	elif stage == "hop":
@@ -273,9 +305,13 @@ func tick(delta: float) -> void:
 		var nxt: Dictionary = _plan[_plan_i]
 		_beat_ring.visible = true
 		_beat_ring.global_position = nxt.pos + Vector3(0, 0.05, 0)
-		_beat_ring.scale = Vector3.ONE * lerpf(2.2, 0.8, clampf(_beat_t / BEAT, 0.0, 1.0))
-		# demorou? pula sozinho (só ganha menos pontos de estilo)
-		if _beat_t > BEAT * 3.0 and not _hopping:
+		var b := beat()
+		_beat_ring.scale = Vector3.ONE * lerpf(2.2, 0.8, clampf(_beat_t / b, 0.0, 1.0))
+		var mat := _beat_ring.mesh.surface_get_material(0) as StandardMaterial3D
+		mat.albedo_color = Color("6be36b") if absf(_beat_t - b) < 0.12 else Color("ffcf3f")
+		# demorou muito? pula sozinho, sem ponto
+		if _beat_t > b + 0.9 and not _hopping:
+			break_combo()
 			_do_hop()
 	else:
 		_beat_ring.visible = false
@@ -288,7 +324,7 @@ func _finish() -> void:
 		return
 	var done := target - 1
 	var won := 1 if done >= 8 else (0 if done >= 4 else -1)
-	end_game(won, "Amarelinha: %d casas" % done, 4 + done * 3, 8 + done * 4, {"score": done})
+	end_game(won, "Amarelinha: %d casas · %d pontos (%d perfeitos)" % [done, points, perfects], 0, 8 + done * 3 + points / 4, {"score": points})
 
 
 func cleanup() -> void:

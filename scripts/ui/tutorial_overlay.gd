@@ -12,12 +12,21 @@ const BUTTON_COLORS := {
 }
 
 
+## Versão das regras: quando a brincadeira muda, o tutorial aparece de novo.
+const VERSION := {"gude": 2, "amarelinha": 2, "aviao": 2, "corrida": 2, "corda": 2, "pontaria": 2, "basquete": 2, "cabo": 2, "guerra": 2, "esconde": 2}
+
+
+static func _key(gid: String) -> String:
+	var v := int(VERSION.get(gid, 1))
+	return gid if v <= 1 else "%s_v%d" % [gid, v]
+
+
 static func seen(gid: String) -> bool:
-	return bool(SaveManager.section("tutorials").get(gid, false))
+	return bool(SaveManager.section("tutorials").get(_key(gid), false))
 
 
 static func mark_seen(gid: String) -> void:
-	SaveManager.section("tutorials")[gid] = true
+	SaveManager.section("tutorials")[_key(gid)] = true
 
 
 ## steps: [[botão, texto], ...] — botão: "Amarelo", "Azul", "Verde", "Laranja", "Joystick" ou "".

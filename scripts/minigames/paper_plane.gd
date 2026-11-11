@@ -7,7 +7,8 @@ extends Minigame
 ## Pontos: distância + argolas atravessadas + pouso no alvo. 3 lançamentos.
 
 const LAUNCH := Vector3(12, 1.45, 1.5)
-const RINGS := [Vector3(12, 1.6, -6), Vector3(13, 1.3, -12.5)]
+## circuito em zigue-zague: precisa fazer curva no ar
+const RINGS := [Vector3(12, 1.65, -4.5), Vector3(13.6, 1.5, -8.5), Vector3(12.2, 1.3, -12.0), Vector3(10.6, 1.05, -15.0)]
 const TARGET := Vector3(12, 0.02, -16.5)
 const THROWS := 3
 
@@ -295,9 +296,9 @@ func _fly(delta: float) -> void:
 				var cross := Vector2(pos.x - rg.x, pos.y - rg.y).length()
 				if cross < 1.0:
 					_rings_passed[k] = true
-					AudioManager.play_ui("ui_confirm", -4.0)
+					var mult := add_combo()
+					popup(rg + Vector3(0, 1.0, 0), "+%d" % (20 * mult), Color("ffd23f"))
 					Effects.burst(rg, "confetti")
-					GameManager.show_toast("Passou pela argola! +20")
 		# colisão com o cenário (ignora o primeiro instante, perto da mão)
 		if _fly_t > 0.12:
 			var qr := PhysicsRayQueryParameters3D.create(prev, pos, 1)
@@ -326,11 +327,22 @@ func _fly(delta: float) -> void:
 		_land_wait = 0.5
 
 
+var tgt_bonus := ""
+
+
 func _score_throw() -> void:
+	tgt_bonus = ""
 	var dist := _distance()
-	var pts := int(dist * 3.0) + _rings_passed.size() * 20
+	var ring_pts := 0
+	for i in _rings_passed.size():
+		ring_pts += 20 * (3 if i >= 5 else (2 if i >= 2 else 1))
+	var pts := int(dist * 3.0) + ring_pts
+	if _rings_passed.size() == RINGS.size():
+		pts += 40
+		tgt_bonus = "  ·  TODAS AS ARGOLAS! +40"
+	combo = 0
 	var td := Vector2(pos.x - TARGET.x, pos.z - TARGET.z).length()
-	var tgt_msg := ""
+	var tgt_msg := tgt_bonus
 	if td < 0.5:
 		pts += 50
 		tgt_msg = "  ·  NO CENTRO DO ALVO! +50"
@@ -349,7 +361,8 @@ func _score_throw() -> void:
 	if throws_left <= 0:
 		get_tree().create_timer(2.0).timeout.connect(_finish)
 	else:
-		get_tree().create_timer(2.0).timeout.connect(_start_fold)
+		# o avião já está dobrado: só mira e lança de novo
+		get_tree().create_timer(2.0).timeout.connect(_start_aim)
 		step = Step.DONE
 
 
