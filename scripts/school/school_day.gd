@@ -884,10 +884,11 @@ func _update_deadline() -> void:
 		left = int(ceil(NetworkManager.phase_left()))
 	if left != _deadline_shown:
 		_deadline_shown = left
+		# o tempo já aparece no contador "Aula em" logo abaixo (sem repetir)
 		if next_room == NPCManager.CLASS_ROOM:
-			hud.set_objective("Vá para a %s e sente na carteira · %d:%02d" % [next_room, maxi(left, 0) / 60, maxi(left, 0) % 60])
+			hud.set_objective("Vá para a %s e sente na carteira" % next_room)
 		else:
-			hud.set_objective("Próxima aula no(a) %s · %d:%02d" % [next_room, maxi(left, 0) / 60, maxi(left, 0) % 60])
+			hud.set_objective("Próxima aula no(a) %s" % next_room)
 		if left == 20:
 			GameManager.show_toast("Faltam 20 segundos para a aula começar!")
 	if left <= 0 and synced:

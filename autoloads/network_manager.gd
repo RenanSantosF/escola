@@ -28,6 +28,10 @@ signal mg_relay(gid: String, from: String, d: Variant)
 signal mg_error(gid: String, text: String)
 ## Mensagem direta de outro jogador (missão em grupo).
 signal direct(from: String, from_name: String, kind: String, data: Variant)
+## Amigos: pedido recebido, aviso (aceitou) e convite para a sala de um amigo.
+signal friend_request(from: String, name: String)
+signal friend_notice(text: String)
+signal friend_invite(from: String, name: String, code: String)
 
 ## Servidor oficial no Railway.
 const SERVER_URL := "wss://escola-production-061f.up.railway.app"
@@ -291,6 +295,12 @@ func _handle(m: Dictionary) -> void:
 			chat.emit(str(m.id), str(m.name), str(m.text))
 		"notice":
 			notice.emit(str(m.text))
+		"friend_request":
+			friend_request.emit(str(m.get("from", "")), str(m.get("name", "")))
+		"friend_notice":
+			friend_notice.emit(str(m.get("text", "")))
+		"friend_invite":
+			friend_invite.emit(str(m.get("from", "")), str(m.get("name", "")), str(m.get("code", "")))
 
 
 ## Mesmas durações do servidor (server/src/clock.js).
@@ -399,6 +409,11 @@ func send_look() -> void:
 
 func send_quick(i: int, ch := "all") -> void:
 	send({"t": "quick", "i": i, "ch": ch})
+
+
+## Chama um amigo para a minha sala.
+func invite_friend(id: String) -> void:
+	send({"t": "friend_invite", "id": id})
 
 
 func send_emote(emote_name: String) -> void:

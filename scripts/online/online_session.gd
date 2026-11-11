@@ -53,6 +53,15 @@ func setup(p: PlayerController, w: Node3D, ui_parent: Node, hud: HUD) -> void:
 	nm.states.connect(_on_states)
 	nm.chat.connect(_on_chat)
 	nm.notice.connect(func(t): chat_panel.add_line("", t, true))
+	nm.friend_notice.connect(func(t):
+		GameManager.show_toast(t)
+		AudioManager.play_ui("reward", -6.0))
+	nm.friend_request.connect(func(from, nm2):
+		_ask("%s quer ser seu amigo!" % nm2, "Aceitar", func():
+			var r: Dictionary = await AccountManager.friend_accept(from)
+			GameManager.show_toast("Agora vocês são amigos!" if r.get("ok", false) else "Não deu para aceitar agora.")))
+	nm.friend_invite.connect(func(from, nm2, code):
+		_ask("%s te chamou para a sala %s!" % [nm2, code], "Entrar", func(): switch_room(code)))
 	nm.online_changed.connect(func(on):
 		if not on:
 			for id in remotes.keys():
@@ -375,6 +384,77 @@ func _watch_connection(delta: float) -> void:
 		_show_lost()
 	if _lost_btns:
 		_lost_btns.visible = _offline_t > 20.0
+
+
+## Aviso com dois botões (pedido de amizade, convite). Some sozinho em 20 s.
+var _ask_panel: PanelContainer
+
+
+func _ask(text: String, yes: String, on_yes: Callable) -> void:
+	if _ask_panel and is_instance_valid(_ask_panel):
+		_ask_panel.queue_free()
+	var p := PanelContainer.new()
+	_ask_panel = p
+	var sb := UITheme.box(Color(1, 1, 1, 0.97), 22, Color("22c55e"), 4, 6)
+	sb.content_margin_left = 20
+	sb.content_margin_right = 20
+	sb.content_margin_top = 12
+	sb.content_margin_bottom = 12
+	p.add_theme_stylebox_override("panel", sb)
+	p.anchor_left = 0.5
+	p.anchor_right = 0.5
+	p.offset_left = -330
+	p.offset_right = 330
+	p.offset_top = 120
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	p.add_child(v)
+	var l := UITheme.title_label(text, 28, UITheme.DARK)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(l)
+	var h := HBoxContainer.new()
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.add_theme_constant_override("separation", 14)
+	v.add_child(h)
+	var ok := UITheme.make_button(yes, func():
+		p.queue_free()
+		on_yes.call(), 220)
+	ok.add_theme_stylebox_override("normal", UITheme.box(Color("22c55e"), 18, Color("15803d"), 0, 6))
+	ok.add_theme_color_override("font_color", Color.WHITE)
+	h.add_child(ok)
+	h.add_child(UITheme.make_button("Agora não", func(): p.queue_free(), 200))
+	chat_panel.get_parent().add_child(p)
+	AudioManager.play_ui("ui_confirm", -4.0)
+	get_tree().create_timer(20.0).timeout.connect(func():
+		if is_instance_valid(p):
+			p.queue_free())
+
+
+var _switch_from := ""
+
+
+## Vai para a sala de um amigo sem sair do jogo (a escola continua, só troca a turma).
+func switch_room(code: String) -> void:
+	if code == "" or code == NetworkManager.room_code:
+		GameManager.show_toast("Vocês já estão na mesma sala!")
+		return
+	if player.minigame != null:
+		player.minigame.end_game(0, "Mudou de sala", 0, 0)
+	_switch_from = NetworkManager.room_code
+	for id in remotes.keys().duplicate():
+		_remove_remote(id)
+	_was_online = false  # troca de sala não é "caiu a internet"
+	NetworkManager.leave()
+	NetworkManager.join("code", code)
+	GameManager.show_toast("Indo para a sala %s..." % code)
+	if not NetworkManager.join_error.is_connected(_on_switch_error):
+		NetworkManager.join_error.connect(_on_switch_error, CONNECT_ONE_SHOT)
+
+
+func _on_switch_error(text: String) -> void:
+	GameManager.show_toast(text)
+	if _switch_from != "":
+		NetworkManager.join("code", _switch_from)  # volta para onde estava
 
 
 func _show_lost() -> void:

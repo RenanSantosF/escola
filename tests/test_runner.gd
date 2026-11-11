@@ -84,6 +84,7 @@ func _ready() -> void:
 	await _test_portas()
 	await _test_contador_e_brilho()
 	await _test_atracoes()
+	await _test_tela_amigos()
 	await _test_duas_turmas()
 	await _test_interpolacao()
 	_finish()
@@ -2060,6 +2061,37 @@ func _test_duas_turmas() -> void:
 	check(NPCManager.CLASS_ROOM == "Sala 5" and npcm.teacher == marcia and not npcm.room_teachers["Sala 6"].active and not npcm.room_teachers["Sala 4"].active, "turmas: voltou para a Turma A (Sala 5) e os outros professores somem sem alunos")
 	npcm.apply_desks({}, "")
 	NetworkManager.my_id = ""
+
+
+func _test_tela_amigos() -> void:
+	var om: OnlineMenu = main._online_menu
+	om.friends = [
+		{"id": "1", "name": "Ana_Foguete", "status": "incoming"},
+		{"id": "2", "name": "Beto_Raio", "status": "friend", "online": true, "code": "4321", "players": 7},
+		{"id": "3", "name": "Caio_Sol", "status": "friend", "online": false},
+		{"id": "4", "name": "Duda_Lua", "status": "outgoing"},
+	]
+	om._build_list()
+	await _frames(2)
+	var rows := om._list_box.get_children()
+	check(rows.size() == 4, "amigos: lista mostra pedidos, amigos e enviados")
+	var txt := func(n: Node) -> String:
+		var out := ""
+		for c in n.find_children("*", "Label", true, false):
+			out += (c as Label).text + " "
+		for c in n.find_children("*", "Button", true, false):
+			out += "[" + (c as Button).text + "] "
+		return out
+	check("[Aceitar]" in txt.call(rows[0]) and "[Recusar]" in txt.call(rows[0]), "amigos: pedido recebido tem Aceitar e Recusar")
+	check("sala 4321" in txt.call(rows[1]) and "[Entrar]" in txt.call(rows[1]), "amigos: amigo na escola mostra a sala e Entrar")
+	check("fora do jogo" in txt.call(rows[2]) and not "[Entrar]" in txt.call(rows[2]), "amigos: amigo fora do jogo sem Entrar")
+	var picked := []
+	om.chosen.connect(func(m, c): picked.append([m, c]), CONNECT_ONE_SHOT)
+	for b in rows[1].find_children("*", "Button", true, false):
+		if (b as Button).text == "Entrar":
+			(b as Button).pressed.emit()
+	check(not picked.is_empty() and picked[0][1] == "4321", "amigos: Entrar vai para a sala do amigo")
+	om.reset()
 
 
 func _test_atracoes() -> void:

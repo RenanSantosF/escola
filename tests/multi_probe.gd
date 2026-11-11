@@ -49,6 +49,7 @@ func _ready() -> void:
 		return
 	if role == "A":
 		_write("code", NetworkManager.room_code)
+	_write("id_" + role, NetworkManager.my_id)
 	await _secs(1.0)
 	await _test_basics()
 	await _test_football()
@@ -57,7 +58,49 @@ func _ready() -> void:
 	await _test_party()
 	await _test_dodgeball()
 	await _test_hide()
+	await _test_switch_room()
 	_done("")
+
+
+## Convite de amigo: B vai para outra sala e volta para a do A ("Entrar" do convite).
+func _test_switch_room() -> void:
+	await barrier("switch0")
+	var sess: OnlineSession = main.online
+	var code_a := await _wait_file("code", 5.0)
+	if role == "B":
+		NetworkManager.leave()
+		NetworkManager.join("create", "")
+		var t := 0.0
+		while (not NetworkManager.is_online() or NetworkManager.room_code == code_a) and t < 15.0:
+			await _secs(0.2)
+			t += 0.2
+		check(NetworkManager.room_code != code_a, "trocar sala: B foi para outra sala")
+		await _secs(1.0)
+		check(not sess.remotes.has(_other_id()), "trocar sala: na outra sala o A não aparece")
+		sess.switch_room(code_a)
+		t = 0.0
+		while not sess.remotes.has(_other_id()) and t < 15.0:
+			await _secs(0.2)
+			t += 0.2
+		check(NetworkManager.room_code == code_a and sess.remotes.has(_other_id()), "trocar sala: B voltou para a sala do A e vê o A")
+		check(GameManager.is_playing() and player_ok(), "trocar sala: B continua jogando (sem tela de queda)")
+	await barrier("switch1")
+	if role == "A":
+		var t2 := 0.0
+		while not sess.remotes.has(_other_id()) and t2 < 10.0:
+			await _secs(0.2)
+			t2 += 0.2
+		check(sess.remotes.has(_other_id()), "trocar sala: A vê o B voltar")
+
+
+func _other_id() -> String:
+	var f := dir.path_join("id_" + ("B" if role == "A" else "A"))
+	return FileAccess.get_file_as_string(f) if FileAccess.file_exists(f) else "?"
+
+
+func player_ok() -> bool:
+	var s: OnlineSession = main.online
+	return GameManager.player.input_enabled and not (s._lost_panel and s._lost_panel.visible)
 
 
 func check(cond: bool, name: String, detail := "") -> void:

@@ -729,9 +729,14 @@ func _on_online_welcome(m: Dictionary) -> void:
 	if _lobby_status:
 		_lobby_status.text = ""
 	_online_menu.visible = false
-	if _online_menu.last_mode == "create":
-		GameManager.show_toast("Sala %s criada! Passe o código para os amigos entrarem juntos." % m.get("code", ""))
+	var created := _online_menu.last_mode == "create"
 	_start_game()
+	if created:
+		# o código bem grande: é só falar para o amigo ("Entrar com código" no menu dele)
+		var code := str(m.get("code", ""))
+		get_tree().create_timer(1.2).timeout.connect(func():
+			hud.show_banner("Sua sala: %s" % "  ".join(code.split("")), "Fale esse código para o amigo tocar em Amigos > Entrar com código", 6.0)
+			AudioManager.play_ui("reward", -4.0))
 
 
 func _on_online_error(text: String) -> void:

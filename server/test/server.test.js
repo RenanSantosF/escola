@@ -575,3 +575,46 @@ test('servidor: com a escola cheia, colega longe chega menos vezes (perto: sempr
   socks.forEach((c) => c.ws.close());
   srv.close();
 });
+
+test('amigos: pedido pelo nome, aceitar, ver em qual sala está e convidar', async () => {
+  const srv = createServer({ adminToken: 'x', dataDir: '' });
+  await new Promise((r) => srv.server.listen(0, r));
+  const port = srv.server.address().port;
+  const base = 'http://127.0.0.1:' + port;
+  const post = async (path, body, token) => (await fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { 'x-token': token } : {}) }, body: JSON.stringify(body) })).json();
+  const get = async (path, token) => (await fetch(base + path, { headers: { 'x-token': token } })).json();
+  const a = await post('/api/account/signup', { name: 'Ana_Foguete', password: 'segredo1', age: 9 });
+  const b = await post('/api/account/signup', { name: 'Beto_Raio', password: 'segredo2', age: 10 });
+  assert.ok(a.ok && b.ok);
+  // Ana pede pelo nome; Beto vê o pedido
+  let r = await post('/api/friends/add', { name: 'beto_raio' }, a.token);
+  assert.equal(r.status, 'sent');
+  assert.equal((await post('/api/friends/add', { name: 'Ninguem_Aqui' }, a.token)).ok, false);
+  let lb = await get('/api/friends', b.token);
+  assert.equal(lb.list[0].status, 'incoming');
+  assert.equal(lb.list[0].name, 'Ana_Foguete');
+  // Beto aceita: viram amigos
+  r = await post('/api/friends/accept', { id: lb.list[0].id }, b.token);
+  assert.equal(r.list[0].status, 'friend');
+  // Beto entra numa sala: Ana vê o código para entrar junto
+  const wb = await connect(port);
+  wb.ws.send(JSON.stringify({ t: 'hello', token: b.token, age: 10, mode: 'create' }));
+  await wait(150);
+  const welcomeB = wb.inbox.find((m) => m.t === 'welcome');
+  const la = await get('/api/friends', a.token);
+  assert.ok(la.list[0].online && la.list[0].code === welcomeB.code, 'amigo online com o código da sala');
+  // Ana entra em outra sala e convida o Beto
+  const wa = await connect(port);
+  wa.ws.send(JSON.stringify({ t: 'hello', token: a.token, age: 9, mode: 'create' }));
+  await wait(150);
+  const welcomeA = wa.inbox.find((m) => m.t === 'welcome');
+  wa.ws.send(JSON.stringify({ t: 'friend_invite', id: welcomeB.id }));
+  await wait(150);
+  const inv = wb.inbox.find((m) => m.t === 'friend_invite');
+  assert.ok(inv && inv.code === welcomeA.code && inv.name === 'Ana_Foguete', 'convite chega com o código');
+  // remover
+  r = await post('/api/friends/remove', { id: welcomeB.id }, a.token);
+  assert.equal(r.list.length, 0);
+  wa.ws.close(); wb.ws.close();
+  srv.close();
+});

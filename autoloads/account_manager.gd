@@ -74,6 +74,26 @@ func _request(method: int, path: String, body: Variant = null, auth := false) ->
 	return out
 
 
+# ---------------------------------------------------------- amigos
+## Lista: [{id, name, status: friend|incoming|outgoing, online, code, players, full}]
+func friends_list() -> Dictionary:
+	if not has_account():
+		return {"ok": false, "error": "Crie sua conta para ter amigos.", "list": []}
+	return await _request(HTTPClient.METHOD_GET, "/api/friends", null, true)
+
+
+func friend_add(nick: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/friends/add", {"name": nick.strip_edges()}, true)
+
+
+func friend_accept(id: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/friends/accept", {"id": id}, true)
+
+
+func friend_remove(id: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/friends/remove", {"id": id}, true)
+
+
 ## Nome disponível? Retorna {available: bool, reason: String} (ou erro de conexão).
 func check_name(nick: String) -> Dictionary:
 	var r := await _request(HTTPClient.METHOD_GET, "/api/account/check?name=" + nick.uri_encode())

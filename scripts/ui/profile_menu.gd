@@ -625,12 +625,72 @@ func _build_achievements() -> void:
 
 
 func _build_friends() -> void:
-	_title("Amigos")
+	_title("Meus amigos")
+	if NetworkManager.is_online() and NetworkManager.room_code != "":
+		_row("Sua sala: %s" % NetworkManager.room_code, "Fale esse código para um amigo entrar (Amigos > Entrar com código), ou toque em Chamar.", Color("ffe08a"))
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	_content.add_child(box)
+	var wait := Label.new()
+	wait.text = "Carregando..."
+	wait.add_theme_color_override("font_color", Color.WHITE)
+	box.add_child(wait)
+	_fill_real_friends(box)
+	_title("Colegas da turma")
 	for s in NPCRoster.STUDENTS:
 		var lv := Friendship.level(s.id)
 		var pts := Friendship.points(s.id)
 		var nxt: int = Friendship.LEVELS[mini(lv + 1, Friendship.LEVELS.size() - 1)]
 		_row("%s — %s" % [s.name, Friendship.LEVEL_NAMES[lv]], "Gosta de: %s   ·   %d/%d pontos" % [_likes(s.personality), pts, nxt])
+
+
+## Amigos de verdade (contas): quem está na escola dá para CHAMAR para a minha
+## sala ou IR para a sala dele. Adicionar e aceitar pedidos: tela Amigos do menu.
+func _fill_real_friends(box: VBoxContainer) -> void:
+	var r: Dictionary = await AccountManager.friends_list()
+	if not is_instance_valid(box):
+		return
+	for c in box.get_children():
+		c.queue_free()
+	var list: Array = r.get("list", [])
+	if not r.get("ok", false) or list.is_empty():
+		var l := Label.new()
+		l.text = "Adicione amigos pelo nome de jogador na tela Amigos do menu (botão azul)."
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.add_theme_color_override("font_color", Color.WHITE)
+		l.add_theme_font_size_override("font_size", 20)
+		box.add_child(l)
+		return
+	for f in list:
+		var st := str(f.get("status", ""))
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 10)
+		box.add_child(h)
+		var on := bool(f.get("online", false))
+		var lbl := Label.new()
+		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lbl.add_theme_font_size_override("font_size", 22)
+		lbl.add_theme_color_override("font_color", Color("9be37a") if on else Color.WHITE)
+		var code := str(f.get("code", ""))
+		var here := on and code == NetworkManager.room_code
+		lbl.text = "%s  ·  %s" % [f.name, ("aqui na sua sala!" if here else ("na sala %s" % code)) if on else ("quer ser seu amigo" if st == "incoming" else ("pedido enviado" if st == "outgoing" else "fora do jogo"))]
+		h.add_child(lbl)
+		var id := str(f.get("id", ""))
+		if st == "incoming":
+			h.add_child(UITheme.make_button("Aceitar", func():
+				await AccountManager.friend_accept(id)
+				_fill_real_friends(box), 160))
+		elif st == "friend" and on and not here and NetworkManager.is_online():
+			h.add_child(UITheme.make_button("Chamar", func():
+				NetworkManager.invite_friend(id)
+				GameManager.show_toast("Convite enviado para %s!" % f.name), 150))
+			h.add_child(UITheme.make_button("Ir até lá", func():
+				close_menu()
+				var s := get_tree().get_first_node_in_group("online_session")
+				if s:
+					s.switch_room(code), 160))
+		elif st == "friend" and not on:
+			pass
 
 
 func _likes(p: String) -> String:

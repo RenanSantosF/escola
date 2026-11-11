@@ -43,6 +43,14 @@ func _ready() -> void:
 	await _snap("lobby_visual")
 	pm.close_menu()
 	main._on_friends_pressed()
+	await _secs(0.3)
+	var om = main._online_menu
+	om._refresh_t = 999.0
+	om.friends = [{"id": "1", "name": "Ana_Foguete", "status": "incoming"},
+		{"id": "2", "name": "Beto_Raio", "status": "friend", "online": true, "code": "4321", "players": 7},
+		{"id": "3", "name": "Caio_Sol", "status": "friend", "online": false},
+		{"id": "4", "name": "Duda_Lua", "status": "outgoing"}]
+	om._build_list()
 	await _snap("lobby_amigos")
 	get_tree().quit()
 

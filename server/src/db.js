@@ -56,6 +56,15 @@ create table if not exists mutes (
   account_id text primary key,
   until timestamptz not null
 );
+create table if not exists friends (
+  a text not null,
+  b text not null,
+  a_name text not null,
+  b_name text not null,
+  from_id text not null,
+  status text not null default 'pending',
+  primary key (a, b)
+);
 create table if not exists blocks (
   account_id text not null,
   blocked_id text not null,
@@ -158,6 +167,7 @@ class Database {
     await this.pool.query('delete from accounts where id = $1', [id]);
     await this.pool.query('delete from mutes where account_id = $1', [id]);
     await this.pool.query('delete from blocks where account_id = $1 or blocked_id = $1', [id]);
+    await this.pool.query('delete from friends where a = $1 or b = $1', [id]);
   }
 
   async setFreeChat(id, allow) {
@@ -207,6 +217,33 @@ class Database {
     if (!this.ready) return [];
     const r = await this.pool.query('select account_id, until from mutes where until > now()');
     return r.rows.map((x) => [x.account_id, new Date(x.until).getTime()]);
+  }
+
+  // ---------------------------------------------------------- amigos
+  async saveFriend(p) {
+    if (!this.ready) return;
+    await this.pool.query(
+      `insert into friends (a, b, a_name, b_name, from_id, status) values ($1,$2,$3,$4,$5,$6)
+       on conflict (a, b) do update set status = excluded.status, from_id = excluded.from_id`,
+      [p.a, p.b, p.aName, p.bName, p.from, p.status]);
+  }
+
+  async deleteFriend(a, b) {
+    if (!this.ready) return;
+    await this.pool.query('delete from friends where a = $1 and b = $2', [a, b]);
+  }
+
+  async loadFriends() {
+    if (!this.ready) return [];
+    const r = await this.pool.query('select * from friends');
+    return r.rows.map((x) => ({ a: x.a, b: x.b, aName: x.a_name, bName: x.b_name, from: x.from_id, status: x.status }));
+  }
+
+  /** Só id e nome de quem tem esse nome de jogador (para adicionar amigo). */
+  async idByName(key) {
+    if (!this.ready) return null;
+    const r = await this.pool.query('select id, name from accounts where username_key = $1', [key]);
+    return r.rows.length ? { id: r.rows[0].id, name: r.rows[0].name } : null;
   }
 
   async saveBlock(id, other) {

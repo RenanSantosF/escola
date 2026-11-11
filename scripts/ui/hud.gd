@@ -302,7 +302,7 @@ func _update_wallet() -> void:
 	_wallet.text = "Nível %d   ·   %d moedas" % [lv, int(p.get("coins", 0))]
 
 
-func show_banner(title: String, subtitle := "") -> void:
+func show_banner(title: String, subtitle := "", hold := 2.2) -> void:
 	_banner_title.text = title
 	_banner_sub.text = subtitle
 	var vs := get_viewport_rect().size
@@ -316,7 +316,7 @@ func show_banner(title: String, subtitle := "") -> void:
 	_banner_tween.set_parallel(true).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_banner_tween.tween_property(_banner, "modulate:a", 1.0, 0.25)
 	_banner_tween.tween_property(_banner, "scale", Vector2.ONE, 0.4)
-	_banner_tween.chain().tween_interval(2.2)
+	_banner_tween.chain().tween_interval(hold)
 	_banner_tween.chain().tween_property(_banner, "modulate:a", 0.0, 0.5)
 
 

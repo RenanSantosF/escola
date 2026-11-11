@@ -39,6 +39,7 @@ const { Analytics } = require('./analytics');
 const { TagGame } = require('./tag_game');
 const { CATALOG } = require('./games');
 const { Database } = require('./db');
+const { Friends } = require('./friends');
 
 const NEAR_DIST = 18; // metros do canal "Perto de mim"
 const EMOTES = new Set(['wave', 'celebrate', 'clap', 'sad', 'stretch', 'scratch_head', 'look_around', 'raise_hand']);
@@ -60,6 +61,8 @@ function createServer(opts = {}) {
     onReport: (e) => dbSafe(db.insertReport(e)),
     onBlock: (id, other) => dbSafe(db.saveBlock(id, other)),
   });
+  const friends = opts.friends || new Friends();
+  const online = new Map(); // id da conta -> jogador conectado (para amigos: "está na sala 1234")
   // CLOCK_SCALE/CLOCK_START só para testes locais (o dia inteiro em segundos, ou já no recreio)
   const rooms = new RoomManager({ clock: { scale: opts.clockScale ?? (Number(process.env.CLOCK_SCALE) || 1), startPhase: opts.clockStart ?? process.env.CLOCK_START } });
   const analytics = opts.analytics || new Analytics({
@@ -76,6 +79,7 @@ function createServer(opts = {}) {
       safety.reports = await db.loadReports();
       for (const [id, until] of await db.loadMutes()) safety.mutedUntil.set(id, until);
       for (const [id, other] of await db.loadBlocks()) safety.block(id, other, false);
+      friends.load(await db.loadFriends());
       console.log('Banco de dados conectado: ' + analytics.events.length + ' eventos carregados');
       return true;
     } catch (e) {
@@ -110,6 +114,16 @@ function createServer(opts = {}) {
       if (found) return accounts.adopt(found);
     }
     return null;
+  }
+
+  /** Lista de amigos com quem está jogando agora (e em qual sala). */
+  function friendList(id) {
+    const order = { incoming: 0, friend: 1, outgoing: 2 };
+    return friends.list(id).map((f) => {
+      const p = online.get(f.id);
+      const r = p && f.status === 'friend' ? rooms.get(p.roomId) : null;
+      return { ...f, online: !!r, code: r ? r.code : '', players: r ? r.players.size : 0, full: r ? r.players.size >= r.info().max : false };
+    }).sort((x, y) => (order[x.status] - order[y.status]) || (y.online - x.online) || x.name.localeCompare(y.name));
   }
 
   const publicAccount = (a, withProgress = false) => ({
@@ -147,6 +161,44 @@ function createServer(opts = {}) {
       const b = await readJson(req, 65536);
       const n = analytics.ingest(String(b.uid || ''), b.events);
       return json(200, { ok: true, accepted: n });
+    }
+    // ---------------------------------------------------------- amigos
+    if (url.startsWith('/api/friends')) {
+      const me = await accountFromToken(req.headers['x-token']);
+      if (!me) return json(401, { ok: false, error: 'Entre na sua conta.' });
+      if (url === '/api/friends' && req.method === 'GET') return json(200, { ok: true, list: friendList(me.id) });
+      if (req.method !== 'POST') return json(404, { ok: false });
+      if (limited(req, 'friends', 60, 60000)) return json(429, { ok: false, error: 'Calma! Tente de novo daqui a pouco.' });
+      const b = await readJson(req);
+      if (url === '/api/friends/add') {
+        const key = nameKey(String(b.name || '').trim());
+        let other = accounts.byName.get(key) || null;
+        let info = other ? { id: other.id, name: other.name } : await db.idByName(key).catch(() => null);
+        if (!info) return json(404, { ok: false, error: 'Não achei ninguém com esse nome. Confira as letras!' });
+        if (safety.isBlocked(me.id, info.id) || safety.isBlocked(info.id, me.id)) return json(403, { ok: false, error: 'Não dá para adicionar esse jogador.' });
+        const r = friends.request(me.id, me.name, info.id, info.name);
+        if (r.status === 'error') return json(400, { ok: false, error: r.error });
+        if (r.pair) dbSafe(db.saveFriend(r.pair));
+        const target = online.get(info.id);
+        if (target && r.status === 'sent') send(target.ws, { t: 'friend_request', from: me.id, name: me.name });
+        if (target && r.status === 'friends') send(target.ws, { t: 'friend_notice', text: me.name + ' agora é seu amigo!' });
+        const text = r.status === 'friends' ? 'Agora vocês são amigos!' : (r.status === 'already' ? 'Vocês já são amigos (ou o pedido já foi).' : 'Pedido enviado! Quando ' + info.name + ' aceitar, aparece na lista.');
+        return json(200, { ok: true, status: r.status, text, list: friendList(me.id) });
+      }
+      if (url === '/api/friends/accept') {
+        const p = friends.accept(me.id, String(b.id || ''));
+        if (!p) return json(404, { ok: false, error: 'Pedido não encontrado.' });
+        dbSafe(db.saveFriend(p));
+        const target = online.get(String(b.id));
+        if (target) send(target.ws, { t: 'friend_notice', text: me.name + ' aceitou sua amizade!' });
+        return json(200, { ok: true, list: friendList(me.id) });
+      }
+      if (url === '/api/friends/remove') {
+        const p = friends.remove(me.id, String(b.id || ''));
+        if (p) dbSafe(db.deleteFriend(p.a, p.b));
+        return json(200, { ok: true, list: friendList(me.id) });
+      }
+      return json(404, { ok: false });
     }
     // ---------------------------------------------------------- contas
     // nome escolhido pela criança: checagem ao vivo
@@ -373,6 +425,7 @@ function createServer(opts = {}) {
         return send(ws, { t: 'join_error', text: r.error });
       }
       room = r;
+      online.set(acc.id, player);
       send(ws, {
         t: 'welcome', token: acc.token, id: acc.id, name: acc.name, room: room.id, code: room.code, private: room.private,
         freeChat: accounts.canFreeChat(acc), quick: QUICK_PHRASES, players: room.snapshot(acc.id), phase: room.phase,
@@ -541,6 +594,18 @@ function createServer(opts = {}) {
           }
           break;
         }
+        case 'friend_invite': {
+          // chama um amigo para a minha sala (ele recebe um aviso com "Entrar")
+          if (!rate(player, 'invite', 2)) return;
+          const fid = String(m.id || '');
+          if (!friends.areFriends(player.id, fid)) return;
+          const to = online.get(fid);
+          if (!to) return send(ws, { t: 'notice', text: 'Seu amigo não está jogando agora.' });
+          if (to.roomId === room.code) return send(ws, { t: 'notice', text: 'Seu amigo já está na mesma sala!' });
+          send(to.ws, { t: 'friend_invite', from: player.id, name: player.name, code: room.code });
+          send(ws, { t: 'notice', text: 'Convite enviado!' });
+          break;
+        }
         case 'block': {
           safety.block(player.id, String(m.target || ''));
           send(ws, { t: 'notice', text: 'Jogador bloqueado.' });
@@ -550,6 +615,7 @@ function createServer(opts = {}) {
     });
     ws.on('close', () => {
       if (!player) return;
+      if (online.get(player.id) === player) online.delete(player.id);
       const r = rooms.leave(player);
       if (r) {
         if (r.tag) {
@@ -639,7 +705,7 @@ function createServer(opts = {}) {
   const flushTimer = setInterval(() => analytics.flush(), 10000);
   server.on('close', () => { clearInterval(timer); clearInterval(heartbeat); clearInterval(flushTimer); analytics.flush(); });
 
-  return { server, wss, rooms, accounts, safety, analytics, db, ready, close: () => { clearInterval(timer); clearInterval(heartbeat); clearInterval(flushTimer); analytics.flush(); wss.close(); server.close(); server.closeAllConnections(); } };
+  return { server, wss, rooms, accounts, safety, analytics, db, ready, friends, online, close: () => { clearInterval(timer); clearInterval(heartbeat); clearInterval(flushTimer); analytics.flush(); wss.close(); server.close(); server.closeAllConnections(); } };
 }
 
 if (require.main === module) {
