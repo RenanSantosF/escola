@@ -37,13 +37,14 @@ func begin() -> void:
 	player.yaw = PI
 	player.movement_locked = true
 	if player.camera_rig:
-		player.camera_rig.set_override(Transform3D(Basis(), FROM + Vector3(0.9, 2.2, 2.6)).looking_at(Vector3(24, 0.6, -24), Vector3.UP))
+		# câmera baixa e à esquerda (o poste fica fora da frente), perto das lixeiras
+		player.camera_rig.set_override(Transform3D(Basis(), FROM + Vector3(-0.8, 1.95, 1.4)).looking_at(Vector3(24, 0.5, -24), Vector3.UP))
 	time_left = GAME_TIME
 	_bonus_lbl = Label3D.new()
 	_bonus_lbl.text = "x2"
 	_bonus_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_bonus_lbl.font = UITheme.bold_font()
-	_bonus_lbl.font_size = 64
+	_bonus_lbl.font_size = 96
 	_bonus_lbl.outline_size = 16
 	_bonus_lbl.modulate = Color("ffd23f")
 	_bonus_lbl.pixel_size = 0.005

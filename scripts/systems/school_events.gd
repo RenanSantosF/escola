@@ -62,7 +62,13 @@ func _process(delta: float) -> void:
 	_t -= delta
 	if _t <= 0.0:
 		_t = randf_range(40.0, 65.0)
-		trigger_random()
+		# brincando: não interrompe com avisos (espera acabar)
+		if player and player.minigame != null:
+			_t = 8.0
+		elif player and player.has_meta("ride"):
+			_t = 6.0
+		else:
+			trigger_random()
 	_update_mission()
 
 

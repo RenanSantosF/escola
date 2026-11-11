@@ -95,8 +95,9 @@ func _cam_xf() -> Transform3D:
 	var s: Dictionary = shooters[turn]
 	var d := Vector3(cos(aim_angle), 0, sin(aim_angle))
 	var side := Vector3(-d.z, 0, d.x)
-	var cam_pos := Vector3(s.pos.x, 0, s.pos.y) - d * 0.7 + side * 0.6 + Vector3(0, 2.3, 0)
-	var look := Vector3(CENTER.x, 0, CENTER.y).lerp(Vector3(s.pos.x, 0, s.pos.y), 0.35)
+	# alto e para o lado oposto do jogador (que fica agachado ao lado): nada tapa o círculo
+	var cam_pos := Vector3(s.pos.x, 0, s.pos.y) - d * 0.55 - side * 0.35 + Vector3(0, 2.0, 0)
+	var look := Vector3(CENTER.x, 0, CENTER.y).lerp(Vector3(s.pos.x, 0, s.pos.y), 0.45)
 	return Transform3D(Basis(), cam_pos).looking_at(look, Vector3.UP)
 
 
@@ -113,7 +114,8 @@ func _setup_turn() -> void:
 	_power = 0.0
 	_charging = false
 	var who: Node3D = player if turn == 0 else opponent
-	var pos3 := Vector3(s.pos.x, 0.05, s.pos.y) - Vector3(cos(aim_angle), 0, sin(aim_angle)) * 0.45
+	var dd := Vector3(cos(aim_angle), 0, sin(aim_angle))
+	var pos3 := Vector3(s.pos.x, 0.05, s.pos.y) - dd * 0.25 + Vector3(-dd.z, 0, dd.x) * 0.55
 	var yaw := atan2(cos(aim_angle), sin(aim_angle))
 	if turn == 0:
 		player.global_position = pos3
@@ -195,7 +197,8 @@ func tick(delta: float) -> void:
 			_place_on_edge(0, edge_angle)
 			var s: Dictionary = shooters[0]
 			player.camera_rig.set_override(_cam_xf())
-			player.global_position = Vector3(s.pos.x, 0.05, s.pos.y) - Vector3(cos(aim_angle), 0, sin(aim_angle)) * 0.45
+			var d4 := Vector3(cos(aim_angle), 0, sin(aim_angle))
+			player.global_position = Vector3(s.pos.x, 0.05, s.pos.y) - d4 * 0.25 + Vector3(-d4.z, 0, d4.x) * 0.55
 		if _charging:
 			_power += _power_dir * delta * 0.9
 			if _power >= 1.0 or _power <= 0.0:

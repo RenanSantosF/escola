@@ -141,7 +141,7 @@ func tick(delta: float) -> void:
 					r.visual.play("hit")
 					AudioManager.play_3d("trip", r.global_position, -8.0)
 				else:
-					r.visual.play("jump")
+					r.visual.play("hop_one")
 		if r.global_position.x >= FINISH_X and not r in _finished_order:
 			_finished_order.append(r)
 	if not _player_done and player.global_position.x >= FINISH_X:

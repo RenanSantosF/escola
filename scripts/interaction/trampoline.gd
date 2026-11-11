@@ -40,7 +40,7 @@ func _physics_process(delta: float) -> void:
 	_cd = 0.35
 	p.velocity.y = BOUNCE[mini(_n, BOUNCE.size() - 1)]
 	_n += 1
-	p.visual.play("jump")
+	p.visual.play("hop_two")
 	AudioManager.play_3d("boing", global_position, -3.0, 0.1)
 	if _n == 4:
 		GameManager.show_toast("Que alto!")

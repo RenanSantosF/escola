@@ -83,7 +83,7 @@ func begin() -> void:
 	time_left = TIME
 	_place_people()
 	if player.camera_rig:
-		player.camera_rig.set_override(Transform3D(Basis(), CENTER + Vector3(0, 3.4, 7.5)).looking_at(CENTER + Vector3(0, 0.6, 0), Vector3.UP))
+		player.camera_rig.set_override(Transform3D(Basis(), CENTER + Vector3(-1.2, 3.0, 6.2)).looking_at(CENTER + Vector3(0, 0.7, 0), Vector3.UP))
 	countdown(3.0)
 	super.begin()
 
@@ -159,7 +159,7 @@ func on_play() -> bool:
 			n.visual.play("push")
 	elif fposmod(_beat, 1.0) < 0.5 and combo > 0:
 		break_combo()  # puxou fora do ritmo
-	var amount := (0.09 if on_beat else 0.04) * mult
+	var amount := (0.09 if on_beat else 0.05) * mult
 	if net_role == "client":
 		NetworkManager.mg_send_relay(str(net.gid), {"k": "pull", "beat": on_beat, "m": mult})
 	elif net_role == "host":
@@ -202,7 +202,7 @@ func tick(delta: float) -> void:
 			n.visual.play("push")
 			n.say(["Agora!", "Puxa!", "Força!"].pick_random(), 1.0)
 	_surge = maxf(_surge - delta, 0.0)
-	_their = 0.42 + (0.9 if _surge > 0.0 else 0.0)
+	_their = 0.38 + (0.85 if _surge > 0.0 else 0.0)
 	offset += _their * delta * 0.55
 	# nosso time ajuda um pouco sozinho
 	offset -= 0.12 * delta

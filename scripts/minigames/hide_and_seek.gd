@@ -126,7 +126,10 @@ func tick(delta: float) -> void:
 		elif d < 6.0 and not h.get("ran", false) and randf() < 0.4:
 			# fujão! corre para outro esconderijo (dá para pegar correndo)
 			h["ran"] = true
-			var spots := _hide_spots()
+			# foge para um esconderijo não muito longe (10 a 25 m), dá para alcançar
+			var spots := _hide_spots().filter(func(q: Vector3):
+				var dq := q.distance_to(n.global_position)
+				return dq > 10.0 and dq < 25.0)
 			var far: Vector3 = spots.pick_random() if not spots.is_empty() else n.global_position + Vector3(8, 0, 0)
 			n.visual.stop_action()
 			n.running = true

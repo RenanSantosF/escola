@@ -169,7 +169,7 @@ func _dodge() -> void:
 		if side.dot(player.global_position - ball.global_position) < 0.0:
 			side = -side
 	player.velocity = side * 7.5 + Vector3.UP * 3.2
-	player.visual.play("jump")
+	player.visual.play("hop_one")
 	_dodge_until[player] = Time.get_ticks_msec() + int(DODGE_SECS * 1000.0)
 	if net_role == "client":
 		NetworkManager.mg_send_relay(str(net.gid), {"k": "dodge"})

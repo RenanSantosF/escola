@@ -419,7 +419,10 @@ static func _dressing(b: SchoolBuilder) -> void:
 		Props.bench(c, Vector3(x, height(x, z), z), PI, 1.8)
 		Props.lamp_post(c, Vector3(x + 5.0, height(x + 5.0, z - 1.5), z - 1.5))
 	for k in 4:
-		Props.trash_bins(c, Vector3(-14 + k * 14, height(-14 + k * 14, -86.5), -86.5), PI)
+		var bx := -14.0 + k * 14.0
+		if absf(bx - 12.0) < 6.0:
+			bx = 4.0  # o gramado em (12, -88) é do cabo de guerra
+		Props.trash_bins(c, Vector3(bx, height(bx, -86.5), -86.5), PI)
 	# caminho principal de lajotas
 	for k in 40:
 		var x := -40.0 + k * 2.0
