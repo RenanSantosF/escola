@@ -234,3 +234,7 @@ func cleanup() -> void:
 	if is_instance_valid(_root):
 		_root.queue_free()
 	super.cleanup()
+
+
+func hints() -> Dictionary:
+	return {"start": "SEGURE o botão amarelo e SOLTE quando a linha ficar VERDE.", "idle": "Segure o botão amarelo para arremessar. As bolas são infinitas!", "miss": "Olhe a linha: solte quando ela ficar VERDE (força e mira certas). O joystick vira para os lados."}

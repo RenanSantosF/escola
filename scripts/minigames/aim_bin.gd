@@ -199,3 +199,7 @@ func cleanup() -> void:
 	if is_instance_valid(_root):
 		_root.queue_free()
 	super.cleanup()
+
+
+func hints() -> Dictionary:
+	return {"start": "Gire com o joystick até a linha cair dentro da lixeira, depois SOLTE.", "idle": "Segure o botão amarelo: aparece a curva da bolinha. Solte quando ela cair na lixeira!", "miss": "A lixeira com x2 vale o dobro. Ajuste a mira com o joystick antes de soltar."}

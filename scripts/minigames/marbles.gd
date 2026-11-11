@@ -432,3 +432,7 @@ func cleanup() -> void:
 	if is_instance_valid(_root):
 		_root.queue_free()
 	super.cleanup()
+
+
+func hints() -> Dictionary:
+	return {"start": "Gire a mira com o joystick. A seta verde mostra para onde a outra bolinha vai.", "idle": "Segure o botão amarelo para dar força e solte para jogar.", "miss": "Mire para a seta verde apontar para FORA do círculo. Força média já basta!"}

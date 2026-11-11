@@ -303,3 +303,7 @@ func _finish_net() -> void:
 	NetworkManager.mg_team_result(str(net.gid), 1 if w == "a" else 0, 1 if w == "b" else 0)
 	var won := 0 if w == "draw" else (1 if w == my_team else -1)
 	end_game(won, "Cabo de guerra: " + ("seu time venceu!" if won > 0 else ("empate!" if won == 0 else "o outro time venceu")), 6 if won > 0 else 3, 14 if won > 0 else 6)
+
+
+func hints() -> Dictionary:
+	return {"start": "Toque no PUXA! quando a barra ENCHER. No ritmo puxa muito mais!", "idle": "Toque no botão PUXA! para ajudar seu time.", "miss": "Não precisa tocar sem parar: um toque cada vez que a barra enche faz combo!"}

@@ -665,6 +665,169 @@ func set_timer_chip(text: String, col := Color("2f6fd0")) -> void:
 	_timer_chip.visible = true
 
 
+var _result: PanelContainer
+var _result_t := 0.0
+
+
+## Cartão de fim de brincadeira: estrelas, resumo, XP, recorde e "Jogar de novo".
+## Fecha sozinho em 7 s (ou no X / ao jogar de novo).
+func show_result(game: String, head: String, summary: String, stars: int, xp: int, record: String, again: Callable) -> void:
+	if _result and is_instance_valid(_result):
+		_result.queue_free()
+	var p := PanelContainer.new()
+	_result = p
+	var sb := UITheme.box(Color(1, 1, 1, 0.97), 26, Color("ffcf3f"), 5, 8)
+	sb.content_margin_left = 30
+	sb.content_margin_right = 30
+	sb.content_margin_top = 16
+	sb.content_margin_bottom = 18
+	p.add_theme_stylebox_override("panel", sb)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	p.add_child(v)
+	var g := UITheme.title_label(game.to_upper(), 20, Color("6b7690"))
+	v.add_child(g)
+	v.add_child(UITheme.title_label(head, 44, Color("16a34a") if stars == 3 else (UITheme.DARK if stars == 2 else Color("c2410c"))))
+	var star_row := HBoxContainer.new()
+	star_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	star_row.add_theme_constant_override("separation", 6)
+	v.add_child(star_row)
+	for i in 3:
+		var st := _ResultStar.new()
+		st.on = i < stars
+		st.custom_minimum_size = Vector2(56, 56)
+		star_row.add_child(st)
+		st.scale = Vector2.ZERO
+		st.pivot_offset = Vector2(28, 28)
+		var tw := st.create_tween()
+		tw.tween_interval(0.15 + i * 0.18)
+		tw.tween_property(st, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		if i < stars:
+			var pitch := 1.0 + i * 0.12
+			tw.tween_callback(func(): AudioManager.play_ui_pitch("point", pitch, -6.0))
+	var sl := Label.new()
+	sl.text = summary
+	sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sl.custom_minimum_size = Vector2(520, 0)
+	sl.add_theme_font_size_override("font_size", 22)
+	sl.add_theme_color_override("font_color", UITheme.DARK)
+	v.add_child(sl)
+	var info := UITheme.title_label("+%d XP%s" % [xp, ("   ·   " + record) if record != "" else ""], 24, Color("b45309") if record.begins_with("NOVO") else Color("2563eb"))
+	v.add_child(info)
+	var h := HBoxContainer.new()
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.add_theme_constant_override("separation", 14)
+	v.add_child(h)
+	if again.is_valid():
+		var b := UITheme.make_button("Jogar de novo", func():
+			p.queue_free()
+			again.call(), 260)
+		b.add_theme_stylebox_override("normal", UITheme.box(Color("22c55e"), 18, Color("15803d"), 0, 6))
+		b.add_theme_color_override("font_color", Color.WHITE)
+		h.add_child(b)
+	h.add_child(UITheme.make_button("Fechar", func(): p.queue_free(), 180))
+	add_child(p)
+	p.reset_size()
+	var vs := get_viewport_rect().size
+	p.position = Vector2((vs.x - p.size.x) * 0.5, vs.y * 0.16)
+	p.pivot_offset = p.size * 0.5
+	p.scale = Vector2(0.7, 0.7)
+	p.modulate.a = 0.0
+	var tw2 := p.create_tween().set_parallel(true)
+	tw2.tween_property(p, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw2.tween_property(p, "modulate:a", 1.0, 0.2)
+	_result_t = 7.0
+	get_tree().create_timer(7.0).timeout.connect(func():
+		if is_instance_valid(p):
+			var tw3 := p.create_tween()
+			tw3.tween_property(p, "modulate:a", 0.0, 0.4)
+			tw3.tween_callback(p.queue_free))
+
+
+class _ResultStar extends Control:
+	var on := true
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var r := size.x * 0.48
+		var pts := PackedVector2Array()
+		for k in 10:
+			var rad := r if k % 2 == 0 else r * 0.45
+			pts.append(c + Vector2.from_angle(-PI * 0.5 + k * TAU / 10.0) * rad)
+		draw_colored_polygon(pts, Color("ffcf3f") if on else Color("dfe4ec"))
+		pts.append(pts[0])
+		draw_polyline(pts, Color("d97706") if on else Color("c5ccd8"), 3.0, true)
+
+
+var _hint: PanelContainer
+var _hint_lbl: Label
+var _hint_tween: Tween
+
+
+## Dica temporária (balão amarelo com lâmpada, embaixo no meio). Some sozinha.
+func show_hint(text: String, secs := 4.5) -> void:
+	if _hint == null:
+		_hint = PanelContainer.new()
+		var sb := UITheme.box(Color("fff4c2"), 22, Color("f2b632"), 3, 5)
+		sb.content_margin_left = 18
+		sb.content_margin_right = 22
+		sb.content_margin_top = 10
+		sb.content_margin_bottom = 10
+		_hint.add_theme_stylebox_override("panel", sb)
+		_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 10)
+		_hint.add_child(h)
+		var bulb := Label.new()
+		bulb.text = "DICA"
+		bulb.add_theme_font_override("font", UITheme.bold_font())
+		bulb.add_theme_font_size_override("font_size", 18)
+		bulb.add_theme_color_override("font_color", Color.WHITE)
+		var bb := StyleBoxFlat.new()
+		bb.bg_color = Color("f59e0b")
+		bb.set_corner_radius_all(10)
+		bb.content_margin_left = 8
+		bb.content_margin_right = 8
+		bulb.add_theme_stylebox_override("normal", bb)
+		bulb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(bulb)
+		_hint_lbl = Label.new()
+		_hint_lbl.add_theme_font_override("font", UITheme.bold_font())
+		_hint_lbl.add_theme_font_size_override("font_size", 24)
+		_hint_lbl.add_theme_color_override("font_color", Color("5a3e00"))
+		_hint_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_hint_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(_hint_lbl)
+		add_child(_hint)
+		_hint.modulate.a = 0.0
+	_hint_lbl.text = text
+	var vs := get_viewport_rect().size
+	var w := minf(vs.x * 0.56, 720.0)
+	_hint.custom_minimum_size = Vector2(w, 0)
+	_hint.size = Vector2(w, 0)
+	_hint.reset_size()
+	_hint.position = Vector2((vs.x - w) * 0.5, vs.y * 0.6 - _hint.size.y * 0.5)
+	if _hint_tween:
+		_hint_tween.kill()
+	_hint.scale = Vector2(0.9, 0.9)
+	_hint.pivot_offset = _hint.size * 0.5
+	_hint_tween = create_tween()
+	_hint_tween.set_parallel(true)
+	_hint_tween.tween_property(_hint, "modulate:a", 1.0, 0.2)
+	_hint_tween.tween_property(_hint, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_hint_tween.chain().tween_interval(secs)
+	_hint_tween.chain().tween_property(_hint, "modulate:a", 0.0, 0.5)
+	AudioManager.play_ui("ui_confirm", -12.0)
+
+
+func hide_hint() -> void:
+	if _hint:
+		if _hint_tween:
+			_hint_tween.kill()
+		_hint.modulate.a = 0.0
+
+
 func show_toast(message: String) -> void:
 	_toast.text = message
 	if _toast_tween:

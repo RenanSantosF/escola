@@ -133,18 +133,17 @@ static func _classroom(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: 
 		info["item_spots"] = [bp[0] + n * 0.5 + Vector3(0, 0.95, 0) + Vector3(0, 0, 1).rotated(Vector3.UP, bp[1] + PI * 0.5) * 2.4]
 	# relógio acima da lousa (lado oposto)
 	var opp := {"w": "e", "n": "s", "e": "w", "s": "n"}[board_side] as String
-	# Carteiras 5 x 5
-	# 4 x 4 carteiras com corredores largos e área da porta livre
-	for i in 4:
+	# 12 carteiras (uma turma): 3 fileiras de 4, com corredores bem largos
+	# entre as fileiras e entre as colunas (e a área da porta sempre livre)
+	for i in 3:
 		for j in 4:
 			var pos: Vector3
 			if board_side == "w":
-				# mais espaço entre as carteiras (e a porta sempre livre)
 				var door_n := _door_side(room) == "n"
 				var z_start := 2.4 if door_n else 1.6
-				pos = Vector3(x0 + 3.1 + i * 1.62, FY, z0 + z_start + j * (r.size.y - 4.0) / 3.0)
+				pos = Vector3(x0 + 3.2 + i * 2.25, FY, z0 + z_start + j * (r.size.y - 4.0) / 3.0)
 			else:
-				pos = Vector3(x0 + 1.9 + j * (r.size.x - 3.8) / 3.0, FY, z0 + 3.6 + i * (r.size.y - 5.4) / 3.0)
+				pos = Vector3(x0 + 1.9 + j * (r.size.x - 3.8) / 3.0, FY, z0 + 3.5 + i * 2.25)
 			Props.student_desk(b, pos, desk_yaw, frame)
 			if rng.randf() < 0.12:
 				var dn := Vector3(0, 0, 1).rotated(Vector3.UP, desk_yaw)

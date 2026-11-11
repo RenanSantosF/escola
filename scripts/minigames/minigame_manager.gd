@@ -260,6 +260,7 @@ func _process(delta: float) -> void:
 			guide_id = ""
 			hud.set_mission_point(null)
 	if active:
+		active.hint_tick(delta)
 		active.tick(delta)
 		return
 	if not is_recess() or day.dialogue.is_open():

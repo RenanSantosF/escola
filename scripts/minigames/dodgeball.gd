@@ -656,3 +656,7 @@ func _client_tick(delta: float) -> void:
 		end_game(won, "Queimada %d x %d" % [mine, theirs], 22 if won > 0 else 10, 35 if won > 0 else 15, {"score": mine})
 		return
 	player._emit_context()
+
+
+func hints() -> Dictionary:
+	return {"start": "Pegue a bola (botão verde) e SEGURE o amarelo para mirar. Sem bola, o amarelo DESVIA.", "idle": "Chegue perto da bola e toque no botão verde para pegar.", "miss": "Viu a bola vindo? Toque no botão amarelo para desviar com um pulinho!"}

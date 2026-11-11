@@ -176,6 +176,7 @@ func _check_hurdles() -> void:
 				popup(player.global_position + Vector3(0, 2.0, 0), "Pulou! +impulso", Color("6be36b"), 56)
 			else:
 				trips += 1
+				note_miss()
 				_slow_t = 0.8
 				energy = maxf(energy - 0.25, 0.0)
 				player.visual.play("hit")
@@ -220,3 +221,7 @@ func cleanup() -> void:
 		if is_instance_valid(r):
 			r.run_speed = 4.3
 	super.cleanup()
+
+
+func hints() -> Dictionary:
+	return {"start": "Toque RÁPIDO em Correr! e PULE (botão azul) nas barreiras.", "idle": "Toque várias vezes no botão Correr! para ganhar velocidade.", "miss": "Pule um pouquinho ANTES da barreira, quando aparecer PULE AGORA!"}

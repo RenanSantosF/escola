@@ -58,8 +58,14 @@ func _ready() -> void:
 		get_viewport().get_texture().get_image().save_png(out_dir.path_join("mg_%s.png" % gid))
 		print("snap ", gid)
 		if mm.active:
-			mm.active.end_game(0, "fim", 0, 0)
-		await _frames(5)
+			mm.active.hud.show_hint(str(mm.active.hints().get("miss", "dica")))
+			await _frames(20)
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(out_dir.path_join("mg_%s_dica.png" % gid))
+			mm.active.end_game(1, "Basquete: 24 pontos (8 de 12 cestas, combo 5)", 0, 30, {"score": 24})
+		await _frames(40)
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(out_dir.path_join("mg_%s_fim.png" % gid))
 	get_tree().quit()
 
 

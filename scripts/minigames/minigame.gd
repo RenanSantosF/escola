@@ -128,6 +128,7 @@ func end_game(won: int, summary: String, coins: int, xp: int, extra := {}) -> vo
 	if not running:
 		return
 	running = false
+	hud.hide_hint()
 	hud.set_minigame_text("")
 	hud.set_meter(-1.0)
 	player.minigame = null
@@ -140,7 +141,20 @@ func end_game(won: int, summary: String, coins: int, xp: int, extra := {}) -> vo
 	coins = 0
 	GameManager.add_rewards(xp, 0)
 	var head := "Vitória!" if won > 0 else ("Empate!" if won == 0 else "Não foi dessa vez!")
-	hud.show_banner(head, "%s  (+%d XP)" % [summary, xp])
+	# cartão de resultado: estrelas, resumo, recorde e "Jogar de novo"
+	var st0: Dictionary = SaveManager.section("stats").get("mg_" + id, {})
+	var prev_best := int(st0.get("best", 0))
+	var new_rec: bool = extra.has("score") and int(st0.get("played", 0)) > 0 and int(extra.score) > prev_best and id != "corrida"
+	var stars := 3 if won > 0 else (2 if won == 0 else 1)
+	var rec_txt := ""
+	if extra.has("score") and id != "corrida":
+		rec_txt = "NOVO RECORDE!" if new_rec else "Seu recorde: %d" % maxi(prev_best, int(extra.score))
+	var again := Callable()
+	if mgr and not is_net() and summary != "O sinal tocou!" and summary != "Mudou de sala":
+		var gid := id
+		var m = mgr
+		again = func(): m.start(gid)
+	hud.show_result(title, head, summary, stars, xp, rec_txt, again)
 	if won > 0:
 		player.visual.play("celebrate")
 		AudioManager.play_ui("win", -3.0)
@@ -157,11 +171,8 @@ func end_game(won: int, summary: String, coins: int, xp: int, extra := {}) -> vo
 	var stats: Dictionary = SaveManager.section("stats")
 	var key := "mg_" + id
 	var s: Dictionary = stats.get(key, {"played": 0, "won": 0, "best": 0})
-	# recorde pessoal (pontuação maior = melhor; na corrida o "score" é a colocação)
-	if extra.has("score") and int(s.get("played", 0)) > 0 and int(extra.score) > int(s.get("best", 0)) and id != "corrida":
-		get_tree().create_timer(1.6).timeout.connect(func():
-			hud.show_banner("NOVO RECORDE!", "%s: %d (antes: %d)" % [title, int(extra.score), int(s.get("best", 0))])
-			AudioManager.play_ui("levelup", -4.0))
+	if new_rec:
+		get_tree().create_timer(0.6).timeout.connect(func(): AudioManager.play_ui("levelup", -4.0))
 	s["played"] = int(s.get("played", 0)) + 1
 	if won > 0:
 		s["won"] = int(s.get("won", 0)) + 1
@@ -189,6 +200,66 @@ func cleanup() -> void:
 	player._emit_context(true)
 
 
+# ------------------------------------------------------------- dicas
+## Dicas temporárias: no começo (só nas primeiras partidas), quando a criança
+## fica parada sem jogar e quando erra várias vezes seguidas. Cada dica aparece
+## no máximo uma vez por partida e some sozinha.
+var _hinted := {}
+var _idle_t := 0.0
+var _misses := 0
+
+
+## Dicas desta brincadeira: {"start": ..., "idle": ..., "miss": ...}
+func hints() -> Dictionary:
+	return {}
+
+
+func hint(key: String, text := "") -> void:
+	if _hinted.has(key) or not running:
+		return
+	var t := text if text != "" else str(hints().get(key, ""))
+	if t == "":
+		return
+	_hinted[key] = true
+	hud.show_hint(t)
+
+
+## O jogador fez alguma coisa (o manager chama a cada botão).
+func note_input() -> void:
+	_idle_t = 0.0
+
+
+## Errou: depois de 2 erros seguidos, mostra a dica de erro.
+func note_miss() -> void:
+	_misses += 1
+	if _misses >= 2:
+		hint("miss")
+
+
+func note_hit() -> void:
+	_misses = 0
+
+
+## Chamado todo quadro pelo manager (antes do tick do jogo).
+func hint_tick(delta: float) -> void:
+	if not running:
+		return
+	if _countdown > 0.0:
+		_idle_t = 0.0
+		return
+	if not _hinted.has("start_checked"):
+		_hinted["start_checked"] = true
+		var plays := int((SaveManager.section("stats").get("mg_" + id, {}) as Dictionary).get("played", 0))
+		if plays < 3:
+			get_tree().create_timer(0.8).timeout.connect(func(): hint("start"))
+	_idle_t += delta
+	# andar também conta como jogar (futebol, esconde, guerra...)
+	if player.read_move_raw().length() > 0.2:
+		_idle_t = 0.0
+	if _idle_t > 7.0:
+		hint("idle")
+
+
 # ------------------------------------------------------------- diversão comum
 ## Sequência de acertos: cada acerto soa um tom acima; 3 seguidos = x2, 6 = x3.
 var combo := 0
@@ -202,6 +273,7 @@ func combo_mult() -> int:
 
 ## Acertou: soma na sequência e devolve o multiplicador.
 func add_combo() -> int:
+	note_hit()
 	combo += 1
 	best_combo = maxi(best_combo, combo)
 	AudioManager.play_combo(mini(combo - 1, 8))
@@ -217,6 +289,7 @@ func add_combo() -> int:
 
 ## Errou: a sequência acaba.
 func break_combo() -> void:
+	note_miss()
 	if combo >= 3:
 		GameManager.show_toast("Sequência de %d acabou!" % combo)
 	combo = 0

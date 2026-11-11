@@ -145,6 +145,7 @@ func tick(delta: float) -> void:
 
 
 func _trip() -> void:
+	note_miss()
 	lives -= 1
 	player.visual.play("hit")
 	AudioManager.play_ui("trip", -4.0)
@@ -171,3 +172,7 @@ func cleanup() -> void:
 	if is_instance_valid(_rope):
 		_rope.queue_free()
 	super.cleanup()
+
+
+func hints() -> Dictionary:
+	return {"start": "Pule (botão azul) quando a barra ENCHER: é quando a corda chega no chão.", "idle": "Toque em Pular quando a barra embaixo encher.", "miss": "Não pule cedo! Espere a barra encher bem no final e pule."}

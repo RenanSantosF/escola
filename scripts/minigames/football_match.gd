@@ -651,6 +651,7 @@ func _goal(team: int) -> void:
 		score_b += 1
 		hud.show_banner("Gol do adversário", "Seu time %d x %d" % [score_a, score_b])
 		AudioManager.play_ui("crowd_cheer", -12.0)
+		note_miss()
 		for n in team_b:
 			n.visual.play("celebrate")
 	if player.camera_rig:
@@ -1276,3 +1277,7 @@ func _client_cmd(k: String, extra := {}) -> void:
 	var d := {"k": k, "d": [snappedf(f.x, 0.01), snappedf(f.z, 0.01)]}
 	d.merge(extra)
 	NetworkManager.mg_send_relay(str(net.gid), d)
+
+
+func hints() -> Dictionary:
+	return {"start": "Chegue perto da bola para dominar. SEGURE Chutar para mais força e mire no canto!", "idle": "Corra até a bola com o joystick. Botão verde passa, amarelo chuta.", "miss": "Chute de perto e no canto do gol: o goleiro erra mais!"}

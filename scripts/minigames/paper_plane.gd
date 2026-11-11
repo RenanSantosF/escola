@@ -381,3 +381,7 @@ func cleanup() -> void:
 	hud.set_meter(-1.0)
 	player.visual.stop_action()
 	super.cleanup()
+
+
+func hints() -> Dictionary:
+	return {"start": "Toque quando a barra estiver no MEIO para dobrar bem o avião.", "idle": "Segure o botão amarelo para dar força e solte para lançar.", "miss": "No ar, use o joystick para fazer curva e passar nas argolas."}

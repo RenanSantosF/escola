@@ -84,6 +84,7 @@ func _ready() -> void:
 	await _test_portas()
 	await _test_contador_e_brilho()
 	await _test_atracoes()
+	await _test_dicas()
 	await _test_tela_amigos()
 	await _test_duas_turmas()
 	await _test_interpolacao()
@@ -2092,6 +2093,45 @@ func _test_tela_amigos() -> void:
 			(b as Button).pressed.emit()
 	check(not picked.is_empty() and picked[0][1] == "4321", "amigos: Entrar vai para a sala do amigo")
 	om.reset()
+
+
+func _test_dicas() -> void:
+	var mm: MinigameManager = main.minigames
+	await _recess()
+	var bk = await _mg_start("basquete")
+	if bk == null:
+		check(false, "dicas: basquete começou")
+		return
+	bk._countdown = 0.0
+	bk.break_combo()
+	bk.break_combo()
+	await _frames(2)
+	var hud: HUD = main.hud
+	check(hud._hint != null and hud._hint.modulate.a > 0.0 and "VERDE" in hud._hint_lbl.text, "dicas: errou 2 vezes, aparece a dica certa")
+	var shown := hud._hint_lbl.text
+	bk.break_combo()
+	bk.break_combo()
+	check(bk._hinted.has("miss") and hud._hint_lbl.text == shown, "dicas: a mesma dica não repete na partida")
+	bk._idle_t = 7.5
+	await _frames(2)
+	check(hud._hint_lbl.text == str(bk.hints().idle), "dicas: parado sem jogar, aparece a dica do que fazer")
+	await _wait(6.0)
+	check(hud._hint.modulate.a < 0.05, "dicas: a dica some sozinha (não é permanente)")
+	bk.time_left = 0.05
+	await _frames(3)
+	check(hud._result != null and is_instance_valid(hud._result), "fim de brincadeira: cartão de resultado com estrelas")
+	var again: Button = null
+	for b in hud._result.find_children("*", "Button", true, false):
+		if (b as Button).text == "Jogar de novo":
+			again = b
+	check(again != null, "fim de brincadeira: botão Jogar de novo")
+	if again:
+		again.pressed.emit()
+		await _frames(3)
+		check(mm.active != null and mm.active.id == "basquete", "fim de brincadeira: Jogar de novo começa outra partida")
+		if mm.active:
+			mm.active.end_game(0, "fim", 0, 0)
+			await _frames(3)
 
 
 func _test_atracoes() -> void:

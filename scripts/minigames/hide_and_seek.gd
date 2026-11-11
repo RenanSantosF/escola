@@ -313,3 +313,7 @@ func on_net_event(ev: Dictionary) -> void:
 		won = -1 if _me in _found_ids else 1
 	var summary := ("Você achou %d" % _found_ids.size()) if _seeker == _me else ("Te acharam!" if won < 0 else "Ninguém te achou!")
 	end_game(won, "Esconde-esconde: " + summary, 6 + _found_ids.size() * 4 if _seeker == _me else (16 if won > 0 else 6), 14 if won > 0 else 8)
+
+
+func hints() -> Dictionary:
+	return {"start": "Siga o QUENTE ou FRIO e o som: quanto mais rápido, mais perto!", "idle": "Ande pelo parque: atrás das árvores, do coreto e perto do lago.", "miss": ""}

@@ -280,6 +280,8 @@ func read_move_raw() -> Vector2:
 
 
 func request_jump() -> void:
+	if minigame:
+		minigame.note_input()
 	if minigame and minigame.on_jump():
 		return
 	if mode == Mode.SITTING:
@@ -293,6 +295,8 @@ func toggle_run() -> void:
 
 
 func request_interact() -> void:
+	if minigame:
+		minigame.note_input()
 	if minigame and minigame.on_interact():
 		return
 	if mode == Mode.SITTING:
@@ -317,6 +321,8 @@ func request_play_release() -> void:
 
 
 func request_play() -> void:
+	if minigame:
+		minigame.note_input()
 	if minigame and minigame.on_play():
 		return
 	if mode != Mode.FREE or not is_on_floor():

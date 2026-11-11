@@ -270,6 +270,7 @@ func _round_done() -> void:
 
 
 func _fail(msg: String) -> void:
+	note_miss()
 	lives -= 1
 	player.visual.play("sad")
 	AudioManager.play_ui("trip", -4.0)
@@ -334,3 +335,7 @@ func cleanup() -> void:
 	if is_instance_valid(_root):
 		_root.queue_free()
 	super.cleanup()
+
+
+func hints() -> Dictionary:
+	return {"start": "Primeiro SEGURE e solte o botão amarelo quando o círculo ficar VERDE na casa certa.", "idle": "Toque em Pular quando o anel amarelo fechar e ficar VERDE.", "miss": "Calma! Espere o anel fechar (ficar verde) para pular: vale Perfeito."}

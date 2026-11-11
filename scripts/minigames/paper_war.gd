@@ -268,3 +268,7 @@ func cleanup() -> void:
 	if is_instance_valid(_root):
 		_root.queue_free()
 	super.cleanup()
+
+
+func hints() -> Dictionary:
+	return {"start": "Fuja dos círculos VERMELHOS no chão: é onde as bolinhas vão cair!", "idle": "Segure o botão amarelo para mirar num colega e solte para jogar.", "miss": "Ande para fora do círculo vermelho assim que ele aparecer."}
