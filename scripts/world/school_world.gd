@@ -215,12 +215,31 @@ func _build_terrain_extras(parent: Node3D) -> void:
 		mi.global_position = lk.center
 
 
+var rides: Array = []
+
+
 func _spawn_interactables() -> void:
 	for sl in builder.slides:
 		var ss := SlideSpot.new()
 		ss.points = sl.points
 		ss.position = sl.start
 		add_child(ss)
+	for r in builder.rides:
+		var rt := RideTrack.new()
+		rt.name = "Atracao_" + str(r.kind)
+		rt.kind = r.kind
+		rt.prompt = r.prompt
+		rt.points = r.points
+		rt.laps = int(r.get("laps", 1))
+		rt.lift = r.get("lift", Vector2(-1, -1))
+		rt.lift_top = r.get("lift_top", Vector3.ZERO)
+		rt.position = r.base
+		add_child(rt)
+		rides.append(rt)
+	for tp in builder.trampolines:
+		var tr := Trampoline.new()
+		tr.position = tp
+		add_child(tr)
 	var seats_root := Node3D.new()
 	seats_root.name = "Seats"
 	add_child(seats_root)

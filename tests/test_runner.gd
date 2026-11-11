@@ -82,6 +82,7 @@ func _ready() -> void:
 	await _test_salas_alcancaveis()
 	await _test_portas()
 	await _test_contador_e_brilho()
+	await _test_atracoes()
 	_finish()
 
 
@@ -1893,6 +1894,67 @@ func _test_portas() -> void:
 func _xp_total() -> int:
 	var p: Dictionary = SaveManager.section("player")
 	return int(p.get("level", 1)) * 100000 + int(p.get("xp", 0))
+
+
+func _test_atracoes() -> void:
+	await _recess()
+	if player.mode == PlayerController.Mode.SITTING:
+		player.force_stand()
+	var world = main.world
+	check(world.rides.size() == 2, "atrações: tobogã gigante e montanha-russa existem")
+	var slide: RideTrack = null
+	var coaster: RideTrack = null
+	for r in world.rides:
+		if r.kind == "slide":
+			slide = r
+		else:
+			coaster = r
+	# tobogã: sobe pelo elevador e escorrega até o fim
+	player.global_position = slide.global_position
+	await _frames(2)
+	var len := 0.0
+	for i in slide.points.size() - 1:
+		len += slide.points[i].distance_to(slide.points[i + 1])
+	var max_y := 0.0
+	slide.interact(player)
+	var t0 := Time.get_ticks_msec()
+	Engine.time_scale = 3.0
+	while slide._rider != null and Time.get_ticks_msec() - t0 < 30000:
+		max_y = maxf(max_y, player.global_position.y)
+		await _frames(1)
+	Engine.time_scale = 1.0
+	var end := slide.points[slide.points.size() - 1]
+	check(slide._rider == null and player.global_position.distance_to(end) < 3.0 and max_y > 12.0,
+		"tobogã gigante: sobe a torre (%.0f m) e desce %.0f m até o Parquinho" % [max_y, len])
+	check(player.input_enabled and not player.movement_locked, "tobogã gigante: devolve o controle no fim")
+	# montanha-russa: duas voltas e volta para a estação
+	player.global_position = coaster.global_position
+	await _frames(2)
+	coaster.interact(player)
+	var top_v := 0.0
+	t0 = Time.get_ticks_msec()
+	Engine.time_scale = 4.0
+	while coaster._rider != null and Time.get_ticks_msec() - t0 < 40000:
+		top_v = maxf(top_v, coaster._v)
+		await _frames(1)
+	Engine.time_scale = 1.0
+	check(coaster._rider == null and coaster._lap == 2 and player.global_position.distance_to(coaster.global_position) < 2.0,
+		"montanha-russa: dá 2 voltas no Lago e desembarca na estação")
+	check(top_v > 12.0, "montanha-russa: a descida é rápida (%.1f m/s)" % top_v)
+	# cama elástica
+	var tr: Trampoline = null
+	for n in world.get_children():
+		if n is Trampoline:
+			tr = n
+			break
+	player.global_position = tr.global_position + Vector3(0, 0.05, 0)
+	player.velocity = Vector3.ZERO
+	var peak := tr.global_position.y
+	for i in 120:
+		await _frames(1)
+		peak = maxf(peak, player.global_position.y)
+	check(peak > tr.global_position.y + 2.0, "cama elástica: quica alto (%.1f m)" % (peak - tr.global_position.y))
+	player.global_position = Vector3(0, 0.1, -2)
 
 
 func _test_contador_e_brilho() -> void:

@@ -29,6 +29,8 @@ var nav_links: Array = []  # pares [a, b] que devem ser ligados (passagem por po
 var spots: Array = []  # pontos de atividade do recreio {type, pos, yaw}
 var heightfields: Array = []  # relevo com colisão {center, w, d, data}
 var slides: Array = []  # escorregadores {start, points}
+var rides: Array = []  # tobogã gigante e montanha-russa (FunRides)
+var trampolines: Array = []  # camas elásticas
 var lakes: Array = []  # lagos {center, radius}
 var chunk_offsets := {}  # chunk -> altura (prédios de vários andares)
 var floor_tag := ""
@@ -107,6 +109,7 @@ func build_all(step: Callable) -> void:
 	await step.call(0.74, "Espalhando as árvores...")
 	BuildingC.build(self)
 	ParkHill.build(self)
+	FunRides.build(self)
 	_fountain_plaza()
 	_dressing_extra()
 	_general_zones()
