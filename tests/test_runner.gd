@@ -84,6 +84,7 @@ func _ready() -> void:
 	await _test_portas()
 	await _test_contador_e_brilho()
 	await _test_atracoes()
+	await _test_duas_turmas()
 	await _test_interpolacao()
 	_finish()
 
@@ -1909,6 +1910,30 @@ func _test_interpolacao() -> void:
 	check(ahead.x > 2.5 and ahead.x < 3.6, "online: pacote atrasado, colega continua andando (%.2f)" % ahead.x)
 	var late := OnlineSession._sample(buf, 3.0)
 	check(late.x < 5.6, "online: extrapolação limitada (não sai voando)")
+
+
+func _test_duas_turmas() -> void:
+	var sd: SchoolDay = main.school_day
+	var npcm: NPCManager = main.npcs
+	await _recess()
+	NetworkManager.my_id = "eu"
+	var marcia := npcm.teacher
+	# o servidor me pôs na carteira 18: Turma B, Sala 6 (carteira 2 de lá)
+	npcm.apply_desks({"eu": 18, "amigo": 0, "amiga": 17}, "eu")
+	check(NPCManager.CLASS_ROOM == "Sala 6" and npcm.player_desk == npcm.desk_seats("Sala 6")[2], "turmas: carteira 18 = Turma B na Sala 6")
+	check(npcm.desk_owner.get(npcm.desk_seats("Sala 5")[0], "") == "amigo" and npcm.desk_owner.get(npcm.desk_seats("Sala 6")[1], "") == "amiga", "turmas: sabe de quem é cada carteira nas duas salas")
+	check(npcm.teacher != marcia and npcm.teacher_other == marcia, "turmas: Sala 6 tem o Professor Carlos; a Márcia fica na Sala 5")
+	sd._start_return()
+	await _frames(3)
+	check(sd.room_for_class(1) == "Sala 6" or not SchoolDay.SPECIAL_ROOMS, "turmas: a aula da Turma B é na Sala 6")
+	check(npcm.teacher_other.active and npcm.world.zone_at(npcm.teacher_other.global_position).get("name", "") == "Sala 5", "turmas: com alunos na Turma A, o professor dela está na Sala 5")
+	var a := Learning.subjects_shared(7, 0)
+	check(a == Learning.subjects_shared(7, 0) and a != Learning.subjects_shared(7, 1), "turmas: matérias iguais na turma, diferentes entre turmas")
+	# volta para a Turma A
+	npcm.apply_desks({"eu": 0}, "eu")
+	check(NPCManager.CLASS_ROOM == "Sala 5" and npcm.teacher == marcia and not npcm.teacher_other.active, "turmas: voltou para a Turma A (Sala 5) e o outro professor some sem alunos")
+	npcm.apply_desks({}, "")
+	NetworkManager.my_id = ""
 
 
 func _test_atracoes() -> void:

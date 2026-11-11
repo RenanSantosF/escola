@@ -130,6 +130,7 @@ func _add_remote(p: Dictionary) -> void:
 	root.name = "Online_" + id
 	var vis := CharacterVisual.new()
 	vis.detail = 0.5 if Settings.quality() == Settings.Quality.LOW else 0.75
+	vis.manual_update = true  # LOD: a sessão decide quantas vezes anima
 	var look: Variant = p.get("look", {})
 	vis.appearance = CharacterAppearance.from_dict(look) if look is Dictionary and not look.is_empty() else CharacterAppearance.random(id.hash(), true)
 	root.add_child(vis)
@@ -199,9 +200,13 @@ func _on_remote_anim(r: Dictionary, before: String, now: String) -> void:
 		if best and best.occupant == null:
 			best.occupy(r.root)
 			r["seat"] = best
+	elif now in ["slide", "coaster"]:
+		vis.play("sit_down")  # descendo o tobogã / na montanha-russa
 	elif before == "sit":
 		vis.play("stand_up")
 		_release_seat(r)
+	elif before in ["slide", "coaster"]:
+		vis.stop_action()
 
 
 func _release_seat(r: Dictionary) -> void:
@@ -253,8 +258,45 @@ static func _sample(buf: Array, t: float) -> Vector3:
 	return (last[1] as Vector3) + vel * ahead
 
 
+var _lod_t := 0.0
+
+
+## Colegas longe custam menos: sem sombra, animação mais espaçada, nome
+## escondido e, além do alcance (ou dentro de sala fechada), nem são desenhados.
+func _lod(r: Dictionary, cp: Vector3, fwd: Vector3, refresh: bool, delta: float) -> void:
+	var root: Node3D = r.root
+	var vis: CharacterVisual = r.visual
+	var to := root.global_position - cp
+	var d := to.length()
+	if refresh:
+		var far := 90.0 if Settings.quality() != Settings.Quality.LOW else 60.0
+		var hidden := d > far or (world is SchoolWorld and (world as SchoolWorld).interior_hidden_at(root.global_position))
+		vis.visible = not hidden
+		vis.set_shadow(d < 20.0)
+		(r.label as Label3D).visible = not hidden and d < 30.0
+	if not vis.visible:
+		return
+	var behind := to.dot(fwd) < -1.0 and d > 6.0
+	var interval := 0.0
+	if d > 40.0 or behind:
+		interval = 0.2
+	elif d > 22.0:
+		interval = 0.08
+	elif d > 12.0:
+		interval = 0.033
+	vis.animator.update_interval = interval
+	vis.animator.update(delta)
+
+
 func _process(delta: float) -> void:
 	var render_t := _now() - INTERP_DELAY
+	var cam := get_viewport().get_camera_3d()
+	var cp := cam.global_position if cam else Vector3.ZERO
+	var fwd := -cam.global_basis.z if cam else Vector3.FORWARD
+	_lod_t -= delta
+	var refresh := _lod_t <= 0.0
+	if refresh:
+		_lod_t = 0.3
 	for r in remotes.values():
 		var root: Node3D = r.root
 		var prev := root.global_position
@@ -266,6 +308,7 @@ func _process(delta: float) -> void:
 		var sp := Vector2(root.global_position.x - prev.x, root.global_position.z - prev.z).length() / maxf(delta, 0.001)
 		vis.animator.speed = lerpf(vis.animator.speed, sp, 1.0 - exp(-8.0 * delta))
 		vis.animator.ride_mode = 2 if r.anim == "bike" else (1 if r.anim == "ride" else 0)
+		_lod(r, cp, fwd, refresh, delta)
 	_watch_connection(delta)
 	# brincando: chat e pique-pega somem (não faz sentido no meio do futebol)
 	if chat_panel and player:
@@ -278,7 +321,9 @@ func _process(delta: float) -> void:
 	if _send_t >= SEND_DT:
 		_send_t = minf(_send_t - SEND_DT, SEND_DT)
 		var anim := "idle"
-		if player.riding:
+		if player.has_meta("ride"):
+			anim = str(player.get_meta("ride"))  # "slide" ou "coaster"
+		elif player.riding:
 			anim = "bike" if player.vehicle == "bike" else "ride"
 		elif player.mode == PlayerController.Mode.SITTING:
 			anim = "sit"

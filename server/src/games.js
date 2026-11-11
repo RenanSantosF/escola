@@ -29,7 +29,7 @@ const CATALOG = {
   guerra: { kind: 'round', max: 8, maxMs: 120000 },
   corrida: { kind: 'round', max: 4, maxMs: 90000, lower: true },
   queimada: { kind: 'team', max: 10, maxMs: 200000 },
-  esconde: { kind: 'hide', max: 8, maxMs: 240000, hideMs: 20000, seekMs: 120000, min: 2 },
+  esconde: { kind: 'hide', max: 12, maxMs: 240000, hideMs: 20000, seekMs: 120000, min: 2 },
   amarelinha: { kind: 'turn', max: 8, turnMs: 120000 },
   corda: { kind: 'turn', max: 8, turnMs: 120000 },
   futebol: { kind: 'team', max: 10, maxMs: 240000 },

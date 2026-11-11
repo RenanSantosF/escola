@@ -55,6 +55,7 @@ func interact(player: Node) -> void:
 	if p.held_item:
 		return
 	_rider = p
+	p.set_meta("ride", kind)  # os colegas online veem sentado no brinquedo
 	p.input_enabled = false
 	p.movement_locked = true
 	p.velocity = Vector3.ZERO
@@ -180,6 +181,7 @@ func _end(ok: bool) -> void:
 		_place_cart(0.0)
 	if p == null or not is_instance_valid(p):
 		return
+	p.remove_meta("ride")
 	p.visual.stop_action()
 	if ok:
 		# desembarque: tobogã no fim do tubo, montanha-russa na plataforma

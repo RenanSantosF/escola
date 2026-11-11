@@ -564,17 +564,48 @@ function createServer(opts = {}) {
     });
   });
 
+  // Posições dos colegas. Com a escola cheia, cada um recebe 10x/s só quem está
+  // PERTO (NEAR_M); quem está longe vai 2x/s. Corta a banda sem ninguém notar
+  // (de longe o colega é pequeno e o celular interpola entre as amostras).
+  const NEAR_M = 45;
+  const FAR_EVERY = 5;
+  function sendStates(r) {
+    r.tickN = (r.tickN || 0) + 1;
+    const moved = [];
+    for (const p of r.players.values()) {
+      if (p.dirty) {
+        p.dirty = false;
+        p.lastMove = r.tickN;
+        p.stateJson = JSON.stringify({ id: p.id, pos: p.pos, yaw: p.yaw, anim: p.anim });
+      }
+      if (p.lastMove && r.tickN - p.lastMove < FAR_EVERY) moved.push(p);
+    }
+    if (!moved.length) return;
+    const farTick = r.tickN % FAR_EVERY === 0;
+    const small = r.players.size <= 8;
+    for (const to of r.players.values()) {
+      if (to.ws.readyState !== 1) continue;
+      const parts = [];
+      for (const p of moved) {
+        if (p === to) continue;
+        const fresh = p.lastMove === r.tickN;
+        if (small) { if (fresh) parts.push(p.stateJson); continue; }
+        const a = p.pos || [0, 0, 0];
+        const b = to.pos || [0, 0, 0];
+        const dx = a[0] - b[0];
+        const dz = a[2] - b[2];
+        const near = dx * dx + dz * dz < NEAR_M * NEAR_M;
+        if (near ? fresh : farTick) parts.push(p.stateJson);
+      }
+      if (parts.length) to.ws.send('{"t":"states","list":[' + parts.join(',') + ']}');
+    }
+  }
+
   // envia estados agregados por sala (~10 Hz)
   const timer = setInterval(() => {
     rooms.prune();
     for (const r of rooms.rooms.values()) {
-      const list = [];
-      for (const p of r.players.values()) {
-        if (!p.dirty) continue;
-        p.dirty = false;
-        list.push({ id: p.id, pos: p.pos, yaw: p.yaw, anim: p.anim });
-      }
-      if (list.length) broadcast(r, { t: 'states', list });
+      sendStates(r);
       // relógio da escola: a mesma fase para todos
       for (const st of r.clock.tick()) {
         if (st.phase !== 'recess') {

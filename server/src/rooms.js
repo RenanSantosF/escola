@@ -1,5 +1,7 @@
 'use strict';
-// Salas ("turmas"): até MAX jogadores (uma carteira para cada na Sala 5).
+// Salas da escola: até MAX jogadores, em DUAS turmas de 16 (Turma A na Sala 5,
+// carteiras 0-15; Turma B na Sala 6, carteiras 16-31). A Turma A enche primeiro,
+// então quem entra junto (amigos pelo código) costuma ficar na mesma turma.
 // TODAS as salas são abertas: o código de 4 números só serve para os amigos
 // caírem na MESMA sala; quem usa a entrada rápida também pode entrar nela.
 // A entrada rápida prioriza salas que já existem (a mais cheia com vaga).
@@ -10,8 +12,9 @@ const crypto = require('crypto');
 const { SchoolClock } = require('./clock');
 const { GameHub } = require('./games');
 
-const MAX_PER_ROOM = 16;
-const DESKS = 16;
+const MAX_PER_ROOM = 32;
+const DESKS_PER_CLASS = 16;
+const DESKS = 32; // 2 turmas x 16 carteiras
 const DESK_HOLD_MS = 300000; // quem caiu (ou minimizou o app) e volta recupera a mesma carteira
 const EMPTY_KEEP_MS = 300000; // sala vazia espera 5 min (quem minimizou volta para a MESMA sala e hora)
 
@@ -157,4 +160,4 @@ class RoomManager {
   }
 }
 
-module.exports = { RoomManager, Room, MAX_PER_ROOM, DESKS, EMPTY_KEEP_MS };
+module.exports = { RoomManager, Room, MAX_PER_ROOM, DESKS, DESKS_PER_CLASS, EMPTY_KEEP_MS };

@@ -524,3 +524,54 @@ test('contas: nome único digitado com checagem ao vivo, senha e login', async (
   assert.equal(ok.body.account.name, 'Leo_Gamer');
   srv.close();
 });
+
+test('salas: até 32 jogadores em duas turmas (Sala 5: 0-15, Sala 6: 16-31)', () => {
+  const rm = new RoomManager();
+  const first = { id: 'p0' };
+  const room = rm.create(first);
+  for (let i = 1; i < 32; i++) assert.ok(!rm.joinCode({ id: 'p' + i }, room.code).error);
+  assert.equal(room.players.size, 32);
+  const desks = [...room.desks.values()].sort((a, b) => a - b);
+  assert.deepEqual(desks, [...Array(32).keys()], 'uma carteira para cada, 16 por turma');
+  assert.ok(rm.joinCode({ id: 'extra' }, room.code).error, 'a 33ª pessoa não entra');
+  const other = rm.quick({ id: 'novo' });
+  assert.notEqual(other.code, room.code, 'entrada rápida abre outra escola quando lota');
+  // saiu alguém da Turma A: quem chega ocupa a vaga dela (a turma A enche primeiro)
+  rm.leave(room.players.get('p3'));
+  room.deskHold.clear();
+  rm.joinCode({ id: 'p99' }, room.code);
+  assert.equal(room.desks.get('p99'), 3);
+});
+
+test('servidor: com a escola cheia, colega longe chega menos vezes (perto: sempre)', async () => {
+  const srv = createServer({ adminToken: 'x', dataDir: '' });
+  await new Promise((r) => srv.server.listen(0, r));
+  const port = srv.server.address().port;
+  const socks = [];
+  for (let i = 0; i < 10; i++) {
+    const c = await connect(port);
+    c.ws.send(JSON.stringify({ t: 'hello', age: 10 }));
+    socks.push(c);
+    await wait(20);
+  }
+  await wait(100);
+  const ids = socks.map((c) => c.inbox.find((m) => m.t === 'welcome').id);
+  const me = socks[0];
+  // todos perto de mim, menos o último (a 100 m); todos andam por 1,2 s
+  const t0 = Date.now();
+  me.inbox.length = 0;
+  while (Date.now() - t0 < 1200) {
+    const k = (Date.now() - t0) / 1000;
+    socks.forEach((c, i) => c.ws.send(JSON.stringify({ t: 'state', pos: [i === 9 ? 100 + k : k, 0, 0], yaw: 0, anim: 'walk' })));
+    await wait(50);
+  }
+  await wait(300);
+  const count = (id) => me.inbox.filter((m) => m.t === 'states' && m.list.some((s) => s.id === id)).length;
+  const near = count(ids[1]);
+  const far = count(ids[9]);
+  assert.ok(near >= 8, 'perto: ~10 por segundo (' + near + ')');
+  assert.ok(far >= 1 && far <= near / 2, 'longe: bem menos vezes (' + far + ' x ' + near + ')');
+  assert.ok(!me.inbox.some((m) => m.t === 'states' && m.list.some((s) => s.id === ids[0])), 'não recebe a si mesmo');
+  socks.forEach((c) => c.ws.close());
+  srv.close();
+});

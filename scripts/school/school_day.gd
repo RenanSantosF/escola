@@ -97,6 +97,7 @@ func setup(w: SchoolWorld, m: NPCManager, p: PlayerController, h: HUD) -> void:
 	p.sat.connect(_on_player_sat)
 	p.stood.connect(_on_player_stood)
 	m.player_desk_changed.connect(_on_desk_changed)
+	m.turma_changed.connect(_on_turma_changed)
 	NetworkManager.clock_changed.connect(_on_clock)
 	_marker = _make_marker()
 	w.add_child(_marker)
@@ -149,10 +150,17 @@ func start_day() -> void:
 	_waiting_seat = true
 
 
+## Matérias do dia: online são as mesmas para a turma toda (dia da escola + turma).
+func _day_subjects() -> Array:
+	if synced and _server_day > 0:
+		return Learning.subjects_shared(_server_day, maxi(NPCManager.TURMA_ROOMS.find(NPCManager.CLASS_ROOM), 0))
+	return Learning.subjects_for_day(day)
+
+
 func _init_day() -> void:
 	day = int(SaveManager.section("progress").get("days_completed", 0)) + 1
 	_gen = ClassroomTasks.new(day * 7919 + randi() % 1000, Learning.level())
-	_subjects = Learning.subjects_for_day(day)
+	_subjects = _day_subjects()
 	day_correct = 0
 	day_total = 0
 	_class_no = 0
@@ -382,7 +390,7 @@ func _begin_class(n: int) -> void:
 	npcs.begin_class()
 	_gen.level = Learning.level()
 	var subj: String = _subjects[n] if n < _subjects.size() else ""
-	lesson = _gen.make_lesson(LESSON_SIZE[n], true, subj)
+	lesson = _gen.make_lesson(LESSON_SIZE[n], true, Learning.content_subject(subj))
 	_class_done = false
 	class_room = room_for_class(n)
 	if _special_room():
@@ -458,7 +466,7 @@ func _on_answered(ok: bool) -> void:
 			_finish_lesson_synced()
 		elif correct < need and extra_tasks < 3:
 			extra_tasks += 1
-			lesson.append(_gen.make(["math", "word", "quiz"].pick_random(), _subjects[_class_no] if _class_no < _subjects.size() else ""))
+			lesson.append(_gen.make(["math", "word", "quiz"].pick_random(), Learning.content_subject(_subjects[_class_no]) if _class_no < _subjects.size() else ""))
 			npcs.teacher.say("Vamos fazer mais uma para liberar o recreio!" if _class_no == 0 else "Mais uma, vamos lá!", 2.6)
 			get_tree().create_timer(2.6).timeout.connect(_present_task)
 		else:
@@ -892,9 +900,28 @@ func _update_deadline() -> void:
 		_set_objective("A aula começou! Vá para a %s" % class_room, _class_target())
 
 
+var _objective_text := ""
+
+
 func _set_objective(text: String, target: Variant) -> void:
+	_objective_text = text
 	hud.set_objective(text)
 	_marker_target = target
+
+
+## O servidor me pôs na outra turma (Sala 6): a aula, o objetivo e a seta mudam junto.
+func _on_turma_changed(room: String) -> void:
+	var old := ""
+	for r in NPCManager.TURMA_ROOMS:
+		if r != room:
+			old = r
+	if class_room == old:
+		class_room = room
+	if old != "" and old in _objective_text:
+		_set_objective(_objective_text.replace(old, room), _marker_target)
+	if phase in [Phase.ARRIVAL, Phase.CLASS_1, Phase.RECESS]:
+		_subjects = _day_subjects()
+	GameManager.show_toast("Sua turma estuda na %s" % room)
 
 
 func _update_marker(delta: float) -> void:
