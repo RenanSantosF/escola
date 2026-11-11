@@ -1489,6 +1489,14 @@ func _test_online_tag() -> void:
 	nm._handle({"t": "welcome", "id": "eu", "name": "Eu", "room": "sala-1234", "code": "1234", "private": true, "token": "x", "quick": ["Oi!"], "players": [{"id": "amigo", "name": "Amigo", "level": 3, "pos": [2, 0, -6]}]})
 	await _frames(2)
 	check(sess.remotes.has("amigo"), "online: colega remoto aparece")
+	# colega pulando corda: quem está de fora vê a corda girando e os pulos
+	nm._handle({"t": "states", "list": [{"id": "amigo", "pos": [-24, 0.05, -2], "yaw": 0.0, "anim": RopeShow.encode(1.0, 4.2, 5)}]})
+	await _frames(3)
+	check(sess._rope_show != null and is_instance_valid(sess._rope_show) and sess._rope_show.jumps == 5 and sess._rope_show._rope.mesh != null, "corda: quem está de fora vê a corda e os pulos do colega")
+	check(sess.remotes["amigo"].anim == "rope", "corda: colega pulando não vira outra pose")
+	sess._rope_show._age = 5.0
+	await _frames(2)
+	check(sess._rope_show == null, "corda: quando o colega para, a corda some")
 	nm._handle({"t": "tag_event", "kind": "invite", "from": "amigo", "fromName": "Amigo", "names": {}})
 	check(sess.tag._invite_box.visible, "pique-pega: convite aparece para a sala")
 	var names := {"eu": "Eu", "amigo": "Amigo"}

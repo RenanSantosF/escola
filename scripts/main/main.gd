@@ -138,6 +138,7 @@ func _ready() -> void:
 	profile_menu.minigames = minigames
 	ui_layer.add_child(profile_menu)
 	hud.controls.bag_pressed.connect(profile_menu.open_menu)
+	profile_menu.closed.connect(_refresh_hello)  # menu: o boneco do palco troca de roupa junto
 	progression.inventory_changed.connect(func():
 		if NetworkManager.is_online():
 			NetworkManager.send_look())
@@ -239,6 +240,65 @@ const GAME_SUB := "Recreio"
 var _stats_lbl: Label
 var _lobby_status: Label
 var _joining := false
+var _lobby_stage: CharacterStage
+var _tap_hint: Control
+var _lvl_badge: Label
+var _xp_bar: ProgressBar
+var _coins_lbl: Label
+
+
+func _soft_box(col: Color, radius: int) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = col
+	sb.set_corner_radius_all(radius)
+	sb.content_margin_left = 14
+	sb.content_margin_right = 20
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	sb.shadow_color = Color(0, 0, 0, 0.18)
+	sb.shadow_size = 6
+	sb.shadow_offset = Vector2(0, 4)
+	return sb
+
+
+func _round_btn(icon: String, text: String, col: Color, cb: Callable, d := 96) -> LobbyButton:
+	var b := LobbyButton.new()
+	b.round_icon = true
+	b.icon_name = icon
+	b.text = text
+	b.color = col
+	b.font_size = 22
+	b.custom_minimum_size = Vector2(d, d + (40 if text != "" else 6))
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.pressed.connect(cb)
+	return b
+
+
+## Balãozinho de fala (dica do lobby).
+func _bubble(text: String) -> Control:
+	var p := PanelContainer.new()
+	var sb := _soft_box(Color.WHITE, 22)
+	p.add_theme_stylebox_override("panel", sb)
+	var l := UITheme.title_label(text, 22, Color("ff4d6d"))
+	p.add_child(l)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tw := p.create_tween().set_loops()
+	tw.tween_property(p, "position:y", -8.0, 0.6).as_relative().set_trans(Tween.TRANS_SINE)
+	tw.tween_property(p, "position:y", 8.0, 0.6).as_relative().set_trans(Tween.TRANS_SINE)
+	return p
+
+
+## Lobby: abre a mochila numa aba (Visual, Conquistas...) sem começar o jogo.
+func _open_lobby_tab(tab: String) -> void:
+	if profile_menu == null:
+		return
+	profile_menu.from_lobby = true
+	profile_menu.open_tab(tab)
+
+
+func _open_lobby_look() -> void:
+	_open_lobby_tab("visual")
 
 
 func _lobby_button(text: String, col: Color, cb: Callable, h := 64, fs := 24, border := Color(0, 0, 0, 0)) -> Button:
@@ -291,77 +351,179 @@ func _build_menu() -> void:
 	_menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_menu.theme = UITheme.get_theme()
 	ui_layer.add_child(_menu)
-	var grad := TextureRect.new()
-	var gt := GradientTexture2D.new()
-	var g := Gradient.new()
-	g.set_color(0, Color(0.06, 0.1, 0.24, 0.0))
-	g.set_color(1, Color(0.06, 0.1, 0.24, 0.55))
-	gt.gradient = g
-	gt.fill_from = Vector2(1, 0)
-	gt.fill_to = Vector2(0, 0)
-	grad.texture = gt
-	grad.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	grad.stretch_mode = TextureRect.STRETCH_SCALE
-	grad.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_menu.add_child(grad)
-
-	# ---- lobby: coluna escura à esquerda com o nome, a saudação e o JOGAR
-	var side := PanelContainer.new()
-	var ssb := StyleBoxFlat.new()
-	ssb.bg_color = Color(UITheme.NAVY, 0.9)
-	ssb.border_color = Color(UITheme.TEAL, 0.9)
-	ssb.border_width_right = 3
-	ssb.content_margin_left = 64
-	ssb.content_margin_right = 48
-	ssb.content_margin_top = 56
-	ssb.content_margin_bottom = 40
-	side.add_theme_stylebox_override("panel", ssb)
-	side.anchor_bottom = 1.0
-	side.offset_right = 560
-	_menu.add_child(side)
-	_menu_box = VBoxContainer.new()
-	_menu_box.add_theme_constant_override("separation", 14)
-	side.add_child(_menu_box)
-	var title := UITheme.title_label(GAME_TITLE.to_upper(), 78, Color.WHITE)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_menu_box.add_child(title)
-	var sub := UITheme.title_label("  ".join(GAME_SUB.to_upper().split("")), 26, UITheme.TEAL)
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_menu_box.add_child(sub)
-	var line := ColorRect.new()
-	line.color = Color(1, 1, 1, 0.12)
-	line.custom_minimum_size = Vector2(0, 2)
-	_menu_box.add_child(line)
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 8)
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_menu_box.add_child(spacer)
-	_hello_lbl = UITheme.title_label("", 30, Color.WHITE)
+	# ---- lobby: céu animado, logo, o personagem no palco e botões grandes
+	_menu.add_child(LobbyBackground.new())
+	var lobby := Control.new()
+	lobby.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	lobby.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_menu.add_child(lobby)
+	_menu_box = lobby  # o lobby inteiro aparece/some junto
+	# logo
+	var logo := LobbyLogo.new()
+	logo.title = GAME_TITLE.to_upper()
+	logo.ribbon = GAME_SUB.to_upper()
+	logo.anchor_left = 0.5
+	logo.anchor_right = 0.5
+	logo.offset_left = -330
+	logo.offset_right = 330
+	logo.offset_top = 6
+	logo.offset_bottom = 170
+	logo.font_size = 80
+	lobby.add_child(logo)
+	# personagem no palco (arrasta para girar, toque para uma graça)
+	_lobby_stage = CharacterStage.new()
+	_lobby_stage.anchor_left = 0.5
+	_lobby_stage.anchor_right = 0.5
+	_lobby_stage.anchor_top = 0.5
+	_lobby_stage.anchor_bottom = 0.5
+	_lobby_stage.offset_left = -210
+	_lobby_stage.offset_right = 210
+	_lobby_stage.offset_top = -150
+	_lobby_stage.offset_bottom = 225
+	lobby.add_child(_lobby_stage)
+	_lobby_stage.tapped.connect(func():
+		if is_instance_valid(_tap_hint):
+			var tw := _tap_hint.create_tween()
+			tw.tween_property(_tap_hint, "modulate:a", 0.0, 0.3)
+			tw.tween_callback(_tap_hint.queue_free))
+	_tap_hint = _bubble("Toque em mim!")
+	_tap_hint.anchor_left = 0.5
+	_tap_hint.anchor_top = 0.5
+	_tap_hint.offset_left = 120
+	_tap_hint.offset_top = -120
+	lobby.add_child(_tap_hint)
+	# cartão do jogador (canto de cima à esquerda)
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", _soft_box(Color(1, 1, 1, 0.92), 26))
+	card.position = Vector2(22, 18)
+	lobby.add_child(card)
+	var ch := HBoxContainer.new()
+	ch.add_theme_constant_override("separation", 12)
+	card.add_child(ch)
+	_lvl_badge = Label.new()
+	_lvl_badge.custom_minimum_size = Vector2(64, 64)
+	_lvl_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lvl_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_lvl_badge.add_theme_font_override("font", UITheme.bold_font())
+	_lvl_badge.add_theme_font_size_override("font_size", 30)
+	_lvl_badge.add_theme_color_override("font_color", Color.WHITE)
+	var lb := StyleBoxFlat.new()
+	lb.bg_color = Color("ff7a1a")
+	lb.set_corner_radius_all(32)
+	lb.border_color = Color("ffd23f")
+	lb.set_border_width_all(4)
+	_lvl_badge.add_theme_stylebox_override("normal", lb)
+	ch.add_child(_lvl_badge)
+	var cv2 := VBoxContainer.new()
+	cv2.add_theme_constant_override("separation", 2)
+	ch.add_child(cv2)
+	_hello_lbl = UITheme.title_label("", 26, UITheme.DARK)
 	_hello_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_menu_box.add_child(_hello_lbl)
+	cv2.add_child(_hello_lbl)
+	_xp_bar = ProgressBar.new()
+	_xp_bar.custom_minimum_size = Vector2(220, 16)
+	_xp_bar.show_percentage = false
+	_xp_bar.add_theme_stylebox_override("background", UITheme.box(Color("dfe6f3"), 8))
+	_xp_bar.add_theme_stylebox_override("fill", UITheme.box(Color("6be36b"), 8))
+	cv2.add_child(_xp_bar)
 	_stats_lbl = Label.new()
-	_stats_lbl.add_theme_font_size_override("font_size", 20)
-	_stats_lbl.add_theme_color_override("font_color", Color(UITheme.MIST, 0.75))
-	_menu_box.add_child(_stats_lbl)
-	var play_btn := _lobby_button("JOGAR", UITheme.TEAL, _on_play_quick, 88, 38)
-	_menu_box.add_child(play_btn)
-	_menu_box.add_child(_lobby_button("Amigos  ·  criar sala ou entrar com código", UITheme.NAVY_2, _on_friends_pressed, 64, 22, UITheme.SKY))
+	_stats_lbl.add_theme_font_size_override("font_size", 16)
+	_stats_lbl.add_theme_color_override("font_color", Color(UITheme.DARK, 0.7))
+	cv2.add_child(_stats_lbl)
+	# moedas + configurações (canto de cima à direita)
+	var tr := HBoxContainer.new()
+	tr.add_theme_constant_override("separation", 14)
+	tr.anchor_left = 1.0
+	tr.anchor_right = 1.0
+	tr.offset_left = -330
+	tr.offset_right = -22
+	tr.offset_top = 18
+	tr.alignment = BoxContainer.ALIGNMENT_END
+	lobby.add_child(tr)
+	var coins := PanelContainer.new()
+	coins.add_theme_stylebox_override("panel", _soft_box(Color(1, 1, 1, 0.92), 30))
+	coins.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var crow := HBoxContainer.new()
+	crow.add_theme_constant_override("separation", 8)
+	coins.add_child(crow)
+	var ci := CoinIcon.new()
+	ci.custom_minimum_size = Vector2(36, 36)
+	crow.add_child(ci)
+	_coins_lbl = UITheme.title_label("0", 28, Color("b7791f"))
+	crow.add_child(_coins_lbl)
+	tr.add_child(coins)
+	tr.add_child(_round_btn("gear", "", Color("5b6b8c"), _open_menu_settings, 76))
+	# lado esquerdo: Visual e Amigos; lado direito: Conquistas e Créditos
+	var left := VBoxContainer.new()
+	left.add_theme_constant_override("separation", 40)
+	left.anchor_top = 0.5
+	left.anchor_bottom = 0.5
+	left.offset_left = 70
+	left.offset_right = 182
+	left.offset_top = -150
+	lobby.add_child(left)
+	left.add_child(_round_btn("shirt", "Visual", Color("ff4d9a"), _open_lobby_look, 112))
+	left.add_child(_round_btn("friends", "Amigos", Color("3e8bff"), _on_friends_pressed, 112))
+	var right := VBoxContainer.new()
+	right.add_theme_constant_override("separation", 40)
+	right.anchor_left = 1.0
+	right.anchor_right = 1.0
+	right.anchor_top = 0.5
+	right.anchor_bottom = 0.5
+	right.offset_left = -182
+	right.offset_right = -70
+	right.offset_top = -150
+	lobby.add_child(right)
+	right.add_child(_round_btn("star", "Conquistas", Color("ffb020"), func(): _open_lobby_tab("conquistas"), 112))
+	right.add_child(_round_btn("bag", "Mochila", Color("8b5cf6"), func(): _open_lobby_tab("colecoes"), 112))
+	# JOGAR (embaixo, no meio): o único botão grande da tela
+	var play := LobbyButton.new()
+	play.text = "JOGAR"
+	play.sub = "entrar na escola"
+	play.icon_name = "play"
+	play.color = Color("22c55e")
+	play.primary = true
+	play.font_size = 46
+	play.anchor_left = 0.5
+	play.anchor_right = 0.5
+	play.anchor_top = 1.0
+	play.anchor_bottom = 1.0
+	play.offset_left = -200
+	play.offset_right = 200
+	play.offset_top = -132
+	play.offset_bottom = -22
+	play.pressed.connect(_on_play_quick)
+	lobby.add_child(play)
 	_lobby_status = Label.new()
-	_lobby_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_lobby_status.add_theme_font_size_override("font_size", 20)
-	_lobby_status.add_theme_color_override("font_color", UITheme.SKY)
-	_menu_box.add_child(_lobby_status)
-	var spacer2 := Control.new()
-	spacer2.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_menu_box.add_child(spacer2)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	_menu_box.add_child(row)
-	row.add_child(_lobby_button("Configurações", Color(1, 1, 1, 0.08), _open_menu_settings, 50, 19, Color(1, 1, 1, 0.25)))
-	row.add_child(_lobby_button("Créditos", Color(1, 1, 1, 0.08), _open_credits, 50, 19, Color(1, 1, 1, 0.25)))
-	if OS.get_name() not in ["Android", "iOS", "Web"]:
-		row.add_child(_lobby_button("Sair", Color(1, 1, 1, 0.08), func(): get_tree().quit(), 50, 19, Color(1, 1, 1, 0.25)))
-	_menu_box = side  # o painel inteiro aparece/some junto
+	_lobby_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lobby_status.add_theme_font_override("font", UITheme.bold_font())
+	_lobby_status.add_theme_font_size_override("font_size", 24)
+	_lobby_status.add_theme_color_override("font_color", Color.WHITE)
+	_lobby_status.add_theme_color_override("font_outline_color", Color(0.06, 0.1, 0.3))
+	_lobby_status.add_theme_constant_override("outline_size", 8)
+	_lobby_status.anchor_left = 0.5
+	_lobby_status.anchor_right = 0.5
+	_lobby_status.anchor_top = 1.0
+	_lobby_status.anchor_bottom = 1.0
+	_lobby_status.offset_left = -300
+	_lobby_status.offset_right = 300
+	_lobby_status.offset_top = -172
+	_lobby_status.offset_bottom = -136
+	lobby.add_child(_lobby_status)
+	var credits_btn := Button.new()
+	credits_btn.text = "Créditos"
+	credits_btn.flat = true
+	credits_btn.focus_mode = Control.FOCUS_NONE
+	credits_btn.add_theme_font_size_override("font_size", 18)
+	credits_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
+	credits_btn.anchor_left = 0.0
+	credits_btn.anchor_top = 1.0
+	credits_btn.anchor_bottom = 1.0
+	credits_btn.offset_left = 22
+	credits_btn.offset_top = -52
+	credits_btn.offset_bottom = -14
+	credits_btn.pressed.connect(_open_credits)
+	lobby.add_child(credits_btn)
 
 	var ver := Label.new()
 	ver.text = "v%s" % ProjectSettings.get_setting("application/config/version")
@@ -453,6 +615,7 @@ func _show_menu() -> void:
 		_show_account()
 	_menu.modulate.a = 1.0
 	camera_rig.set_showcase(true)
+	get_viewport().disable_3d = true
 	AudioManager.play_music("music_menu", -10.0)
 
 
@@ -478,6 +641,7 @@ func _on_play_pressed() -> void:
 
 
 func _start_game() -> void:
+	get_viewport().disable_3d = false
 	AudioManager.play_ui("ui_confirm")
 	var tw := create_tween()
 	tw.tween_property(_menu, "modulate:a", 0.0, 0.35)
@@ -502,10 +666,24 @@ var _synced := false
 
 
 func _refresh_hello() -> void:
+	var has := AccountManager.has_account()
 	if _hello_lbl:
-		_hello_lbl.text = ("Olá, %s!" % AccountManager.nickname()) if AccountManager.has_account() else ""
+		_hello_lbl.text = ("Olá, %s!" % AccountManager.nickname()) if has else "Olá!"
+	var lv := GameManager.level()
+	var xp := int(SaveManager.section("player").get("xp", 0))
+	var need := maxi(GameManager.xp_for_level(lv), 1)
 	if _stats_lbl:
-		_stats_lbl.text = "Nível %d  ·  %d moedas" % [GameManager.level(), GameManager.coins()] if AccountManager.has_account() else ""
+		_stats_lbl.text = "Nível %d  ·  faltam %d XP para o %d" % [lv, maxi(need - xp, 0), lv + 1]
+	if _lvl_badge:
+		_lvl_badge.text = str(lv)
+	if _xp_bar:
+		_xp_bar.max_value = need
+		_xp_bar.value = xp
+	if _coins_lbl:
+		_coins_lbl.text = str(GameManager.coins())
+	# o boneco do palco com o visual de agora
+	if _lobby_stage:
+		_lobby_stage.set_appearance(Progression.appearance_with())
 
 
 ## O jogo é só online: precisa de conta (criada uma vez) e de internet.

@@ -180,9 +180,28 @@ func _on_states(list: Array) -> void:
 		r.to = pos
 		r.yaw = float(s.get("yaw", 0.0))
 		var anim := str(s.get("anim", "idle"))
+		var rope := RopeShow.parse(anim)
+		if not rope.is_empty():
+			_rope_sync(rope)
+			anim = "rope"
 		if anim != r.anim:
 			_on_remote_anim(r, r.anim, anim)
 		r.anim = anim
+
+
+var _rope_show: RopeShow = null
+
+
+## Um colega está pulando corda: a corda aparece aqui também (quem está de fora vê).
+func _rope_sync(v: Array) -> void:
+	# eu mesmo pulando: a minha corda já está na tela
+	if player and player.minigame != null and player.minigame.id == "corda":
+		return
+	if _rope_show == null or not is_instance_valid(_rope_show):
+		_rope_show = RopeShow.new()
+		_rope_show.angle = float(v[0])
+		world.add_child(_rope_show)
+	_rope_show.sync(float(v[0]), float(v[1]), int(v[2]))
 
 
 ## Colega online sentou/levantou: mostra a pose e ocupa o assento (ninguém senta no colo dele).
@@ -310,6 +329,9 @@ func _process(delta: float) -> void:
 		vis.animator.ride_mode = 2 if r.anim == "bike" else (1 if r.anim == "ride" else 0)
 		_lod(r, cp, fwd, refresh, delta)
 	_watch_connection(delta)
+	if _rope_show and is_instance_valid(_rope_show) and (_rope_show.is_stale() or (player and player.minigame != null and player.minigame.id == "corda")):
+		_rope_show.queue_free()
+		_rope_show = null
 	# brincando: chat e pique-pega somem (não faz sentido no meio do futebol)
 	if chat_panel and player:
 		var busy := player.minigame != null
@@ -321,7 +343,10 @@ func _process(delta: float) -> void:
 	if _send_t >= SEND_DT:
 		_send_t = minf(_send_t - SEND_DT, SEND_DT)
 		var anim := "idle"
-		if player.has_meta("ride"):
+		var mg = player.minigame
+		if mg != null and mg.id == "corda" and mg.running:
+			anim = RopeShow.encode(float(mg.get("_angle")), float(mg.get("_speed")), int(mg.get("jumps")))
+		elif player.has_meta("ride"):
 			anim = str(player.get_meta("ride"))  # "slide" ou "coaster"
 		elif player.riding:
 			anim = "bike" if player.vehicle == "bike" else "ride"

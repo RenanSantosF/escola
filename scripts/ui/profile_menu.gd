@@ -16,8 +16,8 @@ var _cat := "camiseta"
 var _selected := ""
 var _content: VBoxContainer
 var _side: VBoxContainer
-var _preview_vp: SubViewport
-var _preview_char: CharacterVisual
+var _stage: CharacterStage
+var _last_look := ""
 var _coins: Label
 var _info: Label
 var _action: Button
@@ -90,30 +90,18 @@ func _ready() -> void:
 	root.add_child(_side)
 	_coins = UITheme.title_label("", 23, Color("ffe08a"))
 	_side.add_child(_coins)
-	var vpc := SubViewportContainer.new()
-	vpc.custom_minimum_size = Vector2(300, 380)
-	vpc.stretch = true
-	_side.add_child(vpc)
-	_preview_vp = SubViewport.new()
-	_preview_vp.own_world_3d = true
-	_preview_vp.transparent_bg = true
-	_preview_vp.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
-	vpc.add_child(_preview_vp)
-	var light := DirectionalLight3D.new()
-	light.rotation_degrees = Vector3(-35, 30, 0)
-	_preview_vp.add_child(light)
-	var env := WorldEnvironment.new()
-	env.environment = Environment.new()
-	env.environment.background_mode = Environment.BG_CLEAR_COLOR
-	env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.environment.ambient_light_color = Color(0.85, 0.85, 0.9)
-	env.environment.ambient_light_energy = 0.9
-	_preview_vp.add_child(env)
-	var cam := Camera3D.new()
-	cam.position = Vector3(0, 1.05, 2.9)
-	cam.rotation_degrees = Vector3(-6, 0, 0)
-	cam.fov = 40
-	_preview_vp.add_child(cam)
+	# palco do personagem: arraste para girar, pinça para aproximar, toque = graça
+	_stage = CharacterStage.new()
+	_stage.custom_minimum_size = Vector2(300, 400)
+	_stage.auto_emotes = false
+	_stage.podium_color = Color("b46bff")
+	_side.add_child(_stage)
+	var hint := Label.new()
+	hint.text = "Arraste para girar  ·  pinça para aproximar"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_font_size_override("font_size", 15)
+	hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.75))
+	_side.add_child(hint)
 	_info = Label.new()
 	_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info.add_theme_color_override("font_color", Color.WHITE)
@@ -125,29 +113,39 @@ func _ready() -> void:
 	_side.add_child(_action)
 
 
+var from_lobby := false  ## aberto pelo menu (antes de entrar na escola)
+
+
+## Abre direto numa aba (o menu usa para Visual, Conquistas e Mochila).
+func open_tab(tab: String) -> void:
+	open_menu()
+	_tab = tab
+	_selected = ""
+	_refresh()
+
+
 func open_menu() -> void:
 	visible = true
 	get_parent().move_child(self, -1)
 	GameManager.overlay_open = true
-	GameManager.set_state(GameManager.State.PAUSED)
-	if _preview_char == null:
-		_preview_char = CharacterVisual.new()
-		_preview_char.appearance = Progression.appearance_with()
-		_preview_vp.add_child(_preview_char)
+	if not from_lobby:
+		GameManager.set_state(GameManager.State.PAUSED)
+	_stage.set_appearance(Progression.appearance_with())
 	_selected = ""
 	_refresh()
 
 
 func close_menu() -> void:
 	visible = false
-	GameManager.set_state(GameManager.State.PLAYING)
+	if not from_lobby:
+		GameManager.set_state(GameManager.State.PLAYING)
+	from_lobby = false
 	GameManager.overlay_open = false
 	closed.emit()
 
 
 func _process(delta: float) -> void:
-	if visible and _preview_char:
-		_preview_char.rotation.y += delta * 0.6
+	pass
 
 
 func _refresh() -> void:
@@ -161,6 +159,7 @@ func _refresh() -> void:
 	if _tab == "brincadeiras" and not GameManager.overlay_open:
 		pass
 	_side.get_child(1).visible = show_preview
+	_side.get_child(2).visible = show_preview
 	_action.visible = false
 	_info.text = ""
 	match _tab:
@@ -456,12 +455,23 @@ func _tag(text: String, col: Color) -> Control:
 
 
 func _update_preview() -> void:
-	if _preview_char == null:
+	if _stage == null:
 		return
 	var extra := []
 	if _selected != "" and ShopCatalog.get_item(_selected).has("look"):
 		extra.append(_selected)
-	_preview_char.set_appearance(Progression.appearance_with(extra))
+	# trocou o que está vestindo: gira com brilhinho e aproxima no que mudou
+	var key := ",".join(extra)
+	var changed := key != _last_look
+	_last_look = key
+	_stage.set_appearance(Progression.appearance_with(extra), changed and key != "")
+	if changed and _selected != "":
+		var cat := str(ShopCatalog.get_item(_selected).get("cat", ""))
+		_stage.focus("head" if cat in ["bone", "penteado", "acessorio"] else "body")
+		if cat == "calcado":
+			_stage.play("hop_two")
+		elif cat in ["camiseta", "skin", "mochila"]:
+			_stage.play("celebrate")
 	if _selected == "" or not (_tab in ["loja", "visual"]):
 		return
 	var item := ShopCatalog.get_item(_selected)

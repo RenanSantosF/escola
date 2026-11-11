@@ -28,6 +28,20 @@ func _ready() -> void:
 	main._refresh_hello()
 	await _secs(1.0)
 	await _snap("lobby")
+	main._open_lobby_look()
+	await _secs(0.5)
+	var pm = main.profile_menu
+	for c in pm._content.get_children():
+		pass
+	pm._selected = "bone_vermelho" if ShopCatalog.get_item("bone_vermelho").size() > 0 else ""
+	for it in ShopCatalog.ITEMS if "ITEMS" in ShopCatalog else []:
+		if str(it.get("cat", "")) == "bone":
+			pm._selected = it.id
+			break
+	pm._update_preview()
+	await _secs(1.2)
+	await _snap("lobby_visual")
+	pm.close_menu()
 	main._on_friends_pressed()
 	await _snap("lobby_amigos")
 	get_tree().quit()

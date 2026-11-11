@@ -125,9 +125,32 @@ func _ask_age() -> void:
 ## Menino ou menina (muda o visual de partida; dá para trocar depois na mochila).
 func show_gender() -> void:
 	_clear()
-	_title("Você é...", "Escolha como o seu personagem vai ser.")
-	_big("Menino", UITheme.NAVY_2, func(): _set_gender(false), 420)
-	_big("Menina", Color("c2457a"), func(): _set_gender(true), 420)
+	_title("Você é...", "Toque no seu personagem! (dá para girar arrastando)")
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 26)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_v.add_child(row)
+	var base: CharacterAppearance = Progression.appearance_with()
+	for girl in [false, true]:
+		var col := Color("3e8bff") if not girl else Color("ff4d9a")
+		var card := VBoxContainer.new()
+		card.add_theme_constant_override("separation", 8)
+		row.add_child(card)
+		var st := CharacterStage.new()
+		st.custom_minimum_size = Vector2(240, 300)
+		st.podium_color = col
+		st.base_dist = 3.4
+		card.add_child(st)
+		var a := CharacterAppearance.from_dict(base.to_dict())
+		a.set_girl(girl)
+		st.set_appearance.call_deferred(a)
+		var g: bool = girl
+		st.tapped.connect(func():
+			st.play("celebrate")
+			get_tree().create_timer(0.8).timeout.connect(func(): _set_gender(g)))
+		var b := _big("Menina" if girl else "Menino", col, func(): _set_gender(g), 240)
+		b.get_parent().remove_child(b)
+		card.add_child(b)
 
 
 func _set_gender(girl: bool) -> void:

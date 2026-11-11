@@ -58,7 +58,7 @@ func to_dict() -> Dictionary:
 func set_girl(on: bool) -> void:
 	girl = on
 	if on and hair_style in ["curto", "espetado", "raspado"]:
-		hair_style = "rabo"
+		hair_style = "longo"
 	elif not on and hair_style in ["longo", "rabo"]:
 		hair_style = "curto"
 
