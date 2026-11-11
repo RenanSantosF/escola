@@ -15,12 +15,13 @@ config/description="Simulador casual de vida escolar, exploração e brincadeira
 config/version="0.1.0"
 run/main_scene="res://scenes/main/main.tscn"
 config/features=PackedStringArray("4.3", "Mobile")
-boot_splash/bg_color=Color(0.98, 0.83, 0.35, 1)
+boot_splash/bg_color=Color(1, 0.886, 0.498, 1)
 boot_splash/show_image=false
 config/icon="res://icon.svg"
 
 [autoload]
 
+FTSplash="*res://addons/ft_splash/ft_splash.gd"
 Settings="*res://autoloads/settings_manager.gd"
 SaveManager="*res://autoloads/save_manager.gd"
 AudioManager="*res://autoloads/audio_manager.gd"

@@ -30,6 +30,9 @@ func _ready() -> void:
 	ui_layer = CanvasLayer.new()
 	ui_layer.layer = 10
 	add_child(ui_layer)
+	# abertura FT (1,8 s): espera acabar antes de carregar a escola (fica lisa)
+	if FTSplash.playing:
+		await FTSplash.finished
 	_build_loading()
 	await get_tree().process_frame
 	await get_tree().process_frame
