@@ -57,6 +57,8 @@ var _puppets: Array[NPC] = []
 var _client_holder := ""
 var _client_ko := -1
 var _ball_target := Vector3(40, 0.3, -49)
+var _shot_n := 0  # conta os chutes (o goleiro decide UMA vez por chute)
+var _keeper_call := {}  # goleiro -> [chute, vai defender?]
 
 
 func begin() -> void:
@@ -453,8 +455,8 @@ func _shoot_player(power: float) -> void:
 	var dir := fwd
 	# mira assistida aos cantos se estiver virado para o gol
 	if fwd.angle_to(to_goal.normalized()) < deg_to_rad(45):
-		var corner := 1.05 * (1.0 if fwd.z > to_goal.normalized().z else -1.0)
-		var aim := GOAL_A + Vector3(0, 0, corner * randf_range(0.6, 1.0))
+		var corner := 1.12 * (1.0 if fwd.z > to_goal.normalized().z else -1.0)
+		var aim := GOAL_A + Vector3(0, 0, corner * randf_range(0.75, 1.0))
 		dir = (aim - player.global_position)
 		dir.y = 0
 		dir = dir.normalized()
@@ -510,6 +512,7 @@ func _release(dir: Vector3, power: float, lift := 0.0) -> void:
 	ball.sleeping = false
 	ball.linear_velocity = dir * power + Vector3.UP * lift
 	_free_t = 0.0
+	_shot_n += 1
 
 
 func _kick_from(n: Node3D, dir: Vector3, power: float, lift: float) -> void:
@@ -777,20 +780,47 @@ func _keeper_ai(k: NPC, x: float, dir: float, delta: float) -> void:
 			_kick_from(k, to.normalized(), clampf(to.length() * 0.8 + 4.0, 6.0, 13.0), 1.2)
 		_think[key] = st
 		return
-	var tz := clampf(bp.z, -49.0 - GOAL_HALF + 0.3, -49.0 + GOAL_HALF - 0.3)
+	var tz := clampf(-49.0 + (bp.z + 49.0) * 0.6, -49.0 - GOAL_HALF + 0.5, -49.0 + GOAL_HALF - 0.5)
 	# defesa: bola vindo para o gol perto do goleiro
 	var toward := ball.linear_velocity.x * -dir > 2.0
 	var d := Vector2(bp.x - k.global_position.x, bp.z - k.global_position.z).length()
-	if holder == null and toward and d < 1.6 and bp.y < 1.8:
-		var save: float = [0.45, 0.62, 0.8][difficulty]
-		if randf() < save:
+	# decide UMA vez por chute, quando a bola vem para o gol:
+	# chute forte e no canto é mais difícil de pegar
+	if holder == null and toward and absf(bp.x - x) < 9.0:
+		var call: Array = _keeper_call.get(k, [-1, false])
+		if int(call[0]) != _shot_n:
+			var speed := Vector2(ball.linear_velocity.x, ball.linear_velocity.z).length()
+			var vx := ball.linear_velocity.x
+			var tt := (x - bp.x) / vx if absf(vx) > 0.1 else 0.0
+			var zat := bp.z + ball.linear_velocity.z * maxf(tt, 0.0)
+			var corner := clampf(absf(zat + 49.0) / GOAL_HALF, 0.0, 1.0)
+			var save: float = [0.4, 0.52, 0.64][difficulty]
+			save *= 1.0 - corner * 0.55
+			save *= 1.0 - clampf((speed - 8.0) / 8.0, 0.0, 1.0) * 0.45
+			call = [_shot_n, randf() < save]
+			_keeper_call[k] = call
+			if not bool(call[1]):
+				# erra: pula para o lado errado e a bola passa por ele
+				if k.has_method("let_pass"):
+					k.let_pass(1.4)
+				st["dive"] = 1.0
+				st["dive_z"] = -49.0 - signf(zat + 49.0 + 0.01) * GOAL_HALF * 0.8
+				_think[key] = st
+		if bool(call[1]) and d < 1.6 and bp.y < 1.8:
 			k.visual.play("pickup")
 			k.say("Defendeu!", 1.2)
 			_take(k)
 			st["wait"] = 1.0
 			_think[key] = st
 			return
-	if holder == null and absf(bp.x - x) < 3.0 and absf(bp.z + 49) < 3.0:
+	if float(st.get("dive", 0.0)) > 0.0:
+		st["dive"] = float(st.dive) - delta
+		_go(k, Vector3(x, 0.05, float(st.dive_z)), true)
+		_think[key] = st
+		return
+	# bola devagar perto da área: o goleiro vai buscar
+	var slow := ball.linear_velocity.length() < 5.0
+	if holder == null and slow and absf(bp.x - x) < 3.0 and absf(bp.z + 49) < 3.0:
 		_go(k, bp, true)
 		if d < CATCH_DIST:
 			_take(k)

@@ -766,6 +766,26 @@ func _test_minigames() -> void:
 		if n.global_position.distance_to(fb.ball.global_position) < d0 - 0.5 or n.moving:
 			chasing = true
 	check(chasing, "futebol: IA corre atrás da bola")
+	# chute forte de perto: o goleiro não pega tudo
+	fb.score_a = 0
+	fb.score_b = 0
+	var goals0: int = 0
+	var tries := 0
+	for i in 10:
+		if fb.score_a - goals0 >= 2:
+			break
+		tries += 1
+		fb._countdown = 0.0
+		fb._hold_immune = 5.0
+		player.global_position = Vector3(51.5, 0.05, -49.0 + (0.4 if i % 2 == 0 else -0.4))
+		player.yaw = PI / 2.0
+		fb._release(Vector3.ZERO, 0.0)
+		fb._take(player)
+		await _frames(2)
+		fb._shoot_player(1.0)
+		await _wait(1.6)
+	check(fb.score_a - goals0 >= 2, "futebol: chute forte no canto vira gol às vezes (%d gols em %d)" % [fb.score_a - goals0, tries])
+	fb._goal_pause = 0.0
 	fb.time_left = 0.05
 	await _wait(0.3)
 	check(mm.active == null and not results.is_empty() and results[-1].id == "futebol", "futebol: partida termina pelo tempo")
