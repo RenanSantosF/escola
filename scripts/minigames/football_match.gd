@@ -78,6 +78,11 @@ func begin() -> void:
 	my_team = str((net.get("teams", {}) as Dictionary).get(net.get("me", ""), "a"))
 	if str(net.get("host", "")) == str(net.get("me", "")):
 		net_role = "host"
+		# o painel do servidor pode mandar completar os times com bots até N
+		var target := int(net.get("bots", 0))
+		fill_bots = target > 0
+		if fill_bots:
+			side_size = target
 		_start_match()  # sem seletor: entra direto (times = quem está jogando)
 	else:
 		net_role = "client"

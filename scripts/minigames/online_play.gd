@@ -234,7 +234,8 @@ func _start_local(g: Dictionary) -> void:
 	_panel.visible = false
 	var players: Array = g.get("players", [])
 	var net := {"gid": str(g.gid), "kind": str(g.get("kind", "round")), "players": players, "host": str(g.get("host", "")),
-		"teams": g.get("teams", {}), "opts": g.get("opts", {}), "me": NetworkManager.my_id, "index": players.find(NetworkManager.my_id)}
+		"teams": g.get("teams", {}), "opts": g.get("opts", {}), "me": NetworkManager.my_id, "index": players.find(NetworkManager.my_id),
+		"bots": int(g.get("bots", 0))}  # painel do servidor: completar os times com bots até N
 	if not mgr.start_local(str(g.gid), net):
 		NetworkManager.mg_leave(str(g.gid))
 		_reset(false)
@@ -319,10 +320,13 @@ func _show_lobby(g: Dictionary) -> void:
 		for id in players:
 			(a if str(teams.get(id, "a")) == "a" else b).append(id)
 		lines.append("Time azul: " + _names(a))
-		lines.append("Time laranja: " + (_names(b) if not b.is_empty() else "(esperando alguém)"))
+		var nb := int(g.get("bots", 0))
+		lines.append("Time laranja: " + (_names(b) if not b.is_empty() else ("(bots)" if nb > 0 else "(esperando alguém)")))
+		if nb > 0:
+			lines.append("Bots completam os times até %d jogadores" % nb)
 	else:
 		lines.append("Jogando: " + _names(players))
-	if (str(g.get("kind", "")) == "hide" or gid in ["queimada", "futebol"]) and players.size() < 2:
+	if (str(g.get("kind", "")) == "hide" or (gid in ["queimada", "futebol"] and int(g.get("bots", 0)) == 0)) and players.size() < 2:
 		lines.append("Precisa de pelo menos 2 jogadores")
 	var buttons: Array = []
 	if str(g.get("host", "")) == NetworkManager.my_id:

@@ -911,6 +911,19 @@ func _test_minigames() -> void:
 	check(mm.active == null and results[-1].id == "queimada" and int(results[-1].get("won", 0)) == -1, "queimada: time sem ninguém vivo perde e a partida acaba")
 	check(not player.movement_locked, "queimada: no fim o jogador volta a andar")
 
+	# Painel do servidor ligou bots (completar até 3 por time): eu sozinho + bots
+	await _recess()
+	check(mm.start_local("queimada", {"gid": "queimada", "kind": "team", "players": ["eu"], "host": "eu", "teams": {"eu": "a"}, "me": "eu", "bots": 3}), "bots do painel: queimada começa sozinho")
+	var qb = mm.active
+	check(qb.team_a.size() == 2 and qb.team_b.size() == 3, "bots do painel: queimada com 2 bots no meu time e 3 no outro", "%d x %d" % [qb.team_a.size(), qb.team_b.size()])
+	qb.end_game(0, "teste", 0, 0)
+	await _frames(3)
+	check(mm.start_local("futebol", {"gid": "futebol", "kind": "team", "players": ["eu"], "host": "eu", "teams": {"eu": "a"}, "me": "eu", "bots": 3}), "bots do painel: futebol começa sozinho")
+	var fbb = mm.active
+	check(fbb.team_a.size() == 2 and fbb.team_b.size() == 3 and fbb.keeper_a != null, "bots do painel: futebol completa os times (+ goleiros)", "%d x %d" % [fbb.team_a.size(), fbb.team_b.size()])
+	fbb.end_game(0, "teste", 0, 0)
+	await _frames(3)
+
 	# Bolinha de gude: tiro move bolinhas e o jogo avança
 	await _recess()
 	var mb = await _mg_start("gude")

@@ -277,6 +277,41 @@ test('servidor: painel protegido e eventos', async () => {
   srv.close();
 });
 
+test('painel: liga bots e escolhe quantos; com bots dá para jogar sozinho', async () => {
+  const gs = require('../src/settings');
+  const srv = createServer({ adminToken: 'segredo', dataDir: '' });
+  await new Promise((r) => srv.server.listen(0, r));
+  const base = 'http://127.0.0.1:' + srv.server.address().port;
+  assert.equal((await fetch(base + '/api/admin/settings')).status, 403, 'sem token não mexe');
+  const post = (b) => fetch(base + '/api/admin/settings', { method: 'POST', headers: { 'x-admin-token': 'segredo' }, body: JSON.stringify(b) });
+  let r = await (await post({ botsEnabled: true, botsPerTeam: 9 })).json();
+  assert.equal(r.settings.botsEnabled, true);
+  assert.equal(r.settings.botsPerTeam, 5, 'limite de 5 por time');
+  r = await (await post({ botsPerTeam: 3 })).json();
+  assert.equal(r.settings.botsPerTeam, 3);
+  const got = await (await fetch(base + '/api/admin/settings', { headers: { 'x-admin-token': 'segredo' } })).json();
+  assert.equal(got.settings.botsPerTeam, 3);
+  // com bots: queimada começa com 1 jogador e avisa quantos bots
+  const { GameHub } = require('../src/games');
+  const hub = new GameHub({ phase: 'recess', players: new Map([['a', { pos: [0, 0, 0] }]]) });
+  hub.join('queimada', 'a', { wait: false }, 1000);
+  hub.tick(1000);
+  const s = hub.sessions.get('queimada');
+  assert.equal(s.state, 'playing', 'com bots começa sozinho');
+  assert.equal(s.snapshot().bots, 3);
+  assert.ok(hub.takeEvents().some((e) => e.kind === 'start' && e.bots === 3));
+  // brincadeira que não é de time não ganha bots
+  assert.equal(gs.botsFor('amarelinha'), 0);
+  // zerou: volta a precisar de 2
+  await post({ botsPerTeam: 0 });
+  const hub2 = new GameHub({ phase: 'recess', players: new Map([['a', { pos: [0, 0, 0] }]]) });
+  hub2.join('futebol', 'a', { wait: false }, 1000);
+  hub2.tick(1000);
+  assert.equal(hub2.sessions.get('futebol').state, 'lobby', 'bots em 0: sozinho espera');
+  gs.apply({ botsEnabled: false, botsPerTeam: 0 });
+  srv.close();
+});
+
 test('servidor: criar sala e amigo entra pelo código; desconhecido cai na sala que já existe', async () => {
   const srv = createServer({ adminToken: 'x', dataDir: '' });
   await new Promise((r) => srv.server.listen(0, r));

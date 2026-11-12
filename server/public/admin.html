@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Recreio · Painel</title>
+<title>Recess Club · Painel</title>
 <style>
   :root {
     --bg: #f4f6fb; --card: #ffffff; --ink: #1f2a44; --muted: #6b7690; --line: #e3e8f2;
@@ -52,12 +52,24 @@
   #login button { margin-top: 10px; width: 100%; padding: 12px; border: 0; border-radius: 10px; background: var(--blue); color: #fff; font-weight: 700; font-size: 15px; cursor: pointer; }
   .err { color: var(--red); margin-top: 8px; font-size: 13px; }
   .note { font-size: 12px; color: var(--muted); margin-top: 18px; }
+  .cfg { margin-top: 14px; }
+  .cfg .row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 10px 0; }
+  .switch { position: relative; width: 52px; height: 30px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch span { position: absolute; inset: 0; background: var(--line); border-radius: 999px; cursor: pointer; transition: .2s; }
+  .switch span::before { content: ""; position: absolute; width: 24px; height: 24px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+  .switch input:checked + span { background: var(--green); }
+  .switch input:checked + span::before { transform: translateX(22px); }
+  .cfg input[type=range] { flex: 1; min-width: 160px; accent-color: var(--blue); }
+  .cfg .big { font-size: 26px; font-weight: 800; min-width: 34px; text-align: center; }
+  .cfg button.save { padding: 10px 18px; border: 0; border-radius: 10px; background: var(--blue); color: #fff; font-weight: 700; cursor: pointer; }
+  .cfg .ok { color: var(--green); font-size: 13px; font-weight: 600; }
 </style>
 </head>
 <body>
 <header>
   <div>
-    <h1>Recreio — Painel</h1>
+    <h1>Recess Club — Painel</h1>
     <div class="sub" id="sub">Estatísticas anônimas do jogo</div>
   </div>
   <div class="sp"></div>
@@ -81,6 +93,25 @@
     <div class="card kpi"><div class="l">Tempo médio por sessão</div><div class="v" id="k-avg">0</div><div class="s" id="k-med"></div></div>
     <div class="card kpi"><div class="l">Horas jogadas</div><div class="v" id="k-hours">0</div><div class="s" id="k-sess"></div></div>
     <div class="card kpi"><div class="l">Moedas gastas</div><div class="v" id="k-coins">0</div><div class="s" id="k-buy"></div></div>
+  </div>
+
+  <div class="card cfg">
+    <h2>Bots nas brincadeiras de time (queimada e futebol)</h2>
+    <p class="muted" style="margin:0">Com poucos jogadores, os bots completam os times. Quando chegam crianças, os bots saem sozinhos. Vá baixando o número até 0 (só gente). Os goleiros do futebol são sempre bots.</p>
+    <div class="row">
+      <label class="switch"><input type="checkbox" id="bots-on"><span></span></label>
+      <b id="bots-state">Desligado</b>
+    </div>
+    <div class="row">
+      <span>Completar cada time até</span>
+      <input type="range" id="bots-n" min="0" max="5" step="1" value="0">
+      <span class="big" id="bots-n-v">0</span>
+      <span>jogadores</span>
+    </div>
+    <div class="row">
+      <button class="save" id="bots-save">Salvar</button>
+      <span class="ok" id="bots-msg"></span>
+    </div>
   </div>
 
   <div class="grid2">
@@ -178,15 +209,41 @@ async function load() {
   table('t-reports', ['Quando', 'Motivo', 'Denunciado', 'Mensagens'], (s.reports || []).map((x) => [when(x.at), x.reason, x.targetId, (x.context.messages || []).map((m) => m.text).join(' | ')]));
   $('note').textContent = 'Os dados são anônimos: cada aparelho tem um código aleatório; nenhum nome, e-mail ou localização é coletado.';
 }
+// ---- bots nas brincadeiras
+function paintBots() {
+  const on = $('bots-on').checked;
+  const n = Number($('bots-n').value);
+  $('bots-n-v').textContent = n;
+  $('bots-state').textContent = on && n > 0 ? 'Ligado: até ' + n + ' por time' : 'Desligado (só gente)';
+}
+async function loadSettings() {
+  const r = await fetch('/api/admin/settings', { headers: { 'x-admin-token': token } });
+  if (!r.ok) return;
+  const s = (await r.json()).settings;
+  $('bots-on').checked = !!s.botsEnabled;
+  $('bots-n').max = s.maxPerTeam;
+  $('bots-n').value = s.botsPerTeam;
+  paintBots();
+}
+$('bots-on').onchange = paintBots;
+$('bots-n').oninput = paintBots;
+$('bots-save').onclick = async () => {
+  $('bots-msg').textContent = 'Salvando...';
+  const r = await fetch('/api/admin/settings', { method: 'POST', headers: { 'x-admin-token': token, 'content-type': 'application/json' },
+    body: JSON.stringify({ botsEnabled: $('bots-on').checked, botsPerTeam: Number($('bots-n').value) }) });
+  const j = await r.json().catch(() => ({}));
+  $('bots-msg').textContent = r.ok ? 'Salvo! Vale para as próximas partidas.' + (j.saved ? '' : ' (sem banco: volta ao padrão se o servidor reiniciar)') : 'Não salvou.';
+};
+
 function showLogin(msg) {
   $('login').hidden = false; $('app').hidden = true; $('refresh').hidden = true; $('logout').hidden = true;
   $('err').textContent = msg || '';
 }
-$('go').onclick = () => { token = $('token').value.trim(); try { localStorage.setItem('recreio_admin', token); } catch (e) {} load().catch((e) => showLogin('Erro: ' + e.message)); };
+$('go').onclick = () => { token = $('token').value.trim(); try { localStorage.setItem('recreio_admin', token); } catch (e) {} load().then(loadSettings).catch((e) => showLogin('Erro: ' + e.message)); };
 $('token').onkeydown = (e) => { if (e.key === 'Enter') $('go').click(); };
 $('refresh').onclick = () => load();
 $('logout').onclick = () => { token = ''; try { localStorage.removeItem('recreio_admin'); } catch (e) {} showLogin(); };
-if (token) load().catch(() => showLogin()); else showLogin();
+if (token) load().then(loadSettings).catch(() => showLogin()); else showLogin();
 setInterval(() => { if (token && !$('app').hidden) load().catch(() => {}); }, 15000);
 </script>
 </body>

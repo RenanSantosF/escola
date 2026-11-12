@@ -28,13 +28,15 @@ const CATALOG = {
   gude: { kind: 'round', max: 6, maxMs: 180000 },
   guerra: { kind: 'round', max: 8, maxMs: 120000 },
   corrida: { kind: 'round', max: 4, maxMs: 90000, lower: true },
-  queimada: { kind: 'team', max: 10, maxMs: 200000, min: 2 },  // sem bots: só gente
+  queimada: { kind: 'team', max: 10, maxMs: 200000, min: 2 },  // só gente (a menos que o painel ligue bots)
   esconde: { kind: 'hide', max: 12, maxMs: 240000, hideMs: 20000, seekMs: 120000, min: 2 },
   amarelinha: { kind: 'turn', max: 8, turnMs: 120000 },
   corda: { kind: 'turn', max: 8, turnMs: 120000 },
-  futebol: { kind: 'team', max: 10, maxMs: 240000, min: 2 },  // só os goleiros são bots
+  futebol: { kind: 'team', max: 10, maxMs: 240000, min: 2 },  // goleiros sempre bots; linha só gente (ou bots do painel)
   cabo: { kind: 'team', max: 8, maxMs: 90000 },
 };
+
+const { botsFor } = require('./settings');
 
 class GameSession {
   constructor(gid, host, now, wait) {
@@ -59,6 +61,7 @@ class GameSession {
     this.hostState = null;
     this.ranking = null;
     this.hide = null; // esconde-esconde: {seeker, phase, ends, found[]}
+    this.bots = 0; // times completados com bots até N por time (definido no painel)
   }
 
   has(id) { return this.players.includes(id); }
@@ -73,6 +76,7 @@ class GameSession {
       lobbyLeft: this.state === 'lobby' ? Math.max(0, Math.ceil((this.lobbyEnds - now) / 1000)) : 0,
       turnLeft: this.kind === 'turn' && this.current ? Math.max(0, Math.ceil((this.turnStarted + CATALOG[this.gid].turnMs - now) / 1000)) : 0,
       ranking: this.ranking,
+      bots: this.state === 'lobby' ? botsFor(this.gid) : this.bots,
       hide: this.hide ? { ...this.hide, found: this.hide.found.slice(), left: Math.max(0, Math.ceil((this.hide.ends - now) / 1000)) } : null,
     };
   }
@@ -151,13 +155,16 @@ class GameHub {
 
   _start(s, now) {
     const c0 = CATALOG[s.gid];
-    if (c0.min && s.players.length < c0.min) {
+    // com bots ligados no painel, dá para começar sozinho (os bots completam os times)
+    const bots = botsFor(s.gid);
+    if (c0.min && s.players.length < c0.min && bots === 0) {
       // falta gente: espera mais um pouco
       s.lobbyEnds = now + LOBBY_MS;
       this._ev(s.gid, 'need_players', { min: c0.min });
       return;
     }
     s.state = 'playing';
+    s.bots = bots;
     if (s.kind === 'hide') {
       const seeker = s.players[Math.floor(Math.random() * s.players.length)];
       s.hide = { seeker, phase: 'hiding', ends: now + c0.hideMs, found: [] };
@@ -166,7 +173,7 @@ class GameHub {
     const c = CATALOG[s.gid];
     s.endsAt = now + (c.maxMs || c.turnMs * Math.max(1, s.queue.length) + 30000);
     if (s.kind === 'turn') this._nextTurn(s, now);
-    this._ev(s.gid, 'start', { players: s.players.slice(), teams: { ...s.teams }, host: s.host, opts: s.opts });
+    this._ev(s.gid, 'start', { players: s.players.slice(), teams: { ...s.teams }, host: s.host, opts: s.opts, bots: s.bots });
   }
 
   _nextTurn(s, now) {

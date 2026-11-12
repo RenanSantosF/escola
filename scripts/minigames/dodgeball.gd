@@ -1,5 +1,5 @@
 extends Minigame
-## Queimada: só gente de verdade (sem bots), dois times em metades da quadra
+## Queimada: gente de verdade (bots só se o painel do servidor mandar), dois times em metades da quadra
 ## de terra. Quem é atingido por uma bola arremessada (antes de ela quicar)
 ## vai para o "cemitério" e fica lá até a partida acabar. Vence o time que
 ## queimar todo mundo do outro (ou tiver mais gente viva ao fim de 2 min). Pegar a bola: botão verde. Arremessar
@@ -63,6 +63,11 @@ func begin() -> void:
 			_start_client()
 			return
 		_collect_humans()
+		# o painel do servidor pode mandar completar os times com bots até N
+		var target := int(net.get("bots", 0))
+		if target > 0:
+			bots_a = maxi(target - 1 - humans_a.size(), 0)
+			bots_b = maxi(target - humans_b.size(), 0)
 	var pool: Array[NPC] = []
 	if bots_a + bots_b > 0:
 		pool = students(bots_a + bots_b, Vector3(-40, 0.05, -50))

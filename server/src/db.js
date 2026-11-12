@@ -65,6 +65,10 @@ create table if not exists friends (
   status text not null default 'pending',
   primary key (a, b)
 );
+create table if not exists settings (
+  key text primary key,
+  value jsonb not null
+);
 create table if not exists blocks (
   account_id text not null,
   blocked_id text not null,
@@ -255,6 +259,19 @@ class Database {
     if (!this.ready) return [];
     const r = await this.pool.query('select account_id, blocked_id from blocks');
     return r.rows.map((x) => [x.account_id, x.blocked_id]);
+  }
+
+  // ---------------------------------------------------------- configurações (painel)
+  async loadSettings() {
+    if (!this.ready) return null;
+    const r = await this.pool.query("select value from settings where key = 'game'");
+    return r.rows.length ? r.rows[0].value : null;
+  }
+
+  async saveSettings(value) {
+    if (!this.ready) return false;
+    await this.pool.query("insert into settings (key, value) values ('game', $1) on conflict (key) do update set value = excluded.value", [JSON.stringify(value)]);
+    return true;
   }
 
   async counts() {

@@ -39,6 +39,7 @@ const { Analytics } = require('./analytics');
 const { TagGame } = require('./tag_game');
 const { CATALOG } = require('./games');
 const { Database } = require('./db');
+const gameSettings = require('./settings');
 const { Friends } = require('./friends');
 
 const NEAR_DIST = 18; // metros do canal "Perto de mim"
@@ -80,6 +81,7 @@ function createServer(opts = {}) {
       for (const [id, until] of await db.loadMutes()) safety.mutedUntil.set(id, until);
       for (const [id, other] of await db.loadBlocks()) safety.block(id, other, false);
       friends.load(await db.loadFriends());
+      gameSettings.apply(await db.loadSettings().catch(() => null));
       console.log('Banco de dados conectado: ' + analytics.events.length + ' eventos carregados');
       return true;
     } catch (e) {
@@ -318,6 +320,18 @@ function createServer(opts = {}) {
       const b = await readJson(req);
       safety.mute(String(b.id || ''), (b.minutes | 0 || 60) * 60000);
       return json(200, { ok: true });
+    }
+    // Configurações do jogo (bots nas brincadeiras de time)
+    if (url === '/api/admin/settings' && req.method === 'GET') {
+      if (!isAdmin(req)) return json(403, { ok: false });
+      return json(200, { ok: true, settings: gameSettings.publicSettings() });
+    }
+    if (url === '/api/admin/settings' && req.method === 'POST') {
+      if (!isAdmin(req)) return json(403, { ok: false });
+      const b = await readJson(req);
+      const now = gameSettings.apply(b);
+      await db.saveSettings({ botsEnabled: now.botsEnabled, botsPerTeam: now.botsPerTeam }).catch(() => false);
+      return json(200, { ok: true, settings: now, saved: db.ready });
     }
     // Liberação de chat livre por responsável (validado pela moderação)
     if ((url === '/parent/unlock' || url === '/api/admin/unlock') && req.method === 'POST') {
