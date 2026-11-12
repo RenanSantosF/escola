@@ -30,6 +30,9 @@ func _ready() -> void:
 	ui_layer = CanvasLayer.new()
 	ui_layer.layer = 10
 	add_child(ui_layer)
+	# versão desatualizada? (pergunta ao servidor enquanto carrega; se for, trava na tela de atualizar)
+	if not _is_test_run():
+		NetworkManager.check_version()
 	# abertura FT (1,8 s): espera acabar antes de carregar a escola (fica lisa)
 	if FTSplash.playing:
 		await FTSplash.finished

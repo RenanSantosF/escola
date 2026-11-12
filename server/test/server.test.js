@@ -281,6 +281,35 @@ test('servidor: painel protegido e eventos', async () => {
   srv.close();
 });
 
+test('versão mínima: app antigo é barrado e vê a tela de atualizar', async () => {
+  const gs = require('../src/settings');
+  const srv = createServer({ adminToken: 'segredo', dataDir: '' });
+  await new Promise((r) => srv.server.listen(0, r));
+  const port = srv.server.address().port;
+  const base = 'http://127.0.0.1:' + port;
+  let v = await (await fetch(base + '/api/version')).json();
+  assert.equal(v.min, 0, 'padrão: não obriga');
+  await fetch(base + '/api/admin/settings', { method: 'POST', headers: { 'x-admin-token': 'segredo' }, body: JSON.stringify({ minVersion: 3 }) });
+  v = await (await fetch(base + '/api/version')).json();
+  assert.equal(v.min, 3);
+  assert.ok(v.store.includes('play.google.com'));
+  // versão 2 tentando entrar: recebe update_required
+  const old = await connect(port);
+  old.ws.send(JSON.stringify({ t: 'hello', age: 9, v: 2 }));
+  await wait(300);
+  const msg = old.inbox.find((x) => x.t === 'update_required');
+  assert.ok(msg && msg.min === 3, 'app antigo recebe update_required');
+  assert.ok(!old.inbox.some((x) => x.t === 'welcome'), 'app antigo não entra');
+  // versão 3 entra normalmente
+  const ok = await connect(port);
+  ok.ws.send(JSON.stringify({ t: 'hello', age: 9, v: 3 }));
+  await wait(300);
+  assert.ok(ok.inbox.some((x) => x.t === 'welcome'), 'versão atual entra');
+  ok.ws.close();
+  gs.apply({ minVersion: 0 });
+  srv.close();
+});
+
 test('painel: liga bots e escolhe quantos; com bots dá para jogar sozinho', async () => {
   const gs = require('../src/settings');
   const srv = createServer({ adminToken: 'segredo', dataDir: '' });

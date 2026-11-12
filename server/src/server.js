@@ -163,6 +163,10 @@ function createServer(opts = {}) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
       return res.end(html);
     }
+    // versão mínima do app: o jogo pergunta ao abrir
+    if (url === '/api/version' && req.method === 'GET') {
+      return json(200, { ok: true, min: gameSettings.settings.minVersion, store: gameSettings.STORE_URL });
+    }
     if (url === '/app-ads.txt') {
       res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
       return res.end('google.com, pub-4311255826061303, DIRECT, f08c47fec0942fa0\n');
@@ -343,7 +347,7 @@ function createServer(opts = {}) {
       if (!isAdmin(req)) return json(403, { ok: false });
       const b = await readJson(req);
       const now = gameSettings.apply(b);
-      await db.saveSettings({ botsEnabled: now.botsEnabled, botsPerTeam: now.botsPerTeam }).catch(() => false);
+      await db.saveSettings({ botsEnabled: now.botsEnabled, botsPerTeam: now.botsPerTeam, minVersion: now.minVersion }).catch(() => false);
       return json(200, { ok: true, settings: now, saved: db.ready });
     }
     // Liberação de chat livre por responsável (validado pela moderação)
@@ -432,6 +436,12 @@ function createServer(opts = {}) {
     let pendingHello = false;
 
     async function handleHello(m) {
+      if (!gameSettings.versionOk(m.v)) {
+        // app desatualizado: avisa e fecha (o jogo mostra a tela de atualizar)
+        send(ws, { t: 'update_required', min: gameSettings.settings.minVersion, store: gameSettings.STORE_URL });
+        setTimeout(() => { try { ws.close(4426, 'update'); } catch (e) {} }, 300);
+        return;
+      }
       const token = typeof m.token === 'string' ? m.token.slice(0, 80) : '';
       // conta que já existe no banco (outro dia, outro deploy)
       if (token && !accounts.byToken.has(token) && db.ready) {

@@ -108,6 +108,12 @@
       <span class="big" id="bots-n-v">0</span>
       <span>jogadores</span>
     </div>
+    <h2 style="margin-top:18px">Versão mínima do app</h2>
+    <p class="muted" style="margin:0">Quem estiver com uma versão menor que esta vê a tela <b>"Atualize o jogo"</b> e só joga depois de atualizar pela Play Store. Use o <b>código da versão</b> (1, 2, 3...) da última versão publicada. 0 = não obriga.</p>
+    <div class="row">
+      <span>Versão mínima:</span>
+      <input type="number" id="min-v" min="0" max="100000" step="1" value="0" style="width:110px;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:16px">
+    </div>
     <div class="row">
       <button class="save" id="bots-save">Salvar</button>
       <span class="ok" id="bots-msg"></span>
@@ -223,6 +229,7 @@ async function loadSettings() {
   $('bots-on').checked = !!s.botsEnabled;
   $('bots-n').max = s.maxPerTeam;
   $('bots-n').value = s.botsPerTeam;
+  $('min-v').value = s.minVersion || 0;
   paintBots();
 }
 $('bots-on').onchange = paintBots;
@@ -230,7 +237,7 @@ $('bots-n').oninput = paintBots;
 $('bots-save').onclick = async () => {
   $('bots-msg').textContent = 'Salvando...';
   const r = await fetch('/api/admin/settings', { method: 'POST', headers: { 'x-admin-token': token, 'content-type': 'application/json' },
-    body: JSON.stringify({ botsEnabled: $('bots-on').checked, botsPerTeam: Number($('bots-n').value) }) });
+    body: JSON.stringify({ botsEnabled: $('bots-on').checked, botsPerTeam: Number($('bots-n').value), minVersion: Number($('min-v').value) }) });
   const j = await r.json().catch(() => ({}));
   $('bots-msg').textContent = r.ok ? 'Salvo! Vale para as próximas partidas.' + (j.saved ? '' : ' (sem banco: volta ao padrão se o servidor reiniciar)') : 'Não salvou.';
 };

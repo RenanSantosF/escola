@@ -111,8 +111,17 @@ O jogo já está no **Godot 4.7.2**: as bibliotecas de 64 bits são alinhadas em
 4. Configure em **Privacidade e mensagens** se o AdMob pedir. Como o app é para
    crianças, ele já envia "tratamento infantil" e "menor de idade" em todas as solicitações.
 
-## 6. Atualizações futuras
+## 6. Atualizações futuras (e obrigar a atualizar)
 
-A cada nova versão, aumente `version/code` (2, 3, 4...) no export e assine com a
-**mesma chave de upload**. Eu cuido disso quando você pedir uma nova versão: só me
-envie a chave e a senha de novo se for outra sessão.
+1. Peça a nova versão: eu aumento o **código da versão** (1 → 2 → 3...) no jogo
+   (`NetworkManager.APP_VERSION_CODE`) e no export (`version/code`) e assino com a
+   **mesma chave de upload** (envie a chave e a senha de novo se for outra sessão).
+2. Envie o novo `.aab` na Play Console e espere a revisão terminar e a versão chegar a 100%.
+3. No **painel do servidor** (`/admin`) → **Versão mínima do app** → coloque o código
+   da versão nova (ex.: `2`) → **Salvar**.
+4. Pronto: quem abrir o jogo com versão antiga vê **"Atualize o jogo!"** com o botão
+   que abre a Play Store, e não joga até atualizar. Quem já estava jogando cai na
+   mesma tela ao reconectar. Para desligar, volte a versão mínima para `0`.
+
+> Só aumente a versão mínima **depois** que a versão nova estiver liberada na loja,
+> senão ninguém consegue jogar.

@@ -35,6 +35,10 @@ signal friend_invite(from: String, name: String, code: String)
 
 ## Servidor oficial no Railway.
 const SERVER_URL := "wss://escola-production-061f.up.railway.app"
+## Código da versão do app (o mesmo "version/code" do export Android).
+## A cada versão publicada na Play Store: aumente aqui E no export_presets.cfg.
+const APP_VERSION_CODE := 1
+var update_blocked := false  ## servidor pediu atualização: não reconecta mais
 
 var _ws: WebSocketPeer
 var _was_open := false
@@ -114,6 +118,8 @@ func is_online() -> bool:
 ## Entra no online: mode = "quick" (sala aberta), "create" (sala com
 ## amigos) ou "code" (entrar com o código de 4 números).
 func join(mode: String, code := "") -> void:
+	if update_blocked:
+		return
 	_mode = mode
 	_code = code
 	_want_online = true
@@ -192,14 +198,39 @@ func _send_hello() -> void:
 	var sec: Dictionary = SaveManager.section("online")
 	var p: Dictionary = SaveManager.section("player")
 	var hello := {"t": "hello", "token": sec.get("token", ""), "age": Learning.age(),
-		"level": int(p.get("level", 1)), "look": p.get("appearance", {}), "mode": _mode}
+		"level": int(p.get("level", 1)), "look": p.get("appearance", {}), "mode": _mode, "v": APP_VERSION_CODE}
 	if _mode == "code":
 		hello["code"] = _code
 	send(hello)
 
 
+## App desatualizado: para de conectar (a UpdateScreen cobre a tela).
+func stop_for_update() -> void:
+	update_blocked = true
+	_want_online = false
+
+
+## Ao abrir o jogo: pergunta ao servidor a versão mínima. Mais velho = tela de atualizar.
+func check_version() -> void:
+	var http := HTTPRequest.new()
+	http.timeout = 10.0
+	add_child(http)
+	if http.request(https_base() + "/api/version") != OK:
+		http.queue_free()
+		return
+	var res: Array = await http.request_completed
+	http.queue_free()
+	if res[0] != HTTPRequest.RESULT_SUCCESS or int(res[1]) != 200:
+		return  # sem internet: o resto do jogo já avisa
+	var d: Variant = JSON.parse_string((res[3] as PackedByteArray).get_string_from_utf8())
+	if d is Dictionary and int(d.get("min", 0)) > APP_VERSION_CODE:
+		UpdateScreen.show_required(str(d.get("store", "")))
+
+
 func _handle(m: Dictionary) -> void:
 	match str(m.get("t", "")):
+		"update_required":
+			UpdateScreen.show_required(str(m.get("store", "")))
 		"welcome":
 			reconnected = _ever_welcomed
 			_ever_welcomed = true

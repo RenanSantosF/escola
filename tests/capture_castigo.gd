@@ -31,4 +31,9 @@ func _ready() -> void:
 	await get_tree().create_timer(1.0).timeout
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(out_dir.path_join("loja_video.png"))
+	main.profile_menu.close_menu()
+	UpdateScreen.show_required("")
+	await get_tree().create_timer(0.6).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(out_dir.path_join("atualizar.png"))
 	get_tree().quit()

@@ -86,6 +86,7 @@ func _ready() -> void:
 	await _test_atracoes()
 	await _test_salas_uso()
 	await _test_jogos_mesa()
+	await _test_versao()
 	await _test_aviso_fora_da_sala()
 	await _test_dicas()
 	await _test_tela_amigos()
@@ -2419,6 +2420,25 @@ func _test_jogos_mesa() -> void:
 	check(not 0 in mem.shown and mg._won_any, "memória: achar todos os pares vence")
 	check(SaveManager.section("stats").get("atividades_dia", {}).has("mesa_memoria"), "memória: vitória dá XP (uma vez por dia)")
 	mg.close()
+	await _frames(2)
+
+
+## App desatualizado: o servidor pede atualização e a tela trava o jogo.
+func _test_versao() -> void:
+	var cfg := ConfigFile.new()
+	cfg.load("res://export_presets.cfg")
+	var codes := [int(cfg.get_value("preset.0.options", "version/code", -1)), int(cfg.get_value("preset.1.options", "version/code", -1))]
+	check(codes[0] == NetworkManager.APP_VERSION_CODE and codes[1] == NetworkManager.APP_VERSION_CODE,
+		"versão: código do app igual ao do export (%d)" % NetworkManager.APP_VERSION_CODE, str(codes))
+	NetworkManager._handle({"t": "update_required", "min": 99, "store": "https://play.google.com/store/apps/details?id=x"})
+	await _frames(2)
+	var scr := get_tree().root.get_node_or_null("UpdateScreen")
+	check(scr != null and scr is UpdateScreen and NetworkManager.update_blocked, "versão: app antigo vê 'Atualize o jogo!' e para de conectar")
+	NetworkManager.join("quick")
+	check(not NetworkManager._want_online, "versão: desatualizado não entra no online")
+	if scr:
+		scr.queue_free()
+	NetworkManager.update_blocked = false
 	await _frames(2)
 
 
