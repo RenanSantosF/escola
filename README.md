@@ -1,6 +1,6 @@
 # Recess Club — Minha Vida na Escola
 
-Simulador casual de vida escolar em 3D, feito em **Godot 4.3** para **Android (paisagem)**.
+Simulador casual de vida escolar em 3D, feito em **Godot 4.7.2** para **Android (paisagem)**.
 Ambientado numa escola pública brasileira grande — com murada, pátio ao sol, quadra,
 cantina, salas de aula, biblioteca, parquinho e muito mais.
 
@@ -8,7 +8,7 @@ cantina, salas de aula, biblioteca, parquinho e muito mais.
 
 ## Como abrir e jogar
 
-1. Instale o **Godot 4.3** (versão padrão, não precisa da versão .NET).
+1. Instale o **Godot 4.7.2** (versão padrão, não precisa da versão .NET).
 2. Abra o editor → *Importar* → selecione `project.godot`.
 3. Aperte **F5**. A escola é gerada em ~1 s e o menu aparece sobre uma vista aérea.
 

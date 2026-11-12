@@ -2,7 +2,7 @@
 
 ## ✅ Fase 1 — Fundação (concluída)
 
-- [x] Projeto Godot 4.3, Android paisagem, renderer Mobile com fallback GLES3
+- [x] Projeto Godot 4.7.2 (atualizado do 4.3), Android paisagem, renderizador de Compatibilidade (OpenGL)
 - [x] Arquitetura em autoloads + sistemas independentes
 - [x] Personagem estilizado procedural (esqueleto humanoide, 1 draw call)
 - [x] Animações: idle, walk, run, turn, jump, sit, stand up, interact, pickup, kick,

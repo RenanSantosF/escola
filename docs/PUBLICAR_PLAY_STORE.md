@@ -39,9 +39,8 @@ Arquivos que você recebeu:
 2. Envie `recess-club.aab`.
 3. Nome da versão: `1.0.0` · Notas: "Primeira versão do Recess Club!"
 
-Se aparecer um **aviso de páginas de memória de 16 KB**: é só aviso. Atualizações sem
-esse suporte serão bloqueadas a partir de **1º/02/2027**. Antes disso o jogo precisa
-passar do Godot 4.3 para o 4.5 ou mais novo (é só pedir).
+O jogo já está no **Godot 4.7.2**: as bibliotecas de 64 bits são alinhadas em
+**16 KB** (exigência do Google para Android 15+), alvo **Android 16 (API 36)**.
 
 ## 3. Conteúdo do app (Política → Conteúdo do app)
 

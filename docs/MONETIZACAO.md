@@ -1,7 +1,7 @@
 # Monetização (Google AdMob) — ATIVA
 
 - Plugin Android próprio: `android_plugin/` (Java) → `addons/recess_ads/bin/recess_ads.aar`.
-  Recompilar: `cd android_plugin && gradle assembleRelease` (JDK 17, ANDROID_HOME).
+  Recompilar: `cd android_plugin && gradle assembleRelease` (JDK 17, ANDROID_HOME, compila com godot-lib 4.7.2).
 - Addon do editor `addons/recess_ads` (ativado em project.godot): inclui o AAR, o SDK
   `play-services-ads` e o ID do app no manifesto; remove o ID de publicidade.
   Exige **build Gradle** no export (já ligado).

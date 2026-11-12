@@ -2,7 +2,7 @@
 
 ## Pré-requisitos (uma vez)
 
-1. **Godot 4.3** + **Export Templates 4.3** (Editor → *Gerenciar modelos de exportação* → *Baixar*).
+1. **Godot 4.7.2** + **Export Templates 4.7.2** (Editor → *Gerenciar modelos de exportação* → *Baixar*).
 2. **Android SDK** (via Android Studio ou `commandlinetools`) com:
    `platform-tools`, `build-tools;34.0.0`, `platforms;android-34`.
 3. **JDK 17**.

@@ -94,6 +94,22 @@ func _ready() -> void:
 	_finish()
 
 
+## Zera castigo/ocorrência pendente de testes anteriores (os tempos variam entre versões do motor).
+func _clear_discipline() -> void:
+	var d = main.discipline
+	if d.in_cutscene:
+		for i in 300:
+			await _frames(1)
+			if not d.in_cutscene:
+				break
+	d._pending_consequence = 0
+	d._bench_t = -1.0
+	d.restricted = false
+	if d.truant:
+		d.stop_search()
+	main.hud.set_mission("")
+
+
 func _frames(n: int) -> void:
 	for i in n:
 		await get_tree().physics_frame
@@ -2100,6 +2116,7 @@ func _walk_through(from: Vector3, to: Vector3, secs: float) -> Vector3:
 
 
 func _test_portas() -> void:
+	await _clear_discipline()
 	var info: Dictionary = main.world.builder.classrooms["Sala 5"]
 	var outp: Vector3 = info.door_out + (info.door_out - info.door_in).normalized() * 1.5
 	var endp := await _walk_through(outp, info.door_in, 2.5)
@@ -2524,8 +2541,7 @@ func _test_atracoes() -> void:
 
 func _test_contador_e_brilho() -> void:
 	var sd: SchoolDay = main.school_day
-	main.discipline._bench_t = -1.0  # castigo de testes anteriores
-	main.discipline.restricted = false
+	await _clear_discipline()
 	await _recess()
 	await _frames(3)
 	var chip: Label = main.hud._timer_chip
