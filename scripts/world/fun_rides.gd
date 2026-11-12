@@ -3,15 +3,16 @@ extends RefCounted
 ## Atrações grandes do recreio:
 ## - Tobogã gigante: torre ao lado do Morro, espiral e descida passando pelo
 ##   Morro e pela trilha até o Parquinho.
-## - Montanha-russa: dá a volta no Lago, com subida de 13 m e duas voltas.
+## - Montanha-russa: atravessa todo o lado leste do parque (Lago, morrinho,
+##   quadrinha), com subida de 24 m, quedas e morros; duas voltas.
 ## - Camas elásticas no Pátio dos Fundos.
 ## Só monta a geometria (um chunk) e registra em b.rides / b.trampolines;
 ## quem anda nelas é o RideTrack / Trampoline.
 
 const TOWER := Vector2(-62, -116)
-const TOWER_H := 13.0
-const COASTER_C := Vector2(31, -103)
-const COASTER_R := Vector2(17, 15)
+const TOWER_H := 20.0
+const COASTER_C := Vector2(47, -101)  # ocupa todo o lado leste do parque
+const COASTER_R := Vector2(39, 21)
 const TRAMPOLINES := [Vector2(-42, -68), Vector2(-34, -68), Vector2(-26, -68)]
 
 
@@ -57,19 +58,21 @@ static func slide_points() -> PackedVector3Array:
 	var g := _ground(TOWER.x, TOWER.y)
 	var top := g + TOWER_H
 	var pts: Array = []
-	# espiral em volta da torre: 1,25 volta descendo 4 m
-	var r := 3.4
-	var turns := 1.25
+	# espiral em volta da torre: 2,25 voltas descendo 7 m
+	var r := 3.6
+	var turns := 2.25
 	var a0 := PI * 0.5  # começa do lado sul da torre
-	var n := 26
+	var n := 48
 	for k in n + 1:
 		var t := float(k) / n
 		var a := a0 - t * turns * TAU
-		pts.append(Vector3(TOWER.x + cos(a) * r, top - 0.6 - t * 4.0, TOWER.y + sin(a) * r))
-	# saindo para o leste pelo pé do Morro, curva pela trilha e desce até o Parquinho
-	var route := [Vector2(-54, -121.5), Vector2(-44, -122), Vector2(-33, -118), Vector2(-27.5, -109),
-		Vector2(-29, -99), Vector2(-37, -90.5), Vector2(-48, -84), Vector2(-56, -79), Vector2(-58, -74),
-		Vector2(-59, -69.5), Vector2(-60.5, -66)]
+		pts.append(Vector3(TOWER.x + cos(a) * r, top - 0.6 - t * 7.0, TOWER.y + sin(a) * r))
+	# sai pelo norte, contorna o Morro até o Anfiteatro, volta em S pela
+	# trilha, dá uma volta larga pelo oeste e cai no Parquinho
+	var route := [Vector2(-54, -121.5), Vector2(-42, -123), Vector2(-29, -121.5), Vector2(-20, -114),
+		Vector2(-21, -103), Vector2(-28.5, -95.5), Vector2(-24, -87.5), Vector2(-30, -80.5), Vector2(-42, -81.5),
+		Vector2(-52, -87.5), Vector2(-63, -86.5), Vector2(-71, -80), Vector2(-68, -73), Vector2(-62.5, -69),
+		Vector2(-60.5, -66)]
 	# altura: desce do fim da espiral até o chão do Parquinho, proporcional ao caminho
 	var y0: float = (pts[pts.size() - 1] as Vector3).y
 	var total := 0.0
@@ -82,7 +85,7 @@ static func slide_points() -> PackedVector3Array:
 	for i in route.size():
 		var q: Vector2 = route[i]
 		var f: float = lens[i] / total
-		var y := lerpf(y0, 0.4, pow(f, 0.85))
+		var y := lerpf(y0, 0.4, pow(f, 0.9))
 		var gq := _ground(q.x, q.y)
 		if i < route.size() - 1:
 			y = maxf(y, gq + 1.4)
@@ -157,8 +160,8 @@ static func _giant_slide(b: SchoolBuilder, c: WorldBatcher) -> void:
 
 static func _coaster_h(u: float) -> float:
 	# altura acima do chão ao longo da volta (u de 0 a 1, começa na estação)
-	var keys := [[0.0, 1.3], [0.05, 1.3], [0.3, 13.0], [0.34, 12.6], [0.45, 2.0], [0.55, 8.0], [0.63, 2.4],
-		[0.72, 6.0], [0.82, 2.0], [0.92, 1.3], [1.0, 1.3]]
+	var keys := [[0.0, 1.3], [0.03, 1.3], [0.2, 24.0], [0.225, 24.0], [0.32, 1.8], [0.4, 15.0], [0.47, 2.2],
+		[0.54, 11.0], [0.6, 2.4], [0.67, 12.0], [0.75, 2.0], [0.82, 7.0], [0.89, 1.8], [0.95, 1.3], [1.0, 1.3]]
 	for i in keys.size() - 1:
 		var a: Array = keys[i]
 		var bb: Array = keys[i + 1]
@@ -170,19 +173,21 @@ static func _coaster_h(u: float) -> float:
 
 static func coaster_points() -> PackedVector3Array:
 	var out := PackedVector3Array()
-	var n := 220
+	var n := 300
 	for k in n + 1:
 		var u := float(k) / n
 		var a := PI * 0.5 + u * TAU  # começa no lado sul (estação)
-		var x := COASTER_C.x + cos(a) * COASTER_R.x
-		var z := COASTER_C.y + sin(a) * COASTER_R.y
+		# volta "torta" (não é um círculo): curvas fechadas e retas longas
+		var wob := 1.0 + 0.09 * sin(3.0 * a) * sin(PI * u)
+		var x := COASTER_C.x + cos(a) * COASTER_R.x * wob
+		var z := COASTER_C.y + sin(a) * COASTER_R.y * wob
 		var g := maxf(_ground(x, z), 0.0)
 		out.append(Vector3(x, g + _coaster_h(u), z))
 	return out
 
 
 ## Trecho de subida com corrente (velocidade fixa): fração da volta.
-const COASTER_LIFT := Vector2(0.05, 0.31)
+const COASTER_LIFT := Vector2(0.03, 0.2)
 
 
 static func _coaster(b: SchoolBuilder, c: WorldBatcher) -> void:
@@ -200,7 +205,9 @@ static func _coaster(b: SchoolBuilder, c: WorldBatcher) -> void:
 		if i % 5 == 0:
 			var gy := maxf(_ground(mid.x, mid.z), 0.0)
 			var hh := mid.y - 0.15 - gy
-			if hh > 0.5:
+			# sem pilar no meio da quadrinha de basquete
+			var on_court := absf(mid.x - ParkHill.COURT.x - 1.5) < 7.5 and absf(mid.z - ParkHill.COURT.y) < 6.0
+			if hh > 0.5 and not on_court:
 				c.cylinder("metal", Vector3(mid.x, gy + hh * 0.5, mid.z), 0.12, 0.16, hh, Color("f4f7fa"), 6)
 				if hh > 6.0:
 					c.cylinder("metal", Vector3(mid.x, gy + hh * 0.5, mid.z) + basis.x * 0.9, 0.08, 0.12, hh, Color("f4f7fa"), 6)

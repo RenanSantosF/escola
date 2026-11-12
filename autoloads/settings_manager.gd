@@ -136,15 +136,15 @@ func _detect_quality() -> int:
 	var os_name := OS.get_name()
 	if os_name in ["Android", "iOS"]:
 		var cores := OS.get_processor_count()
-		var method := str(ProjectSettings.get_setting("rendering/renderer/rendering_method"))
-		if RenderingServer.get_rendering_device() == null or cores <= 4:
+		# (usamos o renderizador de Compatibilidade/OpenGL: sem "rendering device")
+		if cores <= 4:
 			return Quality.LOW
 		# placas de vídeo de entrada (Mali antigas, Adreno 3xx-50x, PowerVR)
 		var gpu := RenderingServer.get_video_adapter_name().to_lower()
 		for weak in ["mali-4", "mali-t", "mali-g31", "mali-g51", "mali-g52", "adreno (tm) 3", "adreno (tm) 4", "adreno (tm) 50", "powervr"]:
 			if weak in gpu:
 				return Quality.LOW
-		if cores >= 8 and method == "mobile":
+		if cores >= 8:
 			return Quality.MEDIUM
 		return Quality.LOW
 	return Quality.HIGH

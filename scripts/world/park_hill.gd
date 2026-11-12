@@ -374,6 +374,11 @@ static func _dressing(b: SchoolBuilder) -> void:
 	var cols := [Color("3f8a3a"), Color("e86aa6"), Color("2f6e3a"), Color("4f9a45"), Color("4a9a45"), Color.WHITE]
 	var placed := 0
 	var guard := 0
+	# trilhos da montanha-russa e do tobogã: nada de árvore atravessando
+	var rails := PackedVector2Array()
+	var rp := FunRides.coaster_points() + FunRides.slide_points()
+	for i in range(0, rp.size(), 3):
+		rails.append(Vector2(rp[i].x, rp[i].z))
 	while placed < 46 and guard < 400:
 		guard += 1
 		var x := rng.randf_range(AREA.position.x + 3, AREA.end.x - 3)
@@ -390,6 +395,13 @@ static func _dressing(b: SchoolBuilder) -> void:
 		if x > -32.0 and x < 52.0 and z > -97.0:
 			continue  # gramadão central livre (correr, pique-pega)
 		if Vector2(x - COURT.x, z - COURT.y).length() < 10.0:
+			continue
+		var near_rail := false
+		for q in rails:
+			if absf(q.x - x) < 4.5 and absf(q.y - z) < 4.5:
+				near_rail = true
+				break
+		if near_rail:
 			continue
 		var k := rng.randi() % kinds.size()
 		b._tree(kinds[k], Vector3(x, height(x, z), z), rng.randf_range(0.85, 1.35), cols[k], c)

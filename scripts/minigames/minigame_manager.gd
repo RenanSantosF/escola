@@ -8,8 +8,8 @@ signal game_started(id: String)
 signal game_finished(result: Dictionary)
 
 const GAMES := {
-	"futebol": {"script": "res://scripts/minigames/football_match.gd", "title": "Futebol", "pos": Vector3(40, 0.05, -37.6), "yaw": PI, "color": Color("2ecc71"), "icon": "F", "desc": "4 contra 4 com goleiros. Chute com mira assistida e passe para os colegas."},
-	"queimada": {"script": "res://scripts/minigames/dodgeball.gd", "title": "Queimada", "pos": Vector3(-40, 0.05, -42.6), "yaw": PI, "color": Color("e74c3c"), "icon": "Q", "desc": "Pegue a bola, segure para mirar e queime o time adversário."},
+	"futebol": {"script": "res://scripts/minigames/football_match.gd", "title": "Futebol", "pos": Vector3(40, 0.05, -37.6), "yaw": PI, "color": Color("2ecc71"), "icon": "F", "desc": "Só com a turma (mín. 2), goleiros são bots. Passe rápido, roube e chute!"},
+	"queimada": {"script": "res://scripts/minigames/dodgeball.gd", "title": "Queimada", "pos": Vector3(-40, 0.05, -42.6), "yaw": PI, "color": Color("e74c3c"), "icon": "Q", "desc": "Só com a turma (mín. 2). Pegue a bola, mire e queime o time todo!"},
 	"gude": {"script": "res://scripts/minigames/marbles.gd", "title": "Bolinha de gude", "pos": Vector3(-43.6, 0.05, -9.0), "yaw": -PI * 0.5, "color": Color("3fa7d6"), "icon": "G", "desc": "Mire, carregue a força e tire as bolinhas do círculo."},
 	"amarelinha": {"script": "res://scripts/minigames/hopscotch.gd", "title": "Amarelinha", "pos": Vector3(-14, 0.05, 0.8), "yaw": 0.0, "color": Color("f6e05e"), "icon": "1", "desc": "Jogue a pedrinha e pule as casas no ritmo, sem pisar na pedra."},
 	"aviao": {"script": "res://scripts/minigames/paper_plane.gd", "title": "Aviãozinho", "pos": Vector3(12, 0.05, 3.2), "yaw": 0.0, "color": Color("ecf0f1"), "icon": "A", "desc": "Dobre bem o avião, mire e faça ele planar pelas argolas."},
@@ -122,7 +122,7 @@ func _build_sign(st: Node3D, g: Dictionary) -> void:
 ## Tutorial de primeira vez: [botão, explicação]
 const TUTORIALS := {
 	"futebol": [["Joystick", "Corra pelo campo com o analógico."], ["Amarelo", "Perto da bola, toque para CHUTAR (a mira ajuda)."], ["Verde", "Toque para PASSAR a bola para um colega."], ["", "Faça mais gols que o outro time!"]],
-	"queimada": [["Verde", "Chegue perto da bola e toque para PEGAR."], ["Amarelo", "SEGURE para mirar (aparece a linha) e SOLTE para jogar."], ["Amarelo", "Sem a bola: toque para DESVIAR (pulinho para o lado)."], ["", "Acertou um adversário? Ele fica 15 s no cemitério!"]],
+	"queimada": [["Verde", "Chegue perto da bola e toque para PEGAR."], ["Amarelo", "SEGURE para mirar (aparece a linha) e SOLTE para jogar."], ["Amarelo", "Sem a bola: toque para DESVIAR (pulinho para o lado)."], ["", "Queimado vai para o cemitério e só sai quando a partida acabar!"]],
 	"gude": [["Joystick", "Gire para mirar. A linha mostra onde sua bolinha vai BATER e a seta verde, para onde a outra vai."], ["Amarelo", "SEGURE para dar força e SOLTE para jogar."], ["", "Tire as bolinhas do círculo: elas viram suas! Acertou? Joga de novo."]],
 	"amarelinha": [["Amarelo", "SEGURE e SOLTE quando o círculo ficar VERDE: a pedrinha cai na casa certa."], ["Azul", "Pule no RITMO: toque quando o anel fechar e ficar verde = PERFEITO!"], ["", "O ritmo acelera a cada casa. Vá até o céu e volte pegando a pedrinha!"]],
 	"aviao": [["Amarelo", "Toque quando a barra estiver no MEIO para dobrar bem (3 dobras, só uma vez)."], ["Amarelo", "SEGURE para dar força e SOLTE para lançar (a linha mostra o voo)."], ["Joystick", "No ar, faça CURVAS: são 4 argolas em zigue-zague. Todas = bônus!"]],

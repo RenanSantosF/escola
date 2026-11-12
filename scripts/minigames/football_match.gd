@@ -5,8 +5,7 @@ extends Minigame
 ##   Verde segurando = lançamento (passe alto e longo); Azul = passe em
 ##   profundidade (na frente do colega que corre);
 ## - SEM A BOLA: Verde = roubar a bola (carrinho); Amarelo = pedir a bola;
-## - goleiros são sempre bots; antes de começar escolhe tamanho do time,
-##   dificuldade e se completa os times com bots.
+## - só gente de verdade na linha (mínimo 2 jogadores); os goleiros são bots.
 
 const COURT := Rect2(20, -59, 40, 20)
 const GOAL_HALF := 1.45
@@ -15,7 +14,9 @@ const CAPTAINS := ["bia", "rafa", "pedro"]
 const GOAL_A := Vector3(60, 0, -49)  # gol que o time do jogador ataca
 const GOAL_B := Vector3(20, 0, -49)
 const DRIBBLE_DIST := 0.5
-const CATCH_DIST := 0.75
+const CATCH_DIST := 0.95
+const TACKLE_DIST := 2.4
+const TACKLE_CHANCE := 0.8
 
 var ball: KickBall
 var team_a: Array[NPC] = []  # do jogador (ataca o gol leste, x=60)
@@ -41,7 +42,7 @@ var _started := false
 # opções escolhidas
 var side_size := 4  # jogadores de linha por time (contando você)
 var difficulty := 1  # 0 fácil, 1 normal, 2 difícil
-var fill_bots := true
+var fill_bots := false  # sem bots na linha: só a turma
 # ---- online: o celular do anfitrião simula a bola e os bots; os outros mandam
 # os comandos (chute, passe, roubo) e recebem o jogo ~12 vezes por segundo.
 var net_role := ""  # "" sozinho, "host" ou "client"
@@ -71,16 +72,16 @@ func begin() -> void:
 	player.global_position = Vector3(37.0, 0.05, -49.0)
 	player.yaw = PI * 0.5
 	super.begin()
-	if is_net():
-		my_team = str((net.get("teams", {}) as Dictionary).get(net.get("me", ""), "a"))
-		if str(net.get("host", "")) == str(net.get("me", "")):
-			net_role = "host"
-			_show_setup()
-		else:
-			net_role = "client"
-			_start_client()
+	if not is_net():
+		end_game(0, "O futebol precisa de pelo menos 2 jogadores. Chame a turma!", 0, 0)
 		return
-	_show_setup()
+	my_team = str((net.get("teams", {}) as Dictionary).get(net.get("me", ""), "a"))
+	if str(net.get("host", "")) == str(net.get("me", "")):
+		net_role = "host"
+		_start_match()  # sem seletor: entra direto (times = quem está jogando)
+	else:
+		net_role = "client"
+		_start_client()
 
 
 # ---------------------------------------------------------------- seletor
@@ -158,7 +159,7 @@ func _start_match() -> void:
 	if net_role == "host":
 		_collect_humans()
 	var mates := maxi(side_size - 1 - humans_a.size(), 0) if fill_bots else 0
-	var rivals := maxi(side_size - humans_b.size(), 0) if fill_bots else (0 if not humans_b.is_empty() else 1)
+	var rivals := maxi(side_size - humans_b.size(), 0) if fill_bots else 0
 	# quem está por perto ou colegas de treino (goleiros sempre bots: +2)
 	var pool: Array[NPC] = students(mates + rivals + 2, Vector3(40, 0.05, -49), ["lucas", captain])
 	var lucas := _pick(pool, "lucas")
@@ -318,8 +319,12 @@ func on_interact() -> bool:
 		if holder == player:
 			_pass_down_ms = Time.get_ticks_msec()
 		elif _tackle_cd <= 0.0:
-			_tackle_cd = 0.8
+			_tackle_cd = 0.6
 			player.visual.play("kick")
+			var to := ball.global_position - player.global_position
+			to.y = 0
+			if to.length() > 0.1 and to.length() < 3.5:
+				player.velocity = to.normalized() * 8.0  # bote: passinho rápido na bola
 			_client_cmd("tackle")
 		return true
 	if not _started or _countdown > 0.0:
@@ -399,6 +404,11 @@ func _pressure(n: Node3D, is_team_a: bool) -> float:
 	return m
 
 
+## Passe rasteiro e rápido (antes era lento e dava tempo de cortar).
+static func pass_power(dist: float) -> float:
+	return clampf(dist * 1.15 + 6.0, 9.0, 19.0)
+
+
 func _mates_of_player() -> Array:
 	return team_a + humans_a
 
@@ -410,7 +420,7 @@ func _short_pass() -> void:
 		return
 	var to := t.global_position - ball.global_position
 	to.y = 0
-	_kick_from(player, to.normalized(), clampf(to.length() * 0.95 + 3.0, 5.0, 13.0), 0.3)
+	_kick_from(player, to.normalized(), pass_power(to.length()), 0.12)
 	if t is NPC:
 		(t as NPC).say("Tô livre!", 1.0)
 
@@ -442,8 +452,9 @@ func _through_ball() -> void:
 	ahead.z = clampf(ahead.z, COURT.position.y + 1.0, COURT.end.y - 1.0)
 	var to := ahead - ball.global_position
 	to.y = 0
-	_kick_from(player, to.normalized(), clampf(to.length() * 0.9 + 3.0, 6.0, 14.0), 0.2)
-	(t as NPC).say("Vai!", 1.0)
+	_kick_from(player, to.normalized(), pass_power(to.length()), 0.1)
+	if t is NPC:
+		(t as NPC).say("Vai!", 1.0)
 	if t is NPC:
 		_think[(t as NPC).get_instance_id()] = {"run_to": ahead, "t": 2.5}
 
@@ -469,7 +480,7 @@ func _ask_ball() -> void:
 		var to := player.global_position - ball.global_position
 		to.y = 0
 		h.say("Toma!", 1.0)
-		_kick_from(h, to.normalized(), clampf(to.length() * 0.95 + 3.0, 5.0, 13.0), 0.3)
+		_kick_from(h, to.normalized(), pass_power(to.length()), 0.12)
 	else:
 		GameManager.show_toast("Pedindo a bola! Fique livre de marcação.")
 
@@ -477,25 +488,31 @@ func _ask_ball() -> void:
 func _tackle() -> void:
 	if _tackle_cd > 0.0:
 		return
-	_tackle_cd = 0.8
+	_tackle_cd = 0.6
 	player.visual.play("kick")
-	if holder != null and holder != player and not _has(team_a, holder) and holder != keeper_b:
-		var d := holder.global_position.distance_to(player.global_position)
-		if d < 1.8 and _hold_immune <= 0.0:
-			var chance: float = [0.85, 0.7, 0.55][difficulty]
-			if randf() < chance:
-				(holder as NPC).say("Ei!", 0.8)
+	if holder != null and holder != player and not _has(team_a, holder) and not humans_a.has(holder) and holder != keeper_b:
+		var to := holder.global_position - player.global_position
+		to.y = 0
+		var d := to.length()
+		# bote: dá um passinho rápido na direção de quem está com a bola
+		if d > 0.1 and d < 3.5:
+			player.velocity = to.normalized() * 8.0
+		if d < TACKLE_DIST and _hold_immune <= 0.0:
+			if randf() < TACKLE_CHANCE:
+				if holder is NPC:
+					(holder as NPC).say("Ei!", 0.8)
 				_take(player)
 				hud.show_banner("Roubou!", "")
+				AudioManager.play_ui("catch", -4.0)
 				return
-		GameManager.show_toast("Errou o bote!")
+		GameManager.show_toast("Errou o bote! Chegue mais perto." if d >= TACKLE_DIST else "Quase! Tente de novo.")
 
 
 # ---------------------------------------------------------------- posse
 
 func _take(n: Node3D) -> void:
 	holder = n
-	_hold_immune = 0.6
+	_hold_immune = 0.4
 	ball.freeze = true
 	ball.linear_velocity = Vector3.ZERO
 	ball.angular_velocity = Vector3.ZERO
@@ -607,7 +624,7 @@ func _try_catch() -> void:
 	if _free_t < 0.18:
 		return
 	var bp := ball.global_position
-	if bp.y > 0.7 or ball.linear_velocity.length() > 13.0:
+	if bp.y > 0.7 or ball.linear_velocity.length() > 21.0:
 		return
 	var cands: Array = [player] + team_a + team_b + humans_a + humans_b
 	var best: Node3D = null
@@ -1031,7 +1048,7 @@ func _host_input(from: String, d: Dictionary) -> void:
 				_kick_from(r, fwd, 8.0, 0.4)
 				return
 			var target := t.global_position
-			var lift := 0.3
+			var lift := 0.12
 			if d.k == "through":
 				target += (goal - t.global_position).normalized() * 4.5
 				target.z = clampf(target.z, COURT.position.y + 1.0, COURT.end.y - 1.0)
@@ -1042,7 +1059,7 @@ func _host_input(from: String, d: Dictionary) -> void:
 			if d.k == "long":
 				_kick_from(r, to.normalized(), clampf(dist * 0.62 + 2.0, 6.0, 15.0), clampf(dist * 0.32, 3.0, 6.5))
 			else:
-				_kick_from(r, to.normalized(), clampf(dist * 0.95 + 3.0, 5.0, 14.0), lift)
+				_kick_from(r, to.normalized(), pass_power(dist), lift)
 			if t is NPC:
 				(t as NPC).say("Vai!" if d.k == "through" else "Tô livre!", 1.0)
 				if d.k == "through":
@@ -1050,7 +1067,7 @@ func _host_input(from: String, d: Dictionary) -> void:
 		"tackle":
 			if holder == null or holder == r or mates.has(holder) or holder == keeper_a or holder == keeper_b:
 				return
-			if holder.global_position.distance_to(r.global_position) < 1.8 and _hold_immune <= 0.0 and randf() < [0.85, 0.7, 0.55][difficulty]:
+			if holder.global_position.distance_to(r.global_position) < TACKLE_DIST and _hold_immune <= 0.0 and randf() < TACKLE_CHANCE:
 				if holder is NPC:
 					(holder as NPC).say("Ei!", 0.8)
 				elif holder == player:
@@ -1062,7 +1079,7 @@ func _host_input(from: String, d: Dictionary) -> void:
 				var to2 := r.global_position - ball.global_position
 				to2.y = 0
 				h.say("Toma!", 1.0)
-				_kick_from(h, to2.normalized(), clampf(to2.length() * 0.95 + 3.0, 5.0, 13.0), 0.3)
+				_kick_from(h, to2.normalized(), pass_power(to2.length()), 0.12)
 
 
 ## Mudanças na turma durante a partida (do OnlinePlay).
@@ -1104,6 +1121,10 @@ func on_net_event(ev: Dictionary) -> void:
 			_remove_human(id)
 			if fill_bots:
 				_add_sub_bot(0 if was_a else 1)
+			elif humans_b.is_empty() and team_b.is_empty() and running:
+				# o outro time ficou sem ninguém: acaba
+				GameManager.show_toast("O time laranja ficou sem jogadores.")
+				_finish()
 
 
 ## Um bot entra no lugar de quem saiu.
@@ -1280,4 +1301,4 @@ func _client_cmd(k: String, extra := {}) -> void:
 
 
 func hints() -> Dictionary:
-	return {"start": "Chegue perto da bola para dominar. SEGURE Chutar para mais força e mire no canto!", "idle": "Corra até a bola com o joystick. Botão verde passa, amarelo chuta.", "miss": "Chute de perto e no canto do gol: o goleiro erra mais!"}
+	return {"start": "Chegue perto da bola para dominar. SEGURE Chutar para mais força e mire no canto!", "idle": "Corra até a bola. Com ela: verde passa, amarelo chuta. Sem ela: chegue perto e toque no verde para ROUBAR.", "miss": "Chute de perto e no canto do gol: o goleiro erra mais!"}

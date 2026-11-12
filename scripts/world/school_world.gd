@@ -225,9 +225,7 @@ const ROOM_ACTIVITIES := [
 	["Banheiro Feminino", "Lavar as mãos", "interact", 2.0, 3, ["Mãos limpinhas! Lavar as mãos evita doenças."], Vector2i.ZERO, Vector2(-2.6, -2.0)],
 	["Banheiro Masculino", "Lavar as mãos", "interact", 2.0, 3, ["Mãos limpinhas! Lavar as mãos evita doenças."], Vector2i.ZERO, Vector2(-2.6, -2.0)],
 	["Brinquedoteca", "Montar uma torre de blocos", "interact", 3.0, 6, ["Torre de %d blocos! Não caiu!"], Vector2i(8, 25), Vector2(0, 0)],
-	["Sala de Jogos", "Jogar pingue-pongue", "throw", 4.0, 6, ["Que partida! Você ganhou de %d a 7!", "Ufa! Perdeu por pouco, 10 a %d."], Vector2i(8, 11), Vector2(0, 0)],
 	["Sala de Dança", "Dançar", "celebrate", 5.0, 6, ["Que passos incríveis!", "A turma bateu palmas para a sua dança!"], Vector2i.ZERO, Vector2(0, 0)],
-	["Sala de Xadrez", "Jogar uma partida de xadrez", "scratch_head", 4.0, 8, ["Xeque-mate em %d jogadas! Você venceu!", "Empate depois de %d jogadas. Bem jogado!"], Vector2i(9, 30), Vector2(0, 0)],
 	["Ateliê Maker", "Montar um robozinho", "interact", 4.0, 8, ["Seu robozinho anda e pisca as luzes!", "Funcionou! O robô acenou para você."], Vector2i.ZERO, Vector2(0, 0)],
 	["Sala de Robótica", "Programar o robô", "interact", 4.0, 8, ["O robô seguiu a linha até o fim!", "Programa certo: o robô desviou do obstáculo!"], Vector2i.ZERO, Vector2(0, 0)],
 	["Secretaria", "Ler o mural de avisos", "look_around", 2.5, 3, ["Aviso: amanhã tem aula de Ciências no laboratório!", "Aviso: beba água no recreio!", "Aviso: as férias estão chegando!"], Vector2i.ZERO, Vector2(0, 0)],
@@ -263,6 +261,12 @@ func _spawn_room_activities() -> void:
 		ra.number_range = a[6]
 		ra.position = Vector3(c.x, fy + 0.05, c.y)
 		add_child(ra)
+	for gt in builder.game_tables:
+		var tg := TableGame.new()
+		tg.kind = gt.kind
+		var zt := _zone_named(gt.room)
+		tg.position = gt.pos + Vector3(0, ((float(zt.y0) + 0.5) if zt.has("y0") else 0.0) + 0.05, 0)
+		add_child(tg)
 	for cm in builder.cinemas:
 		var cs := CinemaScreen.new()
 		cs.room_rect = cm.rect
@@ -544,6 +548,16 @@ func _on_setting_changed(key: String) -> void:
 		_apply_quality()
 
 
+## Resolução do 3D: tablets e celulares de tela enorme desenhavam milhões de
+## pixels (pesado e quente). Limita o número de linhas desenhadas; a interface
+## (botões, textos) continua nítida na resolução da tela.
+func _scale_for(base: float, max_lines: float) -> float:
+	var h := float(DisplayServer.window_get_size().y)
+	if h <= 0.0:
+		return base
+	return clampf(minf(base, max_lines / h), 0.4, 1.0)
+
+
 func _apply_quality() -> void:
 	var q := Settings.quality()
 	var vp := get_viewport()
@@ -553,7 +567,7 @@ func _apply_quality() -> void:
 			env.fog_enabled = false
 			env.adjustment_enabled = false
 			env.glow_enabled = false
-			vp.scaling_3d_scale = Settings.render_scale_low
+			vp.scaling_3d_scale = _scale_for(Settings.render_scale_low, 600.0)
 			vp.msaa_3d = Viewport.MSAA_DISABLED
 			vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 			_set_far(110.0)
@@ -565,7 +579,7 @@ func _apply_quality() -> void:
 			env.fog_enabled = true
 			env.adjustment_enabled = true
 			env.glow_enabled = false
-			vp.scaling_3d_scale = 0.9
+			vp.scaling_3d_scale = _scale_for(0.9, 800.0)
 			vp.msaa_3d = Viewport.MSAA_DISABLED
 			vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 			_set_far(170.0)
@@ -579,7 +593,7 @@ func _apply_quality() -> void:
 			env.glow_enabled = true
 			env.glow_intensity = 0.4
 			env.glow_bloom = 0.05
-			vp.scaling_3d_scale = 1.0
+			vp.scaling_3d_scale = _scale_for(1.0, 1100.0)
 			vp.msaa_3d = Viewport.MSAA_2X
 			vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 			_set_far(260.0)

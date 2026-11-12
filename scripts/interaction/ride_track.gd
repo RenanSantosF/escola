@@ -95,7 +95,7 @@ func _physics_process(delta: float) -> void:
 	p.velocity = Vector3.ZERO
 	if _phase == "lift_up":
 		# elevador da torre
-		_t += delta / 2.6
+		_t += delta / 3.0
 		var f := smoothstep(0.0, 1.0, minf(_t, 1.0))
 		var mid := Vector3(lift_top.x, _from.y, lift_top.z)
 		var pos := _from.lerp(mid, minf(f * 3.0, 1.0)) if f < 0.33 else mid.lerp(lift_top, (f - 0.33) / 0.67)
@@ -113,12 +113,12 @@ func _physics_process(delta: float) -> void:
 		var u := _s / _total
 		on_lift = u >= lift.x and u <= lift.y
 	if on_lift:
-		_v = move_toward(_v, 3.6, delta * 4.0)
+		_v = move_toward(_v, 5.0, delta * 4.0)
 	else:
-		_v += -G * dir.y * delta * (0.92 if kind == "coaster" else 0.75)
-		_v -= _v * (0.04 if kind == "coaster" else 0.12) * delta
-		_v = clampf(_v, 3.2 if kind == "coaster" else 2.6, 17.0 if kind == "coaster" else 11.0)
-	if _v > 11.0 and not _shouted:
+		_v += -G * dir.y * delta * (1.0 if kind == "coaster" else 0.95)
+		_v -= _v * (0.03 if kind == "coaster" else 0.035) * delta
+		_v = clampf(_v, 4.0 if kind == "coaster" else 4.5, 26.0 if kind == "coaster" else 17.0)
+	if _v > 13.0 and not _shouted:
 		_shouted = true
 		GameManager.show_toast("Uhuuul!")
 	elif _v < 6.0:
@@ -128,8 +128,8 @@ func _physics_process(delta: float) -> void:
 	if _wind and _wind.stream:
 		if not _wind.playing:
 			_wind.play()
-		_wind.volume_db = lerpf(-30.0, -4.0, clampf((_v - 3.0) / 11.0, 0.0, 1.0))
-		_wind.pitch_scale = lerpf(0.8, 1.4, clampf(_v / 15.0, 0.0, 1.0))
+		_wind.volume_db = lerpf(-30.0, -2.0, clampf((_v - 3.0) / 16.0, 0.0, 1.0))
+		_wind.pitch_scale = lerpf(0.8, 1.6, clampf(_v / 22.0, 0.0, 1.0))
 	if on_lift:
 		_clack_d += _v * delta
 		if _clack_d > 0.6:
@@ -231,6 +231,11 @@ func eject() -> void:
 
 
 func _make_cart() -> Node3D:
+	return make_cart()
+
+
+## Carrinho (também usado para mostrar o carrinho de um colega online).
+static func make_cart() -> Node3D:
 	var root := Node3D.new()
 	root.name = "Carrinho"
 	var mat := StandardMaterial3D.new()

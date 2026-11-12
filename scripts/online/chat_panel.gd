@@ -111,10 +111,10 @@ func _ready() -> void:
 	_phrases.add_theme_constant_override("h_separation", 6)
 	_phrases.add_theme_constant_override("v_separation", 6)
 	v.add_child(_phrases)
+	# reações ficam no botão de emojis da tela (aqui é só digitar)
 	_rx = HBoxContainer.new()
-	_rx.add_theme_constant_override("separation", 6)
+	_rx.visible = false
 	v.add_child(_rx)
-	_fill_reactions()
 	_refresh_tabs()
 
 
@@ -234,7 +234,9 @@ func set_room(code: String) -> void:
 func setup_phrases(list: Array, free_chat: bool) -> void:
 	for c in _phrases.get_children():
 		c.queue_free()
-	for i in list.size():
+	# só digitando: frases prontas aparecem apenas se um responsável bloqueou a digitação
+	_phrases.visible = not free_chat
+	for i in (list.size() if not free_chat else 0):
 		var idx := i
 		_phrases.add_child(_chip(str(list[i]), func(): NetworkManager.send_quick(idx, channel)))
 	_input.editable = free_chat

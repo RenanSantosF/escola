@@ -177,6 +177,23 @@ test('brincadeiras: rodada com quem chega depois, vez com fila e time com troca 
   hub.tick(t + 3000 + 7000);
   assert.ok(!hub.sessions.get('futebol'));
 });
+test('queimada e futebol: sem bots, sozinho não começa', () => {
+  const { GameHub } = require('../src/games');
+  for (const gid of ['queimada', 'futebol']) {
+    const room = { phase: 'recess', players: new Map([['a', { pos: [0, 0, 0] }], ['b', { pos: [1, 0, 0] }]]) };
+    const hub = new GameHub(room);
+    hub.join(gid, 'a', { wait: false }, 1000);
+    hub.tick(1000);
+    assert.equal(hub.sessions.get(gid).state, 'lobby', gid + ': sozinho espera a turma');
+    assert.ok(hub.takeEvents().some((e) => e.kind === 'need_players'));
+    hub.join(gid, 'b', {}, 1100);
+    hub.start(gid, 'a', {}, 1200);
+    hub.tick(60000);
+    assert.equal(hub.sessions.get(gid).state, 'playing', gid + ': com 2 começa');
+    const s = hub.sessions.get(gid);
+    assert.notEqual(s.teams.a, s.teams.b, gid + ': um em cada time');
+  }
+});
 test('esconde-esconde: um conta, os outros se escondem, chegar perto acha; precisa de 2', () => {
   const { GameHub } = require('../src/games');
   const pos = { a: [0, 0, 0], b: [20, 0, 0], c: [-20, 0, 0] };

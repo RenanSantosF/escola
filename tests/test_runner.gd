@@ -85,6 +85,8 @@ func _ready() -> void:
 	await _test_contador_e_brilho()
 	await _test_atracoes()
 	await _test_salas_uso()
+	await _test_jogos_mesa()
+	await _test_aviso_fora_da_sala()
 	await _test_dicas()
 	await _test_tela_amigos()
 	await _test_duas_turmas()
@@ -741,19 +743,31 @@ func _test_minigames() -> void:
 	var rc := func(r): results.append(r)
 	mm.game_finished.connect(rc)
 
-	# Futebol: gol detectado na trave do adversário
-	var fb = await _mg_start("futebol")
-	check(not fb._started and fb._setup_panel != null, "futebol: seletor aparece antes da partida")
-	fb._start_match()
+	# Futebol: sozinho não tem jogo (sem bots na linha)
+	var n_res := results.size()
+	mm.start("futebol")
+	await _frames(2)
+	check(mm.active == null and results.size() == n_res + 1, "futebol: sozinho não começa (sem bots, precisa da turma)")
+	# com a turma (um colega "de mentira" no outro time): só goleiros são bots
+	var fnet := {"gid": "futebol", "kind": "team", "players": ["eu", "x"], "host": "eu", "teams": {"eu": "a", "x": "b"}, "me": "eu"}
+	check(mm.start_local("futebol", fnet), "futebol: começa com a turma")
+	var fb = mm.active
+	var two: Array[NPC] = fb.students(2, Vector3(40, 0.05, -49))
+	var rival: NPC = two[0]
+	var mate: NPC = two[1]
+	fb.take_npcs([rival, mate])
+	fb.humans_b.append(rival)
+	fb._human_id[rival] = "x"
+	fb.humans_a.append(mate)
+	fb._human_id[mate] = "y"
 	await _wait(3.4)
-	check(fb.team_a.size() >= 2 and fb.team_b.size() >= 3 and fb.keeper_b != null and fb.keeper_a != null, "futebol: times e goleiros (bots) montados")
+	check(fb.team_a.is_empty() and fb.team_b.is_empty() and fb.keeper_b != null and fb.keeper_a != null, "futebol: sem bots na linha, goleiros são bots")
 	fb._release(Vector3.ZERO, 0.0)
 	fb.ball.global_position = Vector3(60.6, 0.3, -49)
 	fb.ball.linear_velocity = Vector3(3, 0, 0)
 	await _frames(3)
 	check(fb.score_a == 1, "futebol: gol contabilizado", "placar %d x %d" % [fb.score_a, fb.score_b])
 	await _wait(3.5)
-	# chute do jogador
 	for i in 60:
 		if fb._goal_pause <= 0.0 and fb._countdown <= 0.0:
 			break
@@ -761,9 +775,8 @@ func _test_minigames() -> void:
 	fb._take(player)
 	await _frames(3)
 	check(fb.ball.global_position.distance_to(player.global_position) < 1.0, "futebol: bola colada no pé")
-	var bpos: Vector3 = fb.ball.global_position
 	var shots0: int = fb._shot_n
-	fb._hold_immune = 5.0  # ninguém rouba enquanto o teste carrega o chute
+	fb._hold_immune = 5.0
 	player.request_play()
 	await _wait(0.5)
 	player.request_play_release()
@@ -771,32 +784,43 @@ func _test_minigames() -> void:
 	var left_foot: bool = fb.holder != player and fb._shot_n > shots0 and fb.ball.linear_velocity.length() > 4.0
 	await _wait(0.8)
 	check(left_foot, "futebol: jogador chuta a bola")
-	# passe curto para um colega
-	await _wait(3.5)
+	# passe rápido para o colega a 8 m
+	fb._countdown = 0.0
+	fb._goal_pause = 0.0
+	player.global_position = Vector3(30, 0.05, -49)
+	mate.teleport(Vector3(38, 0.05, -49), 0.0)
+	rival.teleport(Vector3(30, 0.05, -56), 0.0)
+	fb._release(Vector3.ZERO, 0.0)
 	fb._take(player)
+	await _frames(2)
 	player.request_interact()
 	player.request_interact_release()
 	await _frames(2)
-	check(fb.holder != player and fb.ball.linear_velocity.length() > 3.0, "futebol: passe sai do pé")
-	await _wait(2.0)
-	await _wait(3.5)
-	fb._release(Vector3.ZERO, 0.0)
-	fb.ball.global_position = Vector3(30, 0.3, -45)
-	fb.ball.linear_velocity = Vector3.ZERO
-	var d0: float = fb.team_b[0].global_position.distance_to(fb.ball.global_position)
-	await _wait(1.2)
-	var chasing := false
-	for n in fb.team_a + fb.team_b:
-		if n.global_position.distance_to(fb.ball.global_position) < d0 - 0.5 or n.moving:
-			chasing = true
-	check(chasing, "futebol: IA corre atrás da bola")
+	var pass_v: float = fb.ball.linear_velocity.length()
+	check(fb.holder != player and pass_v >= 9.0, "futebol: passe sai do pé rápido (%.1f m/s)" % pass_v)
+	# roubar a bola do colega rival (bote de perto)
+	var stolen := false
+	for i in 8:
+		fb._countdown = 0.0
+		fb._tackle_cd = 0.0
+		fb._release(Vector3.ZERO, 0.0)
+		rival.teleport(player.global_position + Vector3(1.6, 0, 0), 0.0)
+		fb._take(rival)
+		fb._hold_immune = 0.0
+		await _frames(1)
+		player.request_interact()
+		player.request_interact_release()
+		await _frames(1)
+		if fb.holder == player:
+			stolen = true
+			break
+	check(stolen, "futebol: o bote de perto rouba a bola", "holder=%s d=%.2f cd=%.2f imm=%.2f started=%s" % [fb.holder, player.global_position.distance_to(rival.global_position), fb._countdown, fb._hold_immune, fb._started])
 	# chute forte de perto: o goleiro não pega tudo
 	fb.score_a = 0
 	fb.score_b = 0
-	var goals0: int = 0
 	var tries := 0
 	for i in 10:
-		if fb.score_a - goals0 >= 2:
+		if fb.score_a >= 2:
 			break
 		tries += 1
 		fb._countdown = 0.0
@@ -808,44 +832,43 @@ func _test_minigames() -> void:
 		await _frames(2)
 		fb._shoot_player(1.0)
 		await _wait(1.6)
-	check(fb.score_a - goals0 >= 2, "futebol: chute forte no canto vira gol às vezes (%d gols em %d)" % [fb.score_a - goals0, tries])
+	check(fb.score_a >= 2, "futebol: chute forte no canto vira gol às vezes (%d gols em %d)" % [fb.score_a, tries])
 	fb._goal_pause = 0.0
 	fb.time_left = 0.05
 	await _wait(0.3)
 	check(mm.active == null and not results.is_empty() and results[-1].id == "futebol", "futebol: partida termina pelo tempo")
 
-	# Queimada: acerto queima o adversário
+	# Queimada: sozinho não tem jogo; com a turma, queimado fica fora até o fim
 	await _recess()
-	var dg = await _mg_start("queimada")
+	n_res = results.size()
+	mm.start("queimada")
+	await _frames(2)
+	check(mm.active == null and results.size() == n_res + 1, "queimada: sozinho não começa (sem bots)")
+	var qnet := {"gid": "queimada", "kind": "team", "players": ["eu", "x", "z"], "host": "eu", "teams": {"eu": "a", "x": "b", "z": "b"}, "me": "eu"}
+	check(mm.start_local("queimada", qnet), "queimada: começa com a turma")
+	var dg = mm.active
+	var vv: Array[NPC] = dg.students(3, Vector3(-38, 0.05, -50))
+	var v1: NPC = vv[0]
+	var v2: NPC = vv[1]
+	var qmate: NPC = vv[2]
+	dg.take_npcs([v1, v2, qmate])
+	for v in [v1, v2]:
+		dg.humans_b.append(v)
+		dg._human_id[v] = str(v.get_instance_id())
+	dg.humans_a.append(qmate)
+	dg._human_id[qmate] = "mate"
 	await _wait(3.4)
-	var victim: NPC = dg.team_b[0]
-	dg.ball.live = true
-	dg.ball.live_team = 0
-	dg._on_ball_hit(victim)
-	check(dg.score_a == 1 and dg._out.has(victim), "queimada: acerto queima e manda para o cemitério")
-	dg.ball.live = true
-	dg.ball.live_team = 1
-	dg._hit_cd = 0.0
-	dg._on_ball_hit(player)
-	check(dg.score_b == 1 and player.movement_locked, "queimada: jogador queimado fica fora")
-	await _wait(6.5)
-	check(dg._out.has(player), "queimada: queimado fica mais tempo fora (15 s)")
-	dg._out[player] = 0.3
-	await _wait(0.6)
-	check(not dg._out.has(player) and not player.movement_locked, "queimada: volta do cemitério")
+	check(dg.team_a.is_empty() and dg.team_b.is_empty(), "queimada: nenhum bot em campo")
 	# desviar: a bola não queima durante o pulinho
 	dg._dodge_cd = 0.0
 	player.request_play()
 	dg.ball.live = true
 	dg.ball.live_team = 1
 	dg._hit_cd = 0.0
-	var sb: int = dg.score_b
 	dg._on_ball_hit(player)
-	check(dg.score_b == sb and not dg._out.has(player), "queimada: o botão Desviar funciona (não queima)")
+	check(dg.score_b == 0 and not dg._out.has(player), "queimada: o botão Desviar funciona (não queima)")
 	await _wait(0.8)
-	# pegar e arremessar
-	for n in dg.team_a + dg.team_b:
-		dg._out[n] = 99.0  # tira a IA do caminho para testar o jogador
+	# pegar e arremessar (bola rápida)
 	if dg.ball.held_by:
 		dg.ball.throw_from(dg.ball.global_position, Vector3.ZERO, -1)
 	dg._holder = null
@@ -855,15 +878,38 @@ func _test_minigames() -> void:
 	dg.ball.linear_velocity = Vector3.ZERO
 	await _frames(2)
 	player.request_interact()
-	check(dg._holder == player, "queimada: jogador pega a bola", "holder=%s dist=%.2f vel=%.2f out=%s cd=%.1f" % [dg._holder, dg.ball.global_position.distance_to(player.global_position + Vector3(0, 0.3, 0)), dg.ball.linear_velocity.length(), dg._out.has(player), dg._countdown])
+	check(dg._holder == player, "queimada: jogador pega a bola", "holder=%s dist=%.2f vel=%.2f out=%s cd=%.1f run=%s" % [dg._holder, dg.ball.global_position.distance_to(player.global_position + Vector3(0, 0.3, 0)), dg.ball.linear_velocity.length(), dg._out.has(player), dg._countdown, dg.running])
 	player.request_play()
 	await _wait(0.3)
 	player.request_play_release()
-	await _wait(0.6)
+	await _wait(0.5)
+	var thrown_v: float = dg.ball.linear_velocity.length()
 	check(dg._holder != player and dg.ball.held_by == null, "queimada: jogador arremessa")
-	dg.time_left = 0.05
-	await _wait(0.3)
-	check(mm.active == null, "queimada: termina")
+	check(thrown_v > 13.0 or dg.score_a > 0, "queimada: a bola vai rápida (%.1f m/s)" % thrown_v)
+	await _wait(1.0)
+	dg.score_a = 0
+	dg._out.clear()
+	# acerto queima e fica no cemitério até o fim
+	dg.ball.live = true
+	dg.ball.live_team = 0
+	dg._hit_cd = 0.0
+	dg._on_ball_hit(v1)
+	check(dg._out.has(v1), "queimada: acerto queima e manda para o cemitério")
+	dg.ball.live = true
+	dg.ball.live_team = 1
+	dg._hit_cd = 0.0
+	dg._on_ball_hit(player)
+	await _wait(3.0)
+	check(dg._out.has(player) and player.movement_locked and dg._out.has(v1), "queimada: queimado NÃO volta (fica até a partida acabar)")
+	check(mm.active == dg, "queimada: com gente viva nos dois times a partida continua")
+	# queimou o último do time azul: acaba
+	dg.ball.live = true
+	dg.ball.live_team = 1
+	dg._hit_cd = 0.0
+	dg._on_ball_hit(qmate)
+	await _wait(1.5)
+	check(mm.active == null and results[-1].id == "queimada" and int(results[-1].get("won", 0)) == -1, "queimada: time sem ninguém vivo perde e a partida acaba")
+	check(not player.movement_locked, "queimada: no fim o jogador volta a andar")
 
 	# Bolinha de gude: tiro move bolinhas e o jogo avança
 	await _recess()
@@ -1038,7 +1084,7 @@ func _test_minigames() -> void:
 
 	# fim do recreio encerra minijogo em andamento
 	await _recess()
-	await _mg_start("futebol")
+	mm.start_local("futebol", {"gid": "futebol", "kind": "team", "players": ["eu", "x"], "host": "eu", "teams": {"eu": "a", "x": "b"}, "me": "eu"})
 	main.school_day._start_return()
 	await _frames(3)
 	check(mm.active == null, "minijogos: sinal do fim do recreio encerra a partida")
@@ -1531,6 +1577,16 @@ func _test_online_tag() -> void:
 	NetworkManager.last_channel = "near"
 	sess._on_chat("amigo", "Amigo", "Oi!")
 	check(sess.chat_panel._lines.get_child_count() > 0 and (sess.chat_panel._lines.get_child(sess.chat_panel._lines.get_child_count() - 1) as Button).text.begins_with("[Perto]"), "chat: canal Perto de mim")
+	await _frames(2)
+	var bub := sess.remotes["amigo"].root.get_node_or_null("ChatBubble") as ChatBubble
+	check(bub != null and bub.visible and bub._label.text == "Oi!", "chat: balãozinho em cima da cabeça de quem falou")
+	sess._on_chat("eu", "Eu", "Tudo bem?")
+	await _frames(2)
+	var mine := player.get_node_or_null("ChatBubble") as ChatBubble
+	check(mine != null and mine.visible, "chat: o meu balão aparece em cima de mim")
+	sess.chat_panel.setup_phrases(["Oi!", "Vamos jogar?"], true)
+	check(not sess.chat_panel._phrases.visible and not sess.chat_panel._rx.visible, "chat: sem atalhos de frases (só digitar)")
+	mine.queue_free()
 	sess.chat_panel.queue_free()
 	sess.queue_free()
 	NetworkManager.my_id = ""
@@ -2172,6 +2228,154 @@ func _test_dicas() -> void:
 			await _frames(3)
 
 
+func _test_jogos_mesa() -> void:
+	await _recess()
+	if player.mode == PlayerController.Mode.SITTING:
+		player.force_stand()
+	var kinds := {}
+	for n in main.world.get_children():
+		if n is TableGame:
+			kinds[n.kind] = int(kinds.get(n.kind, 0)) + 1
+	check(int(kinds.get("xadrez", 0)) >= 4 and kinds.has("pingpong") and kinds.has("velha") and kinds.has("memoria"),
+		"jogos de mesa: xadrez, pingue-pongue, velha e memória nas mesas", str(kinds))
+	# regras do xadrez
+	var st := ChessRules.new_game()
+	check(ChessRules.legal_moves(st).size() == 20, "xadrez: 20 lances na abertura")
+	# mate do pastor ao contrário (mate do louco): f3 e5 g4 Dh4#
+	for mv in [[53, 45], [12, 28], [54, 38], [3, 39]]:
+		st = ChessRules.apply(st, mv)
+	check(ChessRules.status(st) == "mate" and st.turn == "w", "xadrez: reconhece xeque-mate")
+	# roque pequeno liberado com o caminho vazio
+	var st2 := ChessRules.new_game()
+	st2.b[61] = ""
+	st2.b[62] = ""
+	var castle := ChessRules.legal_moves(st2).filter(func(m): return m[0] == 60 and m[1] == 62)
+	check(castle.size() == 1, "xadrez: roque pequeno")
+	var after := ChessRules.apply(st2, [60, 62])
+	check(after.b[62] == "K" and after.b[61] == "R" and after.b[63] == "", "xadrez: no roque a torre pula o rei")
+	# promoção vira dama
+	var st3 := {"b": [], "turn": "w", "castle": "", "ep": -1}
+	st3.b.resize(64)
+	st3.b.fill("")
+	st3.b[8] = "P"
+	st3.b[60] = "K"
+	st3.b[7] = "k"
+	check(ChessRules.apply(st3, [8, 0]).b[0] == "Q", "xadrez: peão no fim vira dama")
+	# en passant
+	var st4 := ChessRules.new_game()
+	for mv in [[52, 36], [8, 16], [36, 28], [11, 27]]:
+		st4 = ChessRules.apply(st4, mv)
+	var ep := ChessRules.legal_moves(st4).filter(func(m): return m[0] == 28 and m[1] == 19)
+	check(ep.size() == 1 and ChessRules.apply(st4, [28, 19]).b[27] == "", "xadrez: en passant")
+	# o computador responde rápido com um lance válido (e captura de graça)
+	var st5 := ChessRules.new_game()
+	st5 = ChessRules.apply(st5, [52, 36])
+	st5.b[19] = "Q"  # dama branca de presente em d6 (os peões pretos pegam)
+	var t0 := Time.get_ticks_msec()
+	var reply := ChessRules.pick_move(st5, 1)
+	var ms := Time.get_ticks_msec() - t0
+	check(not reply.is_empty() and reply[1] == 19, "xadrez: o computador toma a dama oferecida")
+	check(ms < 2500, "xadrez: o computador pensa rápido (%d ms)" % ms)
+	# abrir uma mesa de verdade: trava o boneco, abre a tela, fecha e devolve
+	var table: TableGame = null
+	for n in main.world.get_children():
+		if n is TableGame and n.kind == "xadrez":
+			table = n
+			break
+	player.global_position = table.global_position + Vector3(0, 0.05, 0.6)
+	await _frames(2)
+	table.interact(player)
+	await _frames(2)
+	var tgui: TableGames = null
+	for c in main.hud.get_children():
+		if c is TableGames:
+			tgui = c
+	check(tgui != null and not player.input_enabled and not main.hud.controls.visible, "xadrez: a mesa abre o jogo e segura o boneco")
+	# tocar no peão e2 e depois em e4
+	var board: Control = tgui._board
+	var cs := board.size.x / 8.0
+	for sq in [52, 36]:
+		var ev := InputEventMouseButton.new()
+		ev.button_index = MOUSE_BUTTON_LEFT
+		ev.pressed = true
+		ev.position = Vector2((sq % 8 + 0.5) * cs, (sq / 8 + 0.5) * cs)
+		board._gui_input(ev)
+	check(board.st.b[36] == "P" and board.st.turn == "b", "xadrez: tocar na peça e no destino move")
+	await _wait(1.5)
+	check(board.st.turn == "w", "xadrez: o computador joga de volta")
+	tgui.close()
+	await _frames(2)
+	check(player.input_enabled and main.hud.controls.visible and table._player == null, "xadrez: sair devolve o controle")
+	# pingue-pongue: a raquete rebate e a bola que passa vira ponto
+	var pg := TableGames.open(main.hud, "pingpong", func(_w): pass)
+	await _frames(2)
+	var pong: Control = pg._board
+	pong.serve_t = 0.0
+	pong.px = 0.5
+	pong.target_x = 0.5
+	pong.ball = Vector2(0.5, 0.84)
+	pong.vel = Vector2(0.0, 0.8)
+	await _wait(0.3)
+	check(pong.vel.y < 0.0 and pong.rally >= 1, "pingue-pongue: a raquete rebate a bola")
+	pong.ball = Vector2(0.95, 0.97)
+	pong.vel = Vector2(0.0, 1.0)
+	pong.target_x = 0.15
+	pong.px = 0.15
+	var cpu0: int = pong.cpu
+	await _wait(0.3)
+	check(pong.cpu == cpu0 + 1, "pingue-pongue: bola que passa é ponto do outro")
+	pg.close()
+	# memória: achar os pares termina e dá XP
+	var mg := TableGames.open(main.hud, "memoria", func(_w): pass)
+	await _frames(2)
+	var mem: Control = mg._board
+	SaveManager.section("stats")["atividades_dia"] = {}
+	for f in 8:
+		var idx: Array = []
+		for i in 16:
+			if mem.cards[i] == f:
+				idx.append(i)
+		for i in idx:
+			var ev2 := InputEventMouseButton.new()
+			ev2.button_index = MOUSE_BUTTON_LEFT
+			ev2.pressed = true
+			ev2.position = Vector2((i % 4 + 0.5) * mem.size.x / 4.0, (i / 4 + 0.5) * mem.size.y / 4.0)
+			mem._gui_input(ev2)
+	check(not 0 in mem.shown and mg._won_any, "memória: achar todos os pares vence")
+	check(SaveManager.section("stats").get("atividades_dia", {}).has("mesa_memoria"), "memória: vitória dá XP (uma vez por dia)")
+	mg.close()
+	await _frames(2)
+
+
+## Saiu da sala no meio da aula: aviso grande com contagem para voltar.
+func _test_aviso_fora_da_sala() -> void:
+	var sd: SchoolDay = main.school_day
+	main.discipline._bench_t = -1.0
+	main.discipline.restricted = false
+	if main.discipline.truant:
+		main.discipline.stop_search()
+	sd._begin_class(0)
+	await _frames(3)
+	sd._drop_lesson()
+	sd._task_active = false
+	sd._find_task = {}
+	sd._class_done = false
+	if player.mode == PlayerController.Mode.SITTING:
+		player.force_stand()
+	player.global_position = Vector3(0, 0.05, -2)  # no pátio
+	sd._out_of_class = 0.0
+	await _wait(1.2)
+	var txt: String = main.hud.alert_text()
+	check(txt.begins_with("Volte para a") and not main.discipline.truant, "aula: saiu da sala = aviso para voltar com contagem",
+		"txt=%s fase=%d sala=%s zona=%s truant=%s jogando=%s out=%.1f find=%s done=%s task=%s" % [txt, sd.phase, sd.class_room, main.world.zone_at(player.global_position).get("name", ""), main.discipline.truant, GameManager.is_playing(), sd._out_of_class, sd._find_task.is_empty(), sd._class_done, sd._task_active])
+	sd._out_of_class = SchoolDay.OUT_LIMIT - 0.2
+	await _wait(0.6)
+	check(main.discipline.truant and main.hud.alert_text() == "", "aula: passou do tempo = vira matar aula (aviso some)")
+	main.discipline.stop_search()
+	sd._class_done = true
+	await _recess()
+
+
 func _test_salas_uso() -> void:
 	await _recess()
 	var acts: Array = []
@@ -2242,17 +2446,20 @@ func _test_atracoes() -> void:
 	for i in slide.points.size() - 1:
 		len += slide.points[i].distance_to(slide.points[i + 1])
 	var max_y := 0.0
+	var slide_v := 0.0
 	slide.interact(player)
 	var t0 := Time.get_ticks_msec()
 	Engine.time_scale = 3.0
 	while slide._rider != null and Time.get_ticks_msec() - t0 < 30000:
 		max_y = maxf(max_y, player.global_position.y)
+		slide_v = maxf(slide_v, slide._v)
 		await _frames(1)
 	Engine.time_scale = 1.0
 	var end := slide.points[slide.points.size() - 1]
 	check(slide._rider == null and player.global_position.distance_to(end) < 3.0 and max_y > 12.0,
 		"tobogã gigante: sobe a torre (%.0f m) e desce %.0f m até o Parquinho" % [max_y, len])
 	check(player.input_enabled and not player.movement_locked, "tobogã gigante: devolve o controle no fim")
+	check(len > 180.0 and slide_v > 13.0, "tobogã gigante: longo (%.0f m) e rápido (%.1f m/s)" % [len, slide_v])
 	# montanha-russa: duas voltas e volta para a estação
 	player.global_position = coaster.global_position
 	await _frames(2)
@@ -2265,8 +2472,13 @@ func _test_atracoes() -> void:
 		await _frames(1)
 	Engine.time_scale = 1.0
 	check(coaster._rider == null and coaster._lap == 2 and player.global_position.distance_to(coaster.global_position) < 2.0,
-		"montanha-russa: dá 2 voltas no Lago e desembarca na estação")
-	check(top_v > 12.0, "montanha-russa: a descida é rápida (%.1f m/s)" % top_v)
+		"montanha-russa: dá 2 voltas pelo parque e desembarca na estação")
+	check(top_v > 18.0, "montanha-russa: a descida é rápida (%.1f m/s)" % top_v)
+	var cpts: PackedVector3Array = coaster.points
+	var span := AABB(cpts[0], Vector3.ZERO)
+	for q in cpts:
+		span = span.expand(q)
+	check(span.size.x > 70.0 and span.size.y > 20.0, "montanha-russa: grande (%.0f m de comprido, %.0f m de altura)" % [span.size.x, span.size.y])
 	# cama elástica
 	var tr: Trampoline = null
 	for n in world.get_children():

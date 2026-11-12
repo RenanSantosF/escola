@@ -540,7 +540,8 @@ func _on_action_finished(action: String) -> void:
 
 ## Detecta trombadas em paredes/objetos quando correndo (reação cômica).
 func _check_bump(pre_vel: Vector3) -> void:
-	if mode != Mode.FREE:
+	# brincando (futebol, queimada, corrida...): sem trombada cômica nem "Ai!"
+	if mode != Mode.FREE or minigame != null:
 		return
 	var hspeed := Vector2(pre_vel.x, pre_vel.z).length()
 	# alguém parado na passagem (ex.: no batente da porta): empurrando por meio

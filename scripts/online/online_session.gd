@@ -230,11 +230,21 @@ func _on_remote_anim(r: Dictionary, before: String, now: String) -> void:
 			r["seat"] = best
 	elif now in ["slide", "coaster"]:
 		vis.play("sit_down")  # descendo o tobogã / na montanha-russa
+		if now == "coaster" and not r.has("cart"):
+			# o carrinho anda junto com o colega (quem está de fora vê)
+			var cart := RideTrack.make_cart()
+			cart.top_level = true
+			r.root.add_child(cart)
+			cart.global_position = r.root.global_position - Vector3(0, 0.12, 0)
+			r["cart"] = cart
 	elif before == "sit":
 		vis.play("stand_up")
 		_release_seat(r)
 	elif before in ["slide", "coaster"]:
 		vis.stop_action()
+	if before == "coaster" and now != "coaster" and r.has("cart"):
+		(r.cart as Node3D).queue_free()
+		r.erase("cart")
 
 
 func _release_seat(r: Dictionary) -> void:
@@ -247,12 +257,20 @@ func _release_seat(r: Dictionary) -> void:
 func _on_chat(id: String, sender: String, text: String) -> void:
 	var mine := id == NetworkManager.my_id
 	chat_panel.add_line(id if not mine else "", ("Você" if mine else sender) + ": " + text, false, NetworkManager.last_channel)
-	if remotes.has(id):
-		remotes[id].label.text = text
-		var r: Dictionary = remotes[id]
-		get_tree().create_timer(3.0).timeout.connect(func():
-			if is_instance_valid(r.label):
-				r.label.text = r.name_text)
+	# balãozinho em cima da cabeça de quem falou (eu também vejo o meu)
+	var who: Node3D = null
+	if mine and player:
+		who = player
+	elif remotes.has(id):
+		who = remotes[id].root
+	if who:
+		var bubble := who.get_node_or_null("ChatBubble") as ChatBubble
+		if bubble == null:
+			bubble = ChatBubble.new()
+			bubble.name = "ChatBubble"
+			who.add_child(bubble)
+			bubble.position = Vector3(0, 1.95 if who == player else 2.3, 0)  # colega: acima do nome
+		bubble.show_text(text)
 
 
 ## Tempo local em segundos (para o buffer de interpolação).
@@ -280,13 +298,27 @@ static func _sample(buf: Array, t: float) -> Vector3:
 	var prev: Array = buf[n - 2]
 	var dt := maxf(float(last[0]) - float(prev[0]), 0.001)
 	var vel: Vector3 = ((last[1] as Vector3) - (prev[1] as Vector3)) / dt
-	if vel.length() > 12.0:
-		vel = vel.normalized() * 12.0
+	if vel.length() > 30.0:  # montanha-russa chega a 26 m/s
+		vel = vel.normalized() * 30.0
 	var ahead := minf(t - float(last[0]), 0.35)
 	return (last[1] as Vector3) + vel * ahead
 
 
 var _lod_t := 0.0
+
+
+## Carrinho do colega: segue a posição e aponta para onde ele está indo.
+func _move_cart(r: Dictionary, prev: Vector3, delta: float) -> void:
+	var cart: Node3D = r.cart
+	var pos: Vector3 = (r.root as Node3D).global_position
+	cart.global_position = pos - Vector3(0, 0.12, 0)
+	var dir := pos - prev
+	if dir.length() > 0.02:
+		dir = dir.normalized()
+		var up := Vector3.UP if absf(dir.y) < 0.98 else Vector3.FORWARD
+		var want := Basis.looking_at(dir, up)
+		cart.global_basis = cart.global_basis.orthonormalized().slerp(want, 1.0 - exp(-12.0 * delta))
+	cart.visible = (r.visual as Node3D).visible
 
 
 ## Colegas longe custam menos: sem sombra, animação mais espaçada, nome
@@ -336,6 +368,8 @@ func _process(delta: float) -> void:
 		var sp := Vector2(root.global_position.x - prev.x, root.global_position.z - prev.z).length() / maxf(delta, 0.001)
 		vis.animator.speed = lerpf(vis.animator.speed, sp, 1.0 - exp(-8.0 * delta))
 		vis.animator.ride_mode = 2 if r.anim == "bike" else (1 if r.anim == "ride" else 0)
+		if r.has("cart"):
+			_move_cart(r, prev, delta)
 		_lod(r, cp, fwd, refresh, delta)
 	_watch_connection(delta)
 	if _rope_show and is_instance_valid(_rope_show) and (_rope_show.is_stale() or (player and player.minigame != null and player.minigame.id == "corda")):

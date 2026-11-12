@@ -319,10 +319,10 @@ func _show_lobby(g: Dictionary) -> void:
 		for id in players:
 			(a if str(teams.get(id, "a")) == "a" else b).append(id)
 		lines.append("Time azul: " + _names(a))
-		lines.append("Time laranja: " + (_names(b) if not b.is_empty() else "(bots)"))
+		lines.append("Time laranja: " + (_names(b) if not b.is_empty() else "(esperando alguém)"))
 	else:
 		lines.append("Jogando: " + _names(players))
-	if str(g.get("kind", "")) == "hide" and players.size() < 2:
+	if (str(g.get("kind", "")) == "hide" or gid in ["queimada", "futebol"]) and players.size() < 2:
 		lines.append("Precisa de pelo menos 2 jogadores")
 	var buttons: Array = []
 	if str(g.get("host", "")) == NetworkManager.my_id:

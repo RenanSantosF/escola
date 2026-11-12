@@ -54,6 +54,7 @@ var _gen: ClassroomTasks
 var _subjects: Array = []
 var discipline: Node = null
 var _out_of_class := 0.0
+const OUT_LIMIT := 10.0  ## segundos fora da sala na aula até virar "matando aula"
 var events: Node = null  # SchoolEvents
 var quests: Node = null  # QuestSystem
 
@@ -85,6 +86,7 @@ func setup(w: SchoolWorld, m: NPCManager, p: PlayerController, h: HUD) -> void:
 	player = p
 	hud = h
 	m.day = self
+	add_to_group("school_day")
 	classroom_ui = ClassroomUI.new()
 	hud.add_child(classroom_ui)
 	hud.move_child(classroom_ui, 1)
@@ -414,6 +416,7 @@ func _begin_class(n: int) -> void:
 	lesson_index = 0
 	lesson_results = []
 	extra_tasks = 0
+	_out_of_class = 0.0  # o tempo fora da aula anterior não conta nesta
 	_set_objective("Faça as tarefas da aula", null)
 	if _special_room():
 		var rp := room_point(class_room)
@@ -849,8 +852,17 @@ func _process(delta: float) -> void:
 				# saiu da sala durante a aula = matando aula
 				var zn: String = world.zone_at(player.global_position).get("name", "")
 				if zn != class_room:
+					var was := _out_of_class
 					_out_of_class += delta
-					if _out_of_class > 4.0 and discipline and not discipline.truant:
+					# aviso grande com contagem: dá para voltar antes de virar "matar aula"
+					if _out_of_class >= 0.0 and _out_of_class < OUT_LIMIT and discipline and not discipline.truant:
+						var left := int(ceil(OUT_LIMIT - _out_of_class))
+						hud.set_alert("Volte para a %s!  %d" % [class_room, left])
+						if was < 0.0 or int(ceil(OUT_LIMIT - was)) != left:
+							AudioManager.play_ui("countdown_tick", -6.0)
+						_marker_target = _class_target()
+					if _out_of_class >= OUT_LIMIT and discipline and not discipline.truant:
+						hud.set_alert("")
 						discipline.start_search()
 					if _out_of_class > 100.0:
 						_out_of_class = 0.0
@@ -858,6 +870,8 @@ func _process(delta: float) -> void:
 						lesson_index = lesson.size()
 						_end_class()
 				else:
+					if _out_of_class > 0.0:
+						hud.set_alert("")
 					_out_of_class = 0.0
 				_nag_timer -= delta
 				if _nag_timer <= 0.0:
@@ -947,6 +961,8 @@ func _update_marker(delta: float) -> void:
 
 ## Contador grande: quanto falta para a aula / para acabar a aula / castigo.
 func _update_timer_chip() -> void:
+	if hud.alert_text() != "" and not ((phase == Phase.CLASS_1 or phase == Phase.CLASS_2) and _out_of_class > 0.0 and _out_of_class < OUT_LIMIT and not _class_done and _find_task.is_empty() and not _player_in_class()):
+		hud.set_alert("")
 	var left := 0.0
 	if synced:
 		left = NetworkManager.phase_left()

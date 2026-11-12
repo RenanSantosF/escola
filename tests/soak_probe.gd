@@ -43,7 +43,7 @@ func _ready() -> void:
 				if not is_instance_valid(it):
 					continue
 				what = "usar %s (%s)" % [it.name, it.get_class()]
-				_free()
+				await _free()
 				player.global_position = it.global_position + Vector3(rng.randf_range(-0.8, 0.8), 0.1, rng.randf_range(-0.8, 0.8))
 				await _frames(3)
 				player.request_interact()
@@ -58,7 +58,7 @@ func _ready() -> void:
 				var gids: Array = MinigameManager.GAMES.keys()
 				var gid: String = gids[rng.randi() % gids.size()]
 				what = "brincadeira %s" % gid
-				_free()
+				await _free()
 				if mm.start(gid):
 					var g: Minigame = mm.active
 					for k in rng.randi_range(5, 40):
@@ -83,7 +83,7 @@ func _ready() -> void:
 			5:
 				# anda e pula muito
 				what = "andar e pular"
-				_free()
+				await _free()
 				Input.action_press("move_forward")
 				for k in 10:
 					player.request_jump()
@@ -108,13 +108,13 @@ func _ready() -> void:
 				var rides: Array = main.world.rides
 				if not rides.is_empty():
 					var rt: RideTrack = rides[rng.randi() % rides.size()]
-					_free()
+					await _free()
 					player.global_position = rt.global_position
 					await _frames(2)
 					rt.interact(player)
-					Engine.time_scale = 4.0
+					Engine.time_scale = 8.0
 					var t0 := Time.get_ticks_msec()
-					while rt._rider != null and Time.get_ticks_msec() - t0 < 20000:
+					while rt._rider != null and Time.get_ticks_msec() - t0 < 25000:
 						await _frames(1)
 					Engine.time_scale = 1.0
 					if rt._rider != null:
@@ -131,7 +131,7 @@ func _ready() -> void:
 				main.profile_menu.close_menu()
 			9:
 				what = "emoji"
-				_free()
+				await _free()
 				player.emote(["wave", "celebrate", "clap"][rng.randi() % 3])
 				await _secs(0.8)
 		await _frames(2)
@@ -144,6 +144,14 @@ func _ready() -> void:
 
 ## Antes de cada ação: em pé, livre (como uma criança que já saiu do que fazia).
 func _free() -> void:
+	# jogo de mesa aberto: aperta "Sair" (e confere que o controle voltou)
+	for c in main.hud.get_children():
+		if c is TableGames:
+			(c as TableGames).close()
+			await _frames(2)
+			if not player.input_enabled:
+				_problem("jogo de mesa: saiu e o controle não voltou")
+				player.input_enabled = true
 	if player.mode == PlayerController.Mode.SITTING:
 		player.force_stand()
 	if main.discipline and main.discipline.in_cutscene:

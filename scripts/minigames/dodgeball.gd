@@ -1,16 +1,15 @@
 extends Minigame
-## Queimada: dois times de 4 em metades da quadra de terra. Quem é
-## atingido por uma bola arremessada (antes de ela quicar) vai para o
-## "cemitério" por alguns segundos. Vence quem queimar 6 primeiro ou tiver
-## mais pontos ao fim de 90 s. Pegar a bola: botão verde. Arremessar
+## Queimada: só gente de verdade (sem bots), dois times em metades da quadra
+## de terra. Quem é atingido por uma bola arremessada (antes de ela quicar)
+## vai para o "cemitério" e fica lá até a partida acabar. Vence o time que
+## queimar todo mundo do outro (ou tiver mais gente viva ao fim de 2 min). Pegar a bola: botão verde. Arremessar
 ## (mira automática no adversário à frente): botão amarelo. Desviar:
 ## correr e pular.
 
 const CENTER_X := -40.0
 const COURT := Rect2(-52, -56, 24, 12)
-const TIME := 90.0
-const TARGET := 6
-const OUT_SECS := 15.0  # tempo no cemitério
+const TIME := 120.0
+const BALL_SPEED := 19.0  # bola rápida (antes 13)
 const DODGE_SECS := 0.55  # desvio: a bola não queima nesse tempinho
 const DODGE_CD := 1.4
 
@@ -49,8 +48,13 @@ func begin() -> void:
 		end_game(0, "Sem bola!", 0, 0)
 		return
 	ball.hit_body.connect(_on_ball_hit)
-	var bots_a := 3
-	var bots_b := 4
+	# sem bots: a queimada é só com a turma (o servidor espera 2 jogadores)
+	var bots_a := 0
+	var bots_b := 0
+	if not is_net():
+		super.begin()
+		end_game(0, "A queimada precisa de pelo menos 2 jogadores. Chame a turma!", 0, 0)
+		return
 	if is_net():
 		my_team = str((net.get("teams", {}) as Dictionary).get(net.get("me", ""), "a"))
 		net_role = "host" if str(net.get("host", "")) == str(net.get("me", "")) else "client"
@@ -59,9 +63,9 @@ func begin() -> void:
 			_start_client()
 			return
 		_collect_humans()
-		bots_a = maxi(3 - humans_a.size(), 0)
-		bots_b = maxi(4 - humans_b.size(), 0)
-	var pool: Array[NPC] = students(bots_a + bots_b, Vector3(-40, 0.05, -50))
+	var pool: Array[NPC] = []
+	if bots_a + bots_b > 0:
+		pool = students(bots_a + bots_b, Vector3(-40, 0.05, -50))
 	for n in pool:
 		if team_a.size() < bots_a:
 			team_a.append(n)
@@ -88,8 +92,18 @@ func begin() -> void:
 
 
 func _update_hud() -> void:
-	var extra := "   ·   Você está no cemitério!" if _out.has(player) else ""
-	hud.set_minigame_text("Queimada  ·  Seu time %d x %d   ·   %s%s" % [score_a, score_b, fmt_time(time_left), extra])
+	var extra := "   ·   Você está no cemitério: torça!" if _out.has(player) else ""
+	hud.set_minigame_text("Queimada  ·  Vivos: seu time %d x %d   ·   %s%s" % [_alive(0), _alive(1), fmt_time(time_left), extra])
+
+
+## Quantos ainda estão em jogo no time (0 = do anfitrião, 1 = o outro).
+func _alive(team: int) -> int:
+	var list: Array = ([player] + team_a + humans_a) if team == 0 else (team_b + humans_b)
+	var n := 0
+	for m in list:
+		if not _out.has(m):
+			n += 1
+	return n
 
 
 func _team_of(node: Node) -> int:
@@ -245,7 +259,7 @@ func _throw(who: Node3D, target: Node3D, team: int) -> void:
 		else:
 			aim = start + Vector3(sin(_yaw(from_holder)), 0, cos(_yaw(from_holder))) * 10.0
 		var d := aim - start
-		var speed := 9.0 if from_holder is NPC else 13.0
+		var speed := 14.0 if from_holder is NPC else BALL_SPEED
 		var vel := AimArc.solve(start, aim, speed)
 		ball.throw_from(start, vel, team)
 		_last_thrower = from_holder
@@ -281,19 +295,24 @@ func _on_ball_hit(body: Node) -> void:
 			player.camera_rig.shake(0.2)
 	_eliminate(body)
 	_update_hud()
-	if score_a >= TARGET or score_b >= TARGET:
+	_check_wipe()
+
+
+## Um time ficou sem ninguém vivo: acabou.
+func _check_wipe() -> void:
+	if running and (_alive(0) == 0 or _alive(1) == 0):
 		get_tree().create_timer(1.0).timeout.connect(_finish)
 
 
 func _eliminate(body: Node) -> void:
-	_out[body] = OUT_SECS
+	_out[body] = INF  # fica no cemitério até a partida acabar
 	var team := _team_of(body)
 	# cemitério: atrás do time adversário
 	var cx := -29.0 if team == 0 else -51.0
 	var pos := Vector3(cx, 0.05, randf_range(-55, -45))
 	if body == player:
 		player.visual.play("hit")
-		GameManager.show_toast("Você foi queimado! Volta em %d segundos." % int(OUT_SECS))
+		GameManager.show_toast("Você foi queimado! Fique no cemitério e torça pelo seu time.")
 		player.global_position = pos
 		player.velocity = Vector3.ZERO
 		player.movement_locked = true
@@ -356,7 +375,7 @@ func tick(delta: float) -> void:
 		var t := _pick_target(player, _enemies(0))
 		var start: Vector3 = player.visual.hand_position() + Vector3(0, 0.1, 0)
 		var aim: Vector3 = (t.global_position + Vector3(0, 1.0, 0)) if t else start + Vector3(sin(player.yaw), 0, cos(player.yaw)) * 10.0
-		_arc.show_arc(start, AimArc.solve(start, aim, 13.0), 0.05, Color("ff8a3d"))
+		_arc.show_arc(start, AimArc.solve(start, aim, BALL_SPEED), 0.05, Color("ff8a3d"))
 	player._emit_context()
 
 
@@ -419,8 +438,8 @@ func _finish() -> void:
 		st["end"] = 1
 		NetworkManager.mg_send_relay(str(net.gid), st)
 		NetworkManager.mg_team_result(str(net.gid), score_a, score_b)
-	var won := 1 if score_a > score_b else (0 if score_a == score_b else -1)
-	end_game(won, "Queimada %d x %d" % [score_a, score_b], 22 if won > 0 else 10, 35 if won > 0 else 15, {"score": score_a})
+	var won := 1 if _alive(0) > _alive(1) else (0 if _alive(0) == _alive(1) else -1)
+	end_game(won, "Queimada: vivos %d x %d (queimou %d)" % [_alive(0), _alive(1), score_a], 22 if won > 0 else 10, 35 if won > 0 else 15, {"score": score_a})
 
 
 func cleanup() -> void:
@@ -496,7 +515,7 @@ func _state_dict() -> Dictionary:
 	var bots: Array = []
 	for n in team_a + team_b:
 		bots.append([snappedf(n.global_position.x, 0.01), snappedf(n.global_position.z, 0.01), snappedf(n.yaw, 0.01), 1 if n.moving else 0])
-	return {"a": score_a, "b": score_b, "t": snappedf(time_left, 0.1), "c": 1 if _countdown > 0.0 else 0,
+	return {"a": score_a, "b": score_b, "va": _alive(0), "vb": _alive(1), "t": snappedf(time_left, 0.1), "c": 1 if _countdown > 0.0 else 0,
 		"ball": [snappedf(bp.x, 0.01), snappedf(bp.y, 0.01), snappedf(bp.z, 0.01)], "h": _id_of(_holder) if _holder and not (_holder is NPC) else ("bot" if _holder else ""),
 		"out": out_ids, "bots": bots}
 
@@ -550,6 +569,7 @@ func on_net_event(ev: Dictionary) -> void:
 			participants.erase(out_bot)
 			npcs.release_practice(out_bot)
 		hud.show_banner("Reforço!", "%s entrou na queimada" % NetworkManager.name_of(str(ev.get("id", ""))))
+		_update_hud()
 	elif net_role == "host" and kind == "left":
 		for r in _human_id.keys():
 			if _human_id[r] == str(ev.get("id", "")):
@@ -559,6 +579,7 @@ func on_net_event(ev: Dictionary) -> void:
 				if _holder == r:
 					_holder = null
 				_human_id.erase(r)
+		_check_wipe()
 	elif net_role == "client" and kind == "host" and running:
 		# quem começou saiu: a partida acaba para todos
 		end_game(0, "A queimada acabou (quem começou saiu)", 6, 10)
@@ -598,8 +619,8 @@ func _client_tick(delta: float) -> void:
 	score_a = int(_state.get("a", 0))
 	score_b = int(_state.get("b", 0))
 	time_left = float(_state.get("t", time_left))
-	var mine := score_a if my_team == "a" else score_b
-	var theirs := score_b if my_team == "a" else score_a
+	var mine := int(_state.get("va" if my_team == "a" else "vb", 0))
+	var theirs := int(_state.get("vb" if my_team == "a" else "va", 0))
 	# bola: na minha mão (sem atraso) ou onde o anfitrião mandou
 	var holder := str(_state.get("h", ""))
 	_holder = player if holder == me else null
@@ -613,7 +634,7 @@ func _client_tick(delta: float) -> void:
 	var is_out := me in outs
 	if is_out and not _me_out:
 		player.visual.play("hit")
-		GameManager.show_toast("Você foi queimado! Volta em %d segundos." % int(OUT_SECS))
+		GameManager.show_toast("Você foi queimado! Fique no cemitério e torça pelo seu time.")
 		player.global_position = Vector3(CENTER_X - _side() * 11.0, 0.05, randf_range(-55, -45))
 		player.movement_locked = true
 	elif not is_out and _me_out:
@@ -650,10 +671,10 @@ func _client_tick(delta: float) -> void:
 			n.yaw = lerp_angle(n.yaw, float(e[2]), 1.0 - exp(-12.0 * delta))
 			n.visual.rotation.y = n.yaw
 		n.moving = false
-	hud.set_minigame_text("Queimada com a turma  ·  Seu time %d x %d  ·  %s%s" % [mine, theirs, fmt_time(time_left), "   ·   Você está no cemitério!" if _me_out else ""])
+	hud.set_minigame_text("Queimada com a turma  ·  Vivos: seu time %d x %d  ·  %s%s" % [mine, theirs, fmt_time(time_left), "   ·   Você está no cemitério: torça!" if _me_out else ""])
 	if int(_state.get("end", 0)) == 1:
 		var won := 1 if mine > theirs else (0 if mine == theirs else -1)
-		end_game(won, "Queimada %d x %d" % [mine, theirs], 22 if won > 0 else 10, 35 if won > 0 else 15, {"score": mine})
+		end_game(won, "Queimada: vivos %d x %d" % [mine, theirs], 22 if won > 0 else 10, 35 if won > 0 else 15, {"score": score_a if my_team == "a" else score_b})
 		return
 	player._emit_context()
 

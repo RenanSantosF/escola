@@ -36,6 +36,7 @@ var _mission: Label
 
 
 func _ready() -> void:
+	add_to_group("hud")
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	theme = UITheme.get_theme()
@@ -665,6 +666,49 @@ func set_timer_chip(text: String, col := Color("2f6fd0")) -> void:
 	_timer_chip.visible = true
 
 
+var _alert: Label
+var _alert_t := 0.0
+
+
+## Aviso vermelho grande no alto (ex.: "Volte para a sala! 7"). "" esconde.
+func set_alert(text: String) -> void:
+	if _alert == null:
+		if text == "":
+			return
+		_alert = Label.new()
+		_alert.add_theme_font_override("font", UITheme.bold_font())
+		_alert.add_theme_font_size_override("font_size", 34)
+		_alert.add_theme_color_override("font_color", Color.WHITE)
+		_alert.add_theme_color_override("font_outline_color", Color("7a1010"))
+		_alert.add_theme_constant_override("outline_size", 6)
+		_alert.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_alert.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sb := UITheme.box(Color("e53935", 0.95), 18, Color(1, 1, 1, 0.85), 3, 6)
+		sb.content_margin_left = 26
+		sb.content_margin_right = 26
+		sb.content_margin_top = 8
+		sb.content_margin_bottom = 8
+		_alert.add_theme_stylebox_override("normal", sb)
+		add_child(_alert)
+	if text == "":
+		_alert.visible = false
+		_alert.text = ""
+		return
+	if _alert.text != text:
+		_alert.text = text
+		_alert.reset_size()
+		_alert.size = _alert.get_combined_minimum_size()
+		_alert.pivot_offset = _alert.size * 0.5
+		_alert.scale = Vector2(1.18, 1.18)  # "pulsa" a cada segundo
+	var vs := get_viewport_rect().size
+	_alert.position = Vector2((vs.x - _alert.size.x) * 0.5, vs.y * 0.22)
+	_alert.visible = true
+
+
+func alert_text() -> String:
+	return _alert.text if _alert and _alert.visible else ""
+
+
 var _result: PanelContainer
 var _result_t := 0.0
 
@@ -849,6 +893,8 @@ func show_toast(message: String) -> void:
 
 
 func _process(delta: float) -> void:
+	if _alert and _alert.visible and _alert.scale.x > 1.0:
+		_alert.scale = Vector2.ONE * maxf(1.0, _alert.scale.x - delta * 0.8)
 	if _objective_point != null or _mission_point != null or _game_point != null:
 		queue_redraw()
 	if _obj_card:
