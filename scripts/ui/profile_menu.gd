@@ -280,6 +280,22 @@ func _build_shop_header() -> void:
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	head.add_child(t)
 	head.add_child(_coin_pill(GameManager.coins(), 30))
+	# premiado opcional: vídeo -> moedas (só aparece com vídeo pronto; 3 por dia)
+	if AdsManager.can_offer("moedas_extra"):
+		var left := AdsManager.uses_left("moedas_extra")
+		var vb: Button
+		vb = UITheme.make_button("Ver vídeo: +%d moedas (%d hoje)" % [AdsManager.reward_coins(), left], func():
+			vb.disabled = true
+			AdsManager.show_rewarded("moedas_extra", func():
+				GameManager.add_rewards(0, AdsManager.reward_coins())
+				GameManager.show_toast("Você ganhou %d moedas!" % AdsManager.reward_coins())
+				AudioManager.play_ui("coin")
+				if visible:
+					_refresh()), 300)
+		vb.custom_minimum_size = Vector2(300, 60)
+		vb.add_theme_stylebox_override("normal", UITheme.box(Color("9be37a"), 18, Color("5aa83a"), 0, 6))
+		UITheme.dark_text(vb)
+		head.add_child(vb)
 	# ofertas
 	var deals := ShopCatalog.deals()
 	var row := HBoxContainer.new()

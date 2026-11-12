@@ -1352,30 +1352,44 @@ func _test_polish() -> void:
 	Effects.burst(Vector3(0, 1, 0), "confetti")
 	Effects.burst(Vector3(0, 1, 0), "dust")
 	check(Effects._pools.has("confetti") and Effects._next.confetti == (c_before + 1) % Effects.POOL and Effects._pools.confetti.size() == Effects.POOL, "efeitos: confete com pool de partículas")
-	# anúncios: desligados por padrão, sem botões falsos
-	check(not AdsManager.enabled and not AdsManager.can_show_rewarded(), "anúncios: desativados por padrão")
+	# anúncios: no computador não há SDK -> nenhum botão de vídeo aparece
+	check(AdsManager.provider == null and not AdsManager.can_show_rewarded(), "anúncios: sem SDK, nada de vídeo")
 	main.hud.show_day_summary({"day": 1, "correct": 2, "total": 4, "coins": 20, "xp": 40}, func(): pass)
 	var has_ad_btn := false
 	for b in main.hud._summary.find_children("*", "Button", true, false):
-		if (b as Button).text.contains("anúncio"):
+		if (b as Button).text.contains("vídeo"):
 			has_ad_btn = true
-	check(not has_ad_btn, "anúncios: sem provedor, nenhum botão de anúncio aparece")
+	check(not has_ad_btn, "anúncios: sem vídeo pronto, nenhum botão de vídeo (sem botão falso)")
 	main.hud._summary.queue_free()
 	main.hud._summary = null
-	# com provedor (simulado) o recompensado é voluntário e paga de verdade
+	# com provedor (simulado): premiado paga e tem limite por dia
 	var mock = load("res://tests/mock_ads_provider.gd").new()
+	var was_enabled: bool = AdsManager.enabled
 	AdsManager.enabled = true
 	AdsManager.register_provider(mock)
+	SaveManager.section("ads").clear()
+	main.hud.show_day_summary({"day": 2, "correct": 2, "total": 4, "coins": 20, "xp": 40}, func(): pass)
+	var dbl_btn := false
+	for b in main.hud._summary.find_children("*", "Button", true, false):
+		if (b as Button).text.contains("dobrar moedas"):
+			dbl_btn = true
+	check(dbl_btn, "anúncios: fim do dia oferece dobrar moedas com vídeo")
+	main.hud._summary.queue_free()
+	main.hud._summary = null
 	var c0 := GameManager.coins()
-	AdsManager.show_rewarded("teste", func(): GameManager.add_rewards(0, 20))
-	check(mock.shown_rewarded == 1 and GameManager.coins() == c0 + 20, "anúncios: recompensado entrega a recompensa")
-	AdsManager._last_interstitial_day = -99
-	AdsManager.maybe_show_interstitial(1)
-	check(mock.shown_interstitial == 0, "anúncios: nada de intersticial nos primeiros dias")
-	AdsManager.maybe_show_interstitial(4)
-	AdsManager.maybe_show_interstitial(5)
-	check(mock.shown_interstitial == 1, "anúncios: limite de frequência do intersticial")
-	AdsManager.enabled = false
+	for k in 4:
+		if AdsManager.can_offer("moedas_extra"):
+			AdsManager.show_rewarded("moedas_extra", func(): GameManager.add_rewards(0, AdsManager.reward_coins()))
+	check(mock.shown_rewarded == 3 and GameManager.coins() == c0 + 3 * AdsManager.reward_coins(), "anúncios: vídeo de moedas paga e para em 3 por dia")
+	check(not AdsManager.can_offer("moedas_extra") and AdsManager.can_offer("xp_brincadeira"), "anúncios: cada prêmio tem o seu limite diário")
+	# intersticial: nunca no 1º dia; depois, um por dia
+	check(not AdsManager.maybe_show_interstitial() and mock.shown_interstitial == 0, "anúncios: nada de intersticial no primeiro dia")
+	SaveManager.section("ads")["first_day"] = "2000-01-01"
+	AdsManager.maybe_show_interstitial()
+	AdsManager.maybe_show_interstitial()
+	check(mock.shown_interstitial == 1, "anúncios: só um intersticial por dia")
+	SaveManager.section("ads").clear()
+	AdsManager.enabled = was_enabled
 	AdsManager.provider = null
 
 

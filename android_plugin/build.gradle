@@ -1,0 +1,24 @@
+// Plugin Android do Recess Club: liga o jogo (Godot 4.3) ao Google AdMob.
+// Gerar: cd android_plugin && gradle assembleRelease  (JDK 17)
+// Saída copiada para res://addons/recess_ads/bin/recess_ads.aar
+plugins {
+    id 'com.android.library' version '8.2.0'
+}
+
+android {
+    namespace 'com.recessclub.ads'
+    compileSdk 34
+    defaultConfig {
+        minSdk 21
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // o jogo já traz o Godot; o export (Gradle) adiciona o SDK de anúncios
+    compileOnly 'org.godotengine:godot:4.3.0.stable'
+    compileOnly 'com.google.android.gms:play-services-ads:23.6.0'
+}

@@ -154,6 +154,19 @@ function createServer(opts = {}) {
       const l = liveInfo();
       return json(200, { ok: true, rooms: l.rooms, players: l.online, db: db.ready });
     }
+    // Páginas públicas exigidas pela Google Play / AdMob
+    if (url === '/privacidade' || url === '/excluir-conta') {
+      const file = path.join(__dirname, '..', 'public', url.slice(1) + '.html');
+      const mail = String(process.env.CONTACT_EMAIL || '').replace(/[<>"'&]/g, '');
+      const contato = mail ? 'Fale com a gente: <a href="mailto:' + mail + '">' + mail + '</a>' : 'Fale com a gente pelo e-mail de contato informado na página do jogo na Google Play.';
+      const html = fs.readFileSync(file, 'utf8').replace(/\{\{CONTATO\}\}/g, contato).replace(/\{\{DATA\}\}/g, '12/11/2026');
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+      return res.end(html);
+    }
+    if (url === '/app-ads.txt') {
+      res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
+      return res.end('google.com, pub-4311255826061303, DIRECT, f08c47fec0942fa0\n');
+    }
     if (url === '/' || url === '/admin') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
       return res.end(fs.readFileSync(ADMIN_HTML));

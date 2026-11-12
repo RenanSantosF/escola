@@ -494,11 +494,13 @@ func show_day_summary(s: Dictionary, on_next: Callable) -> void:
 		el.add_theme_font_size_override("font_size", 22)
 		v.add_child(el)
 	# Recompensado opcional: só aparece se houver anúncio real disponível.
-	if AdsManager.can_show_rewarded():
-		var dbl := UITheme.make_button("Dobrar moedas (ver anúncio)", func():
+	if AdsManager.can_offer("dobrar_dia") and int(s.coins) > 0:
+		var dbl: Button
+		dbl = UITheme.make_button("Ver vídeo: dobrar moedas (+%d)" % int(s.coins), func():
+			dbl.disabled = true
 			AdsManager.show_rewarded("dobrar_dia", func():
 				GameManager.add_rewards(0, int(s.coins))
-				GameManager.show_toast("Moedas dobradas! +%d" % s.coins)), 420)
+				GameManager.show_toast("Moedas dobradas! +%d" % s.coins)), 460)
 		dbl.add_theme_stylebox_override("normal", UITheme.box(Color("9be37a"), 18, Color("5aa83a"), 0, 6))
 		v.add_child(dbl)
 	v.add_child(UITheme.make_button("Próximo dia", func():
@@ -771,6 +773,19 @@ func show_result(game: String, head: String, summary: String, stars: int, xp: in
 		b.add_theme_color_override("font_color", Color.WHITE)
 		h.add_child(b)
 	h.add_child(UITheme.make_button("Fechar", func(): p.queue_free(), 180))
+	# premiado opcional: XP em dobro (só com vídeo pronto e até 3 vezes por dia)
+	if xp > 0 and AdsManager.can_offer("xp_brincadeira"):
+		var vb: Button
+		vb = UITheme.make_button("Ver vídeo: XP em dobro (+%d)" % xp, func():
+			vb.disabled = true
+			_result_t = 999.0
+			AdsManager.show_rewarded("xp_brincadeira", func():
+				GameManager.add_rewards(xp, 0)
+				GameManager.show_toast("XP em dobro! +%d XP" % xp)
+				if is_instance_valid(p):
+					p.queue_free()), 420)
+		vb.add_theme_stylebox_override("normal", UITheme.box(Color("9be37a"), 18, Color("5aa83a"), 0, 6))
+		v.add_child(vb)
 	add_child(p)
 	p.reset_size()
 	var vs := get_viewport_rect().size
@@ -783,7 +798,7 @@ func show_result(game: String, head: String, summary: String, stars: int, xp: in
 	tw2.tween_property(p, "modulate:a", 1.0, 0.2)
 	_result_t = 7.0
 	get_tree().create_timer(7.0).timeout.connect(func():
-		if is_instance_valid(p):
+		if is_instance_valid(p) and _result_t < 100.0:  # vendo o vídeo: não fecha sozinho
 			var tw3 := p.create_tween()
 			tw3.tween_property(p, "modulate:a", 0.0, 0.4)
 			tw3.tween_callback(p.queue_free))

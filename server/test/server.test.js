@@ -274,6 +274,10 @@ test('servidor: painel protegido e eventos', async () => {
   assert.equal(st.players.total, 1);
   const html = await (await fetch(base + '/admin')).text();
   assert.ok(html.includes('Painel'));
+  const priv = await (await fetch(base + '/privacidade')).text();
+  assert.ok(priv.includes('Política de Privacidade') && !priv.includes('{{'), 'política de privacidade publicada');
+  assert.ok((await (await fetch(base + '/excluir-conta')).text()).includes('Excluir conta'));
+  assert.equal((await (await fetch(base + '/app-ads.txt')).text()).trim(), 'google.com, pub-4311255826061303, DIRECT, f08c47fec0942fa0');
   srv.close();
 });
 

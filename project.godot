@@ -41,6 +41,10 @@ window/stretch/aspect="expand"
 window/handheld/orientation=4
 window/energy_saving/keep_screen_on=true
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/recess_ads/plugin.cfg")
+
 [input_devices]
 
 pointing/emulate_touch_from_mouse=true

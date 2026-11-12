@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recess Club · Excluir conta</title>
+<style>
+  body { margin: 0; background: #f4f6fb; color: #1f2a44; font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 520px; margin: 0 auto; padding: 24px 16px 60px; }
+  .card { background: #fff; border: 1px solid #e3e8f2; border-radius: 14px; padding: 18px; margin-top: 14px; }
+  input { width: 100%; box-sizing: border-box; padding: 12px; border-radius: 10px; border: 1px solid #cfd6e4; font-size: 16px; margin: 6px 0 10px; }
+  button { width: 100%; padding: 12px; border: 0; border-radius: 10px; background: #e04a3a; color: #fff; font-weight: 700; font-size: 16px; cursor: pointer; }
+  .msg { margin-top: 10px; font-weight: 600; } .muted { color: #6b7690; font-size: 14px; }
+</style>
+</head>
+<body><main>
+<h1>Excluir conta do Recess Club</h1>
+<p>Você pode apagar a conta <b>dentro do jogo</b> em <b>Configurações → Apagar minha conta</b>, ou aqui, com o nome de jogador e a senha.</p>
+<p class="muted">Será apagado: a conta (nome de jogador e senha), o progresso (nível, moedas, itens, visual) e a lista de amigos. Denúncias de segurança já registradas podem ser mantidas por até 6 meses. Esta ação não pode ser desfeita.</p>
+<div class="card">
+  <label>Nome de jogador</label><input id="n" autocomplete="username">
+  <label>Senha</label><input id="p" type="password" autocomplete="current-password">
+  <button id="go">Apagar minha conta</button>
+  <div class="msg" id="m"></div>
+</div>
+<p class="muted">Esqueceu a senha ou precisa de ajuda? {{CONTATO}}</p>
+<script>
+const $ = (i) => document.getElementById(i);
+let armed = false;
+$('go').onclick = async () => {
+  if (!armed) { armed = true; $('go').textContent = 'Tem certeza? Toque de novo para APAGAR'; return; }
+  $('m').textContent = 'Apagando...';
+  try {
+    const r = await fetch('/api/account/login', { method: 'POST', body: JSON.stringify({ name: $('n').value, password: $('p').value }) });
+    const j = await r.json();
+    if (!j.ok) { $('m').textContent = j.error || 'Nome ou senha errados.'; armed = false; $('go').textContent = 'Apagar minha conta'; return; }
+    const d = await fetch('/api/account', { method: 'DELETE', headers: { 'x-token': j.token } });
+    $('m').textContent = d.ok ? 'Pronto! A conta e os dados foram apagados.' : 'Não deu certo. Tente de novo mais tarde.';
+  } catch (e) { $('m').textContent = 'Sem conexão. Tente de novo.'; }
+};
+</script>
+</main></body></html>

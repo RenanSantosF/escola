@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- registra o plugin no Godot (plugins v2) -->
+        <meta-data
+            android:name="org.godotengine.plugin.v2.RecessAds"
+            android:value="com.recessclub.ads.RecessAds" />
+    </application>
+</manifest>

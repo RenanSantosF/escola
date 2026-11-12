@@ -567,7 +567,7 @@ func _check_exit() -> void:
 		_exit_summary = {}
 		_set_objective("", null)
 		hud.show_day_summary(s, func():
-			AdsManager.maybe_show_interstitial(day)
+			AdsManager.maybe_show_interstitial(day)  # no máximo 1 por dia, nunca no 1º dia
 			if synced:
 				_set_objective("O próximo dia começa quando o sinal tocar", null)
 			else:
