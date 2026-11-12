@@ -24,7 +24,7 @@
 
 ## Rascunho da descrição
 
-**Recreio — Minha Vida na Escola**
+**Recess Club — Minha Vida na Escola**
 
 Volte aos melhores momentos da escola! Faça as tarefas rapidinho, espere o sinal
 tocar e corra para o recreio: futebol na quadra, queimada, bolinha de gude,
@@ -34,7 +34,7 @@ personagem e... cuidado com o diretor!
 
 ## Rascunho de política de privacidade
 
-> O jogo "Recreio — Minha Vida na Escola" não coleta, armazena em servidores nem
+> O jogo "Recess Club — Minha Vida na Escola" não coleta, armazena em servidores nem
 > compartilha dados pessoais. O progresso fica salvo somente no próprio aparelho.
 > O jogo não possui chat nem contas de usuário. Caso anúncios sejam ativados em
 > versões futuras, eles seguirão as Políticas para Famílias do Google Play

@@ -218,7 +218,7 @@ func _build_loading() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 18)
 	center.add_child(v)
-	var title := UITheme.title_label("RECREIO", 96, Color("1f2a44"))
+	var title := UITheme.title_label("RECESS CLUB", 96, Color("1f2a44"))
 	v.add_child(title)
 	var sub := UITheme.title_label("Minha Vida na Escola", 34, Color("c0392b"))
 	v.add_child(sub)
@@ -238,8 +238,8 @@ func _build_loading() -> void:
 
 # ------------------------------------------------------------- menu
 
-const GAME_TITLE := "Turma Viva"
-const GAME_SUB := "Recreio"
+const GAME_TITLE := "Recess"
+const GAME_SUB := "Club"  # logo: "RECESS" grande e a fita "CLUB"
 var _stats_lbl: Label
 var _lobby_status: Label
 var _joining := false
@@ -582,7 +582,7 @@ func _build_menu() -> void:
 	_credits.add_child(cv)
 	cv.add_child(UITheme.title_label("Créditos", 40))
 	var txt := Label.new()
-	txt.text = "Turma Viva: Recreio\nFeito com Godot Engine 4.3 (licença MIT)\n\nModelos, texturas, animações e sons gerados\nproceduralmente para este projeto.\n\nPara todos que já esperaram ansiosos pelo sinal do recreio."
+	txt.text = "Recess Club\nFeito com Godot Engine 4.3 (licença MIT)\n\nModelos, texturas, animações e sons gerados\nproceduralmente para este projeto.\n\nPara todos que já esperaram ansiosos pelo sinal do recreio."
 	txt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cv.add_child(txt)
 	cv.add_child(UITheme.make_button("Voltar", func():

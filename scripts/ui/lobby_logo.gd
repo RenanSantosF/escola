@@ -1,12 +1,12 @@
 class_name LobbyLogo
 extends Control
-## Logo do menu: "TURMA VIVA" com cada letra de uma cor, pulando em onda,
-## e a fita "RECREIO" balançando embaixo.
+## Logo do menu: "RECESS" com cada letra de uma cor, pulando em onda,
+## e a fita "CLUB" balançando embaixo.
 
 const COLORS := [Color("ff4d6d"), Color("ffd23f"), Color("3ec1ff"), Color("6be36b"), Color("b46bff"), Color("ff9f43")]
 
-var title := "TURMA VIVA"
-var ribbon := "RECREIO"
+var title := "RECESS"
+var ribbon := "CLUB"
 var font_size := 92
 var _font: Font
 var _t := 0.0

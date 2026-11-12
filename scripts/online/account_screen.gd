@@ -104,7 +104,7 @@ func _set_status(t: String, err := false) -> void:
 
 func show_start() -> void:
 	_clear()
-	_title("Bem-vindo à Turma Viva!", "Crie seu nome de jogador e uma senha. Não pedimos e-mail nem telefone.")
+	_title("Bem-vindo ao Recess Club!", "Crie seu nome de jogador e uma senha. Não pedimos e-mail nem telefone.")
 	_big("Criar minha conta", UITheme.TEAL, _ask_age)
 	_big("Já tenho conta: Entrar", UITheme.NAVY_2, show_login)
 	if AccountManager.has_account():

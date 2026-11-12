@@ -1,4 +1,4 @@
-# Recreio — Minha Vida na Escola
+# Recess Club — Minha Vida na Escola
 
 Simulador casual de vida escolar em 3D, feito em **Godot 4.3** para **Android (paisagem)**.
 Ambientado numa escola pública brasileira grande — com murada, pátio ao sol, quadra,
