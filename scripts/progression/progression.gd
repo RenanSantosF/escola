@@ -99,6 +99,20 @@ static func owns(id: String) -> bool:
 	return id in inventory().get("owned", [])
 
 
+## Dá um item de presente (ex.: ganho com vídeos premiados). Não gasta moedas.
+func grant(id: String) -> bool:
+	var item := ShopCatalog.get_item(id)
+	if item.is_empty() or item.get("consumable", false) or owns(id):
+		return false
+	inventory().owned.append(id)
+	if item.cat == "decoracao":
+		inventory().decor.append(item.decor)
+	Telemetry.track("item_by_ad", {"item": id})
+	inventory_changed.emit()
+	SaveManager.save_game()
+	return true
+
+
 ## Compra um item. Retorna "" se deu certo ou o motivo do erro.
 func buy(id: String) -> String:
 	var item := ShopCatalog.get_item(id)

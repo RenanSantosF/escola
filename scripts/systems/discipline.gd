@@ -51,6 +51,8 @@ var _corridor_cd := 0.0
 var _clean_day := true
 var _parent: NPC
 var _bench_t := -1.0
+const BENCH_SECS := 180.0  ## castigo no banco do hall: 3 minutos (ou um vídeo premiado)
+var _bench_btn: Button = null
 var _cleanup_left := 0
 
 
@@ -179,19 +181,83 @@ func _process(delta: float) -> void:
 	if _corridor_cd <= 0.0 and (z == "Corredor" or z == "Hall de Entrada") and Vector2(player.velocity.x, player.velocity.z).length() > player.run_speed * 0.8:
 		_corridor_cd = 3.0
 		pass  # correr no corredor é permitido (decisão de design: não ser chato)
-	# castigo: pensar no banco
+	# castigo: preso no banco do hall até o tempo acabar (ou ver um vídeo)
 	if _bench_t >= 0.0:
-		if player.mode == PlayerController.Mode.SITTING:
-			_bench_t -= delta
-			hud.set_mission("Pense no que fez... %d s" % int(ceil(_bench_t)))
-			if _bench_t <= 0.0:
-				_bench_t = -1.0
-				_lift_restriction("Pode voltar a brincar. Comporte-se!")
-		else:
-			hud.set_mission("Sente no banco do hall por %d s" % int(ceil(_bench_t)))
+		if player.mode != PlayerController.Mode.SITTING or not player.seat_locked:
+			_seat_on_bench()  # algo tirou o aluno do banco: volta para ele
+		_bench_t -= delta
+		hud.set_mission("De castigo no banco do hall: %s" % Minigame.fmt_time(maxf(_bench_t, 0.0)))
+		if _bench_btn:
+			_bench_btn.visible = AdsManager.can_offer("sair_castigo")
+		if _bench_t <= 0.0:
+			_end_bench("Pode voltar a brincar. Comporte-se!")
 
 
 # ------------------------------------------------------------- ocorrência
+
+## Senta o aluno num banco do hall e trava (não levanta até acabar o castigo).
+func _seat_on_bench() -> void:
+	var best: Seat = null
+	var bd := INF
+	for s in (day.world as SchoolWorld).seats:
+		var st := s as Seat
+		var p := st.global_position
+		if p.y > 1.0 or p.x < -10.0 or p.x > 10.0 or p.z < 24.0 or p.z > 48.0:
+			continue  # só bancos do Hall de Entrada (térreo)
+		if st.occupant != null and st.occupant != player:
+			continue
+		var d := p.distance_to(Vector3(0, 0, 31))
+		if d < bd:
+			bd = d
+			best = st
+	player.seat_locked = false
+	player.force_stand()
+	if best:
+		player.global_position = best.global_position
+		player.sit_on(best)
+	player.seat_locked = true
+	if player.camera_rig:
+		player.camera_rig.yaw = player.yaw + PI
+		player.camera_rig.snap_to_target()
+	_show_bench_button()
+
+
+func _show_bench_button() -> void:
+	if _bench_btn and is_instance_valid(_bench_btn):
+		return
+	_bench_btn = UITheme.make_button("Ver vídeo e sair do castigo", func():
+		_bench_btn.disabled = true
+		AdsManager.show_rewarded("sair_castigo", func(): _end_bench("Castigo encerrado. Agora juízo, hein!"))
+		get_tree().create_timer(1.0).timeout.connect(func():
+			if is_instance_valid(_bench_btn):
+				_bench_btn.disabled = false), 440)
+	_bench_btn.add_theme_stylebox_override("normal", UITheme.box(Color("9be37a"), 18, Color("5aa83a"), 0, 6))
+	UITheme.dark_text(_bench_btn)
+	_bench_btn.visible = false
+	_bench_btn.anchor_left = 0.5
+	_bench_btn.anchor_right = 0.5
+	_bench_btn.offset_left = -220
+	_bench_btn.offset_right = 220
+	_bench_btn.offset_top = 150
+	_bench_btn.offset_bottom = 218
+	hud.add_child(_bench_btn)
+	if hud.controls:
+		hud.controls.blockers.append(_bench_btn)
+
+
+## Fim do castigo (tempo acabou, vídeo assistido ou o sinal tocou).
+func _end_bench(msg: String) -> void:
+	_bench_t = -1.0
+	player.seat_locked = false
+	if _bench_btn and is_instance_valid(_bench_btn):
+		if hud.controls:
+			hud.controls.blockers.erase(_bench_btn)
+		_bench_btn.queue_free()
+	_bench_btn = null
+	_lift_restriction(msg)
+	if player.mode == PlayerController.Mode.SITTING:
+		player.stand_up()
+
 
 func _request_occurrence(kind: String, _w: NPC) -> void:
 	if day.phase == SchoolDay.Phase.RECESS or day.phase == SchoolDay.Phase.ARRIVAL or day.phase == SchoolDay.Phase.RETURN:
@@ -202,6 +268,8 @@ func _request_occurrence(kind: String, _w: NPC) -> void:
 
 
 func _on_phase(p: int) -> void:
+	if p != SchoolDay.Phase.RECESS and _bench_t >= 0.0:
+		_end_bench("O sinal tocou! Corra para a aula.")
 	if p == SchoolDay.Phase.RECESS and _pending_consequence > 0:
 		var pc := _pending_consequence
 		get_tree().create_timer(1.0).timeout.connect(func():
@@ -278,11 +346,14 @@ func _cutscene(kind: String, n: int) -> void:
 	dir.visual.stop_upper()
 	_apply_consequence(n)
 	await hud.fade(1.0).finished
-	player.force_stand()
-	player.global_position = Vector3(0, 0.05, 31)
-	player.yaw = 0.0
-	player.camera_rig.yaw = PI
-	player.camera_rig.snap_to_target()
+	if _bench_t > 0.0:
+		_seat_on_bench()  # direto da diretoria para o banco do hall
+	else:
+		player.force_stand()
+		player.global_position = Vector3(0, 0.05, 31)
+		player.yaw = 0.0
+		player.camera_rig.yaw = PI
+		player.camera_rig.snap_to_target()
 	dir.activity = prev_act
 	dir.teleport(Vector3(-25, 0.05, 44.4), PI)
 	if _parent:
@@ -326,11 +397,11 @@ func _lines_for(kind: String, n: int) -> Array:
 		_:
 			var variants := [
 				[[dname, "Olha só quem voltou. Já tem até cadeira com seu nome aqui."], [dname, "Motivo de hoje: %s." % what],
-					["Você", "Foi sem querer... quer dizer, mais ou menos."], [dname, "Vai pensar um pouquinho no banco do hall. 45 segundos."]],
+					["Você", "Foi sem querer... quer dizer, mais ou menos."], [dname, "Vai pensar um pouquinho no banco do hall. 3 minutos."]],
 				[[dname, "Sabe o que eu fazia na sua idade quando aprontava?"], [dname, "Eu ia parar exatamente nessa cadeira."],
-					[dname, "Então... %s, hein? Banco do hall, 45 segundos." % what]],
+					[dname, "Então... %s, hein? Banco do hall, 3 minutos." % what]],
 				[[dname, "Eu vou colocar seu nome no quadro de avisos..."], [dname, "...como 'aluno que mais visita a diretoria'. Brincadeira!"],
-					[dname, "Mas é sério: %s não pode. Banco do hall, por favor." % what]],
+					[dname, "Mas é sério: %s não pode. Banco do hall, 3 minutos." % what]],
 			]
 			return variants[n % variants.size()]
 
@@ -470,9 +541,10 @@ func _do_consequence(n: int) -> void:
 			if _pending_consequence == 0:
 				change_reputation(-12)
 			restricted = true
-			restriction_text = "Castigo: sentar no banco do hall"
-			_bench_t = 45.0
-			hud.set_mission("Sente no banco do hall por 45 s")
+			restriction_text = "Você está de castigo no banco do hall"
+			_bench_t = BENCH_SECS
+			if not in_cutscene:
+				_seat_on_bench()  # (na diretoria, a cena leva o aluno ao banco no fim)
 
 
 const CLEANUP_COUNT := 5
@@ -568,6 +640,7 @@ func _on_day_finished(_s: Dictionary) -> void:
 		d["clean_days"] = 0
 	_clean_day = true
 	strikes_today = 0.0
-	if _bench_t >= 0.0 or restricted:
-		_bench_t = -1.0
+	if _bench_t >= 0.0:
+		_end_bench("Um novo dia, uma nova chance!")
+	elif restricted:
 		_lift_restriction("Um novo dia, uma nova chance!")

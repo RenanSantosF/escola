@@ -21,6 +21,7 @@ var _last_look := ""
 var _coins: Label
 var _info: Label
 var _action: Button
+var _ad_action: Button  ## "Ganhar com vídeo (1/3)" (só aparece com vídeo pronto)
 var _tab_buttons := {}
 
 
@@ -111,6 +112,11 @@ func _ready() -> void:
 	_side.add_child(_info)
 	_action = UITheme.make_button("", _on_action, 300)
 	_side.add_child(_action)
+	_ad_action = UITheme.make_button("", _on_ad_action, 300)
+	_ad_action.add_theme_stylebox_override("normal", UITheme.box(Color("9be37a"), 18, Color("5aa83a"), 0, 6))
+	UITheme.dark_text(_ad_action)
+	_ad_action.visible = false
+	_side.add_child(_ad_action)
 
 
 var from_lobby := false  ## aberto pelo menu (antes de entrar na escola)
@@ -495,6 +501,11 @@ func _update_preview() -> void:
 		return
 	var item := ShopCatalog.get_item(_selected)
 	var owned := Progression.owns(_selected)
+	var need := ShopCatalog.ad_cost(_selected)
+	_ad_action.visible = need > 0 and not owned and GameManager.level() >= int(item.lvl) and AdsManager.can_offer("item_video")
+	if _ad_action.visible:
+		_ad_action.disabled = false
+		_ad_action.text = ("Ganhar com vídeo" if need == 1 else "Ganhar com vídeos (%d/%d)" % [AdsManager.item_views(_selected), need])
 	_action.visible = true
 	_action.disabled = false
 	if owned and not item.get("consumable", false):
@@ -519,6 +530,26 @@ func _update_preview() -> void:
 		elif GameManager.coins() < price:
 			lines.append("Faltam %d moedas" % (price - GameManager.coins()))
 		_info.text = "\n".join(lines)
+
+
+func _on_ad_action() -> void:
+	var id := _selected
+	if id == "" or Progression.owns(id):
+		return
+	_ad_action.disabled = true
+	AdsManager.show_rewarded("item_video", func():
+		if AdsManager.add_item_view(id):
+			if progression.grant(id):
+				AudioManager.play_ui("celebrate", -4.0)
+				GameManager.show_toast("Você ganhou: %s!" % ShopCatalog.get_item(id).name)
+				if ShopCatalog.get_item(id).has("look"):
+					progression.equip(id)
+		else:
+			GameManager.show_toast("Falta%s %d vídeo%s para ganhar!" % ["m" if ShopCatalog.ad_cost(id) - AdsManager.item_views(id) > 1 else "", ShopCatalog.ad_cost(id) - AdsManager.item_views(id), "s" if ShopCatalog.ad_cost(id) - AdsManager.item_views(id) > 1 else ""])
+		if visible:
+			_refresh())
+	if not AdsManager.can_show_rewarded():
+		_ad_action.disabled = false
 
 
 func _on_action() -> void:

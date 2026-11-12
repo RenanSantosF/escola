@@ -172,7 +172,9 @@ func _check(what: String, i: int) -> void:
 		player.global_position = Vector3(0, 0.1, -2)
 		player.velocity = Vector3.ZERO
 	var busy: bool = player.minigame != null or player.has_meta("ride") or main.school_day.dialogue.is_open() \
-		or (main.discipline and main.discipline.in_cutscene) or main.school_day.classroom_ui.visible or main.profile_menu.visible
+		or (main.discipline and main.discipline.in_cutscene) or main.school_day.classroom_ui.visible or main.profile_menu.visible \
+		or main.hud.get_children().any(func(c): return c is TableGames) \
+		or main.world.get_children().any(func(c): return c is RoomActivity and c._busy_p == player)
 	if not busy and (not player.input_enabled or player.movement_locked):
 		_problem("passo %d (%s): controle travado (input=%s locked=%s modo=%d)" % [i, what, player.input_enabled, player.movement_locked, player.mode])
 		player.input_enabled = true

@@ -164,6 +164,19 @@ const DEFAULT_OWNED := ["skin_nenhuma", "cam_uniforme", "cal_bermuda", "ten_bran
 	"pen_curto", "tin_castanho", "ace_sem_oculos", "emo_wave"]
 
 
+## Itens que também dá para ganhar assistindo vídeos premiados (id -> quantos vídeos).
+const AD_ITEMS := {
+	"cam_amarela": 1, "moc_amarela": 1, "bon_vermelho": 1, "ten_vermelho": 1, "dec_estojo": 1,
+	"pen_cacheado": 2, "tin_ruivo": 2, "emo_celebrate": 2, "cam_roxa": 2, "moc_rosa": 2,
+	"cam_time": 3, "dec_globo": 3, "ten_amarelo": 3,
+	"bon_dourado": 4, "tin_azul": 4, "skin_junina": 5,
+}
+
+
+static func ad_cost(id: String) -> int:
+	return int(AD_ITEMS.get(id, 0))
+
+
 static func by_cat(cat: String) -> Array:
 	return ITEMS.filter(func(i): return i.cat == cat)
 

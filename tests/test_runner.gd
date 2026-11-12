@@ -103,8 +103,12 @@ func _clear_discipline() -> void:
 			if not d.in_cutscene:
 				break
 	d._pending_consequence = 0
+	d.pending_kind = ""
+	if d._bench_t >= 0.0:
+		d._end_bench("")
 	d._bench_t = -1.0
 	d.restricted = false
+	player.seat_locked = false
 	if d.truant:
 		d.stop_search()
 	main.hud.set_mission("")
@@ -1198,18 +1202,34 @@ func _test_discipline() -> void:
 		if not disc.in_cutscene:
 			break
 	await _wait(1.2)
-	check(disc.restricted and disc._bench_t > 0.0, "ocorrência 3: pensar no banco do hall")
-	var bench: Seat = null
-	for s in main.world.seats:
-		if s.room == "Hall de Entrada" or (s.global_position.z > 29 and s.global_position.z < 32 and absf(s.global_position.x) > 7):
-			bench = s
-			break
-	if bench:
-		_place(bench.interact_point(), 0)
-		player.sit_on(bench)
+	check(disc.restricted and disc._bench_t > 170.0, "ocorrência 3: castigo de 3 minutos", str(disc._bench_t))
+	var bp := player.global_position
+	check(player.mode == PlayerController.Mode.SITTING and player.seat_locked and absf(bp.x) <= 10.0 and bp.z > 24.0 and bp.z < 48.0 and bp.y < 1.0,
+		"ocorrência 3: da diretoria direto para o banco do hall", str(bp.snapped(Vector3.ONE * 0.1)))
+	player.stand_up()
+	player.request_interact()
+	await _wait(1.0)
+	check(player.mode == PlayerController.Mode.SITTING and disc._bench_t > 0.0, "ocorrência 3: não dá para levantar do banco no castigo")
+	# vídeo premiado tira do castigo
+	var mock_b = load("res://tests/mock_ads_provider.gd").new()
+	var was_en: bool = AdsManager.enabled
+	AdsManager.enabled = true
+	AdsManager.register_provider(mock_b)
+	SaveManager.section("ads").clear()
+	await _frames(3)
+	check(disc._bench_btn != null and disc._bench_btn.visible, "ocorrência 3: botão 'ver vídeo e sair do castigo'")
+	disc._bench_btn.pressed.emit()
+	await _wait(1.2)
+	check(not disc.restricted and disc._bench_t < 0.0 and not player.seat_locked and player.mode != PlayerController.Mode.SITTING, "ocorrência 3: assistiu o vídeo, saiu do castigo")
+	AdsManager.enabled = was_en
+	AdsManager.provider = null
+	# sem vídeo: termina quando o tempo acaba
+	disc._do_consequence(3)
+	await _wait(0.6)
+	check(player.seat_locked, "ocorrência 3: castigo de novo, preso no banco")
 	disc._bench_t = 0.5
 	await _wait(1.5)
-	check(not disc.restricted, "ocorrência 3: castigo termina após o tempo sentado")
+	check(not disc.restricted and not player.seat_locked, "ocorrência 3: castigo termina depois do tempo")
 	player.force_stand()
 	# dia limpo perdoa
 	var active_before := int(DisciplineSystem.data().active)
@@ -1404,6 +1424,17 @@ func _test_polish() -> void:
 	AdsManager.maybe_show_interstitial()
 	AdsManager.maybe_show_interstitial()
 	check(mock.shown_interstitial == 1, "anúncios: só um intersticial por dia")
+	# itens com vídeo: completa os vídeos e o item é seu (sem gastar moedas)
+	var aid := "pen_cacheado"
+	var inv: Dictionary = SaveManager.section("inventory")
+	(inv.owned as Array).erase(aid)
+	var coins_b := GameManager.coins()
+	var got := [false]
+	for k in ShopCatalog.ad_cost(aid):
+		AdsManager.show_rewarded("item_video", func():
+			if AdsManager.add_item_view(aid):
+				got[0] = main.profile_menu.progression.grant(aid))
+	check(got[0] and Progression.owns(aid) and GameManager.coins() == coins_b, "anúncios: item ganho com %d vídeos, sem gastar moedas" % ShopCatalog.ad_cost(aid))
 	SaveManager.section("ads").clear()
 	AdsManager.enabled = was_enabled
 	AdsManager.provider = null

@@ -21,6 +21,8 @@ const PLACEMENTS := {
 	"dobrar_dia": {"per_day": 1, "title": "Dobrar as moedas do dia"},
 	"moedas_extra": {"per_day": 3, "title": "Ganhar moedas", "coins": 40},
 	"xp_brincadeira": {"per_day": 3, "title": "XP em dobro na brincadeira"},
+	"sair_castigo": {"per_day": 3, "title": "Sair do castigo"},
+	"item_video": {"per_day": 10, "title": "Ganhar item com vídeo"},
 }
 
 var enabled := false
@@ -112,6 +114,20 @@ func show_rewarded(placement: String, on_reward: Callable) -> void:
 			GameManager.set_state(was_state)
 			rewarded_failed.emit(placement)
 			availability_changed.emit())
+
+
+## Vídeos já vistos para ganhar um item da loja (fica guardado entre os dias).
+func item_views(id: String) -> int:
+	return int((SaveManager.section("ads").get("item_views", {}) as Dictionary).get(id, 0))
+
+
+## Mais um vídeo visto para o item; devolve true quando completou (item ganho).
+func add_item_view(id: String) -> bool:
+	var s: Dictionary = SaveManager.section("ads")
+	var iv: Dictionary = s.get("item_views", {})
+	iv[id] = int(iv.get(id, 0)) + 1
+	s["item_views"] = iv
+	return int(iv[id]) >= ShopCatalog.ad_cost(id)
 
 
 ## Prêmio "moedas extras" da loja (vídeo -> +40 moedas).

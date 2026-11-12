@@ -16,6 +16,8 @@
 | Premiado | Resumo do dia: dobrar moedas do dia | 1 por dia |
 | Premiado | Loja (mochila): +40 moedas | 3 por dia |
 | Premiado | Fim de brincadeira: XP em dobro | 3 por dia |
+| Premiado | Castigo no banco do hall: sair antes dos 3 minutos | 3 por dia |
+| Premiado | Loja: itens que também saem com vídeos (`ShopCatalog.AD_ITEMS`, 1 a 5 vídeos) | 10 vídeos por dia |
 
 Botões de vídeo só aparecem quando há vídeo carregado (nada de botão falso) e a
 recompensa só é dada se o vídeo foi assistido até o fim.

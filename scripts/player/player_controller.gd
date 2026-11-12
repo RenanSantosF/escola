@@ -418,8 +418,18 @@ func sit_on(seat: Seat) -> void:
 			sat.emit(seat))
 
 
+## De castigo no banco: não dá para levantar (só o castigo libera).
+var seat_locked := false
+var _lock_msg_t := 0
+
+
 func stand_up() -> void:
 	if mode != Mode.SITTING or visual.animator.is_playing("stand_up"):
+		return
+	if seat_locked:
+		if Time.get_ticks_msec() > _lock_msg_t:
+			_lock_msg_t = Time.get_ticks_msec() + 2500
+			GameManager.show_toast("Você está de castigo no banco! Espere o tempo acabar.")
 		return
 	visual.play("stand_up")
 
