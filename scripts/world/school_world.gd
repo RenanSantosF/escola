@@ -307,6 +307,8 @@ func _spawn_interactables() -> void:
 		rt.laps = int(r.get("laps", 1))
 		rt.lift = r.get("lift", Vector2(-1, -1))
 		rt.lift_top = r.get("lift_top", Vector3.ZERO)
+		rt.elevator = r.get("elevator", Vector3.INF)
+		rt.elevator_top = r.get("elevator_top", 0.0)
 		rt.position = r.base
 		add_child(rt)
 		rides.append(rt)

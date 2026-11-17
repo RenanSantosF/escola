@@ -96,6 +96,7 @@ func _ready() -> void:
 	await _test_educacao_infantil()
 	await _test_recreio_novo()
 	await _test_mesas_dois()
+	await _test_elevador_tobogã()
 	await _test_interpolacao()
 	_finish()
 
@@ -856,9 +857,23 @@ func _test_minigames() -> void:
 		fb._release(Vector3.ZERO, 0.0)
 		fb._take(player)
 		await _frames(2)
-		fb._shoot_player(1.0)
+		fb._shoot_player(0.75)
 		await _wait(1.6)
 	check(fb.score_a >= 2, "futebol: chute forte no canto vira gol às vezes (%d gols em %d)" % [fb.score_a, tries])
+	# com a bola no pé fica mais lento; curva fechada correndo, a bola escapa
+	fb._countdown = 0.0
+	fb._goal_pause = 0.0
+	player.global_position = Vector3(36, 0.05, -49)
+	fb._release(Vector3.ZERO, 0.0)
+	fb._take(player)
+	fb._hold_immune = 0.0
+	await _frames(3)
+	check(player.speed_mult < 0.9, "futebol: com a bola, o jogador fica mais lento")
+	fb.ball.global_position = player.global_position + Vector3(-2.6, 0.1, 0)
+	await _frames(2)
+	check(fb.holder != player, "futebol: a bola longe do pé (curva fechada) escapa")
+	await _frames(2)
+	check(fb.holder != player or player.speed_mult < 0.9, "futebol: sem a bola volta a velocidade normal")
 	fb._goal_pause = 0.0
 	fb.time_left = 0.05
 	await _wait(0.3)
@@ -926,8 +941,36 @@ func _test_minigames() -> void:
 	dg._hit_cd = 0.0
 	dg._on_ball_hit(player)
 	await _wait(3.0)
-	check(dg._out.has(player) and player.movement_locked and dg._out.has(v1), "queimada: queimado NÃO volta (fica até a partida acabar)")
+	var gp: Vector3 = player.global_position
+	check(dg._out.has(player) and dg._out.has(v1) and dg.GRAVE_A.grow(0.2).has_point(Vector2(gp.x, gp.z)), "queimada: queimado vai para o cemitério (atrás do outro time) e fica lá")
 	check(mm.active == dg, "queimada: com gente viva nos dois times a partida continua")
+	# do cemitério: pega a bola que chegou lá, queima alguém e VOLTA
+	dg.ball.throw_from(gp + Vector3(0.4, 0.3, 0), Vector3.ZERO, -1)
+	dg.ball.live = false
+	await _frames(2)
+	check(dg._can_grab(player), "queimada: no cemitério dá para pegar a bola que chega lá")
+	dg._grab(player)
+	dg._last_thrower = player
+	dg._grave_throw = true
+	dg._holder = null
+	dg.ball.live = true
+	dg.ball.live_team = 0
+	dg._hit_cd = 0.0
+	var victim: Node3D = dg.humans_b[1] if dg.humans_b.size() > 1 else v1
+	dg._out.erase(victim)
+	dg._on_ball_hit(victim)
+	check(not dg._out.has(player) and dg.HALF_A.grow(0.3).has_point(Vector2(player.global_position.x, player.global_position.z)), "queimada: queimou do cemitério e voltou para o jogo")
+	# pegar a bola no ar: não queima e a bola fica com quem pegou
+	dg._holder = null
+	dg.ball.throw_from(player.global_position + Vector3(1.2, 1.1, 0), Vector3(-8, 0, 0), 1)
+	check(dg._can_catch(player) and dg.interact_label() == "PEGAR!", "queimada: bola vindo -> botão PEGAR!")
+	dg.on_interact()
+	check(dg._holder == player and not dg._out.has(player), "queimada: pegou no ar, não queimou e ficou com a bola")
+	dg._holder = null
+	dg.ball.throw_from(Vector3(-40, 0.4, -50), Vector3.ZERO, -1)
+	dg._out[player] = INF
+	dg._out.erase(v1)
+	var qball: KickBall = dg.ball
 	# queimou o último do time azul: acaba
 	dg.ball.live = true
 	dg.ball.live_team = 1
@@ -936,6 +979,7 @@ func _test_minigames() -> void:
 	await _wait(1.5)
 	check(mm.active == null and results[-1].id == "queimada" and int(results[-1].get("won", 0)) == -1, "queimada: time sem ninguém vivo perde e a partida acaba")
 	check(not player.movement_locked, "queimada: no fim o jogador volta a andar")
+	check(qball.collision_layer == 8, "queimada: no fim a bola volta a ter colisão")
 
 	# Painel do servidor ligou bots (completar até 3 por time): eu sozinho + bots
 	await _recess()
@@ -2321,9 +2365,12 @@ func _test_recreio_novo() -> void:
 	# balanço: a tábua e a criança vão e voltam de verdade
 	var sw: Seat = null
 	for st in main.world.seats:
-		if (st as Seat).swing and (st as Seat).occupant == null:
+		if (st as Seat).swing:
 			sw = st
 			break
+	if sw and sw.occupant is NPC:
+		(sw.occupant as NPC).force_unseat()
+		sw.release()
 	check(sw != null, "balanço: existe")
 	if sw:
 		player.force_stand()
@@ -2341,12 +2388,24 @@ func _test_recreio_novo() -> void:
 		player.stand_up()
 		await _wait(1.0)
 		check(player.visual.position.length() < 0.01, "balanço: levantou e voltou ao normal")
+	# não sai da escola: nem pelo portão, nem pulando a murada
+	player.force_stand()
+	player.global_position = Vector3(0, 0.1, 72.0)
+	await _frames(2)
+	player.forced_dir = Vector3(0, 0, 1)
+	await _wait(2.0)
+	player.forced_dir = Vector3.ZERO
+	check(player.global_position.z <= 73.1, "escola: não dá para sair pelo portão (z=%.1f)" % player.global_position.z)
+	player.global_position = Vector3(95, 3.0, 0)
+	await _frames(3)
+	check(player.global_position.x < 90.0, "escola: não dá para pular a murada")
 	# esconde-esconde: 2ª rodada você se esconde (agachar + limite)
 	SaveManager.section("stats")["esconde_rodadas"] = 1
 	var hs = await _mg_start("esconde")
 	if hs:
 		check(hs.role == "hide" and hs.seeker != null, "esconde: rodada em que você se esconde (um colega procura)")
 		check(hs.play_label() == "Agachar", "esconde: botão Agachar")
+		await _wait(0.5)
 		hs.on_play()
 		check(player.crouching, "esconde: agachou")
 		check(hs.play_label() == "Levantar", "esconde: agachado, o botão vira Levantar")
@@ -2390,6 +2449,29 @@ func _test_recreio_novo() -> void:
 		await _wait(0.3)
 	mm.game_finished.disconnect(rc)
 	check(mm.active == null and not res.is_empty() and int(res[-1].get("won", 0)) == 1, "esconde: achando todos, GANHA e termina", str(res))
+
+
+func _test_elevador_tobogã() -> void:
+	await _recess()
+	await _clear_discipline()
+	var slide: RideTrack = null
+	for r in main.world.rides:
+		if r.kind == "slide":
+			slide = r
+	check(slide != null and slide._cabin != null, "tobogã: tem elevador com cabine")
+	check(slide.get_prompt(player).contains("elevador"), "tobogã: o botão diz 'Subir no elevador'")
+	player.force_stand()
+	player.global_position = slide.global_position + Vector3(0, 0.1, 0.5)
+	await _frames(2)
+	slide.interact(player)
+	await _wait(3.5)
+	check(slide._cabin_y > 3.0 and absf(player.global_position.y - (slide.elevator.y + slide._cabin_y + 0.08)) < 0.3, "tobogã: a cabine sobe com a criança dentro (%.1f m)" % slide._cabin_y)
+	await _wait(3.5)
+	check(slide._phase == "ride" and player.global_position.y > slide.elevator.y + 5.0, "tobogã: chegou lá em cima e começou a escorregar")
+	slide.eject()
+	await _frames(2)
+	player.input_enabled = true
+	player.movement_locked = false
 
 
 func _test_mesas_dois() -> void:

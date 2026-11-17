@@ -144,11 +144,40 @@ func play_label() -> String:
 
 
 func interact_label() -> String:
+	if net_role == "client":
+		return "PEGAR!" if _client_can_catch() else ("Pegar a bola" if _client_can_grab() else "")
+	if _can_catch(player):
+		return "PEGAR!"
 	return "Pegar a bola" if _can_grab(player) else ""
 
 
+## Cemitério de cada time: faixa atrás do time adversário (dá para pegar a
+## bola que chega lá e queimar de volta — quem queima volta para o jogo).
+const GRAVE_A := Rect2(-27.8, -56, 2.6, 12)  # do time 0 (oeste): atrás do time 1
+const GRAVE_B := Rect2(-54.8, -56, 2.6, 12)  # do time 1 (leste): atrás do time 0
+const HALF_A := Rect2(-51.6, -55.6, 11.2, 11.2)
+const HALF_B := Rect2(-39.6, -55.6, 11.2, 11.2)
+
+
+func _grave(team: int) -> Rect2:
+	return GRAVE_A if team == 0 else GRAVE_B
+
+
+## Pode pegar a bola parada/devagar (no campo; queimado só no cemitério dele).
 func _can_grab(who: Node3D) -> bool:
-	return _holder == null and not _out.has(who) and ball.global_position.distance_to(who.global_position + Vector3(0, 0.3, 0)) < 1.3 and ball.linear_velocity.length() < 6.0
+	if _holder != null or ball.global_position.distance_to(who.global_position + Vector3(0, 0.3, 0)) >= 1.3 or ball.linear_velocity.length() >= 6.0:
+		return false
+	if _out.has(who):
+		return _grave(_team_of(who)).grow(1.0).has_point(Vector2(ball.global_position.x, ball.global_position.z))
+	return true
+
+
+## Pegar NO AR a bola que o outro time jogou: não queima e a bola é sua!
+func _can_catch(who: Node3D) -> bool:
+	if _holder != null or _out.has(who) or not ball.live or ball.live_team == -1 or ball.live_team == _team_of(who):
+		return false
+	var to := ball.global_position - (who.global_position + Vector3(0, 1.0, 0))
+	return to.length() < 1.9 and ball.linear_velocity.dot(-to) > 0.0
 
 
 func on_interact() -> bool:
@@ -156,9 +185,25 @@ func on_interact() -> bool:
 		if _client_can_grab():
 			NetworkManager.mg_send_relay(str(net.gid), {"k": "grab"})
 		return true
-	if _countdown <= 0.0 and _can_grab(player):
+	if _countdown <= 0.0 and _can_catch(player):
+		_catch(player)
+	elif _countdown <= 0.0 and _can_grab(player):
 		_grab(player)
 	return true
+
+
+func _catch(who: Node3D) -> void:
+	ball.live = false
+	_grab(who)
+	_hit_cd = 0.4
+	if who == player:
+		add_combo()
+		popup(player.global_position + Vector3(0, 2.2, 0), "PEGOU!", Color("6be36b"), 80)
+		AudioManager.play_ui("combo", -4.0)
+	elif who is NPC:
+		(who as NPC).say("Peguei!", 1.2)
+	if who is NPC:
+		_npc_throw_t = randf_range(0.6, 1.2)
 
 
 var _aiming := false
@@ -212,6 +257,8 @@ func on_play_release() -> bool:
 
 func _grab(who: Node) -> void:
 	_holder = who
+	if who == player:
+		hint("start", "Com a bola: SEGURE o amarelo para mirar e solte para jogar!")
 	var slot: Node3D = _vis(who).hand_slot()
 	ball.hold(slot, who)
 	AudioManager.play_3d("catch", ball.global_position, -2.0)
@@ -241,6 +288,7 @@ func _pick_target(from: Node3D, enemies: Array) -> Node3D:
 
 
 var _last_thrower: Node3D = null
+var _grave_throw := false  # a bola no ar foi jogada do cemitério
 var my_hits := 0
 
 
@@ -268,11 +316,16 @@ func _throw(who: Node3D, target: Node3D, team: int) -> void:
 		var vel := AimArc.solve(start, aim, speed)
 		ball.throw_from(start, vel, team)
 		_last_thrower = from_holder
+		_grave_throw = _out.has(from_holder)
 		AudioManager.play_3d("throw", start, -1.0))
 
 
 func _on_ball_hit(body: Node) -> void:
 	if not running or _hit_cd > 0.0:
+		return
+	# colega de treino às vezes pega a bola no ar
+	if body is NPC and (team_a.has(body) or team_b.has(body)) and ball.live and ball.live_team != _team_of(body) and not _out.has(body) and randf() < 0.22:
+		_catch(body as Node3D)
 		return
 	if int(_dodge_until.get(body, 0)) > Time.get_ticks_msec():
 		if body == player:
@@ -299,8 +352,26 @@ func _on_ball_hit(body: Node) -> void:
 		if player.camera_rig:
 			player.camera_rig.shake(0.2)
 	_eliminate(body)
+	# quem estava no cemitério e queimou alguém volta para o jogo
+	if _grave_throw and is_instance_valid(_last_thrower) and _last_thrower != body and _out.has(_last_thrower):
+		_revive(_last_thrower)
+	_grave_throw = false
 	_update_hud()
 	_check_wipe()
+
+
+func _revive(who: Node3D) -> void:
+	_out.erase(who)
+	var team := _team_of(who)
+	var back := Vector3(-46.0 if team == 0 else -34.0, 0.05, randf_range(-53, -47))
+	if who == player:
+		player.global_position = back
+		player.velocity = Vector3.ZERO
+		GameManager.show_toast("Queimou do cemitério: você VOLTOU para o jogo!")
+	elif who is NPC:
+		(who as NPC).teleport(back, PI * 0.5 if team == 0 else -PI * 0.5)
+		(who as NPC).say("Voltei!", 1.4)
+	popup(who.global_position + Vector3(0, 2.2, 0), "VOLTOU!", Color("ffd23f"), 70)
 
 
 ## Um time ficou sem ninguém vivo: acabou.
@@ -310,17 +381,19 @@ func _check_wipe() -> void:
 
 
 func _eliminate(body: Node) -> void:
-	_out[body] = INF  # fica no cemitério até a partida acabar
+	_out[body] = INF  # fica no cemitério até queimar alguém de lá (ou a partida acabar)
 	var team := _team_of(body)
 	# cemitério: atrás do time adversário
-	var cx := -29.0 if team == 0 else -51.0
-	var pos := Vector3(cx, 0.05, randf_range(-55, -45))
+	var g := _grave(team)
+	var pos := Vector3(g.get_center().x, 0.05, randf_range(-55, -45))
+	if _holder == body:
+		_holder = null
+		ball.throw_from(ball.global_position, Vector3.ZERO, -1)
 	if body == player:
 		player.visual.play("hit")
-		GameManager.show_toast("Você foi queimado! Fique no cemitério e torça pelo seu time.")
+		GameManager.show_toast("Queimado! No cemitério, pegue a bola e queime alguém para VOLTAR.")
 		player.global_position = pos
 		player.velocity = Vector3.ZERO
-		player.movement_locked = true
 	elif body is NPC:
 		var n := body as NPC
 		n.visual.play("hit")
@@ -362,14 +435,10 @@ func tick(delta: float) -> void:
 				player.movement_locked = false
 			elif b is NPC:
 				(b as NPC).teleport(back, PI * 0.5 if team == 0 else -PI * 0.5)
-	# jogador não pode passar do meio
-	if not _out.has(player):
-		var p := player.global_position
-		if p.x > CENTER_X - 0.4 and COURT.grow(3).has_point(Vector2(p.x, p.z)):
-			player.global_position.x = CENTER_X - 0.4
-			player.velocity.x = minf(player.velocity.x, 0.0)
+	# o jogador fica no SEU lado (ou no cemitério dele): nada de sair do campo
+	_clamp_player(HALF_A if not _out.has(player) else GRAVE_A)
 	# bola parada no chão fora de alcance volta ao meio
-	if _holder == null and not COURT.grow(4).has_point(Vector2(ball.global_position.x, ball.global_position.z)):
+	if _holder == null and not COURT.grow(3.2).has_point(Vector2(ball.global_position.x, ball.global_position.z)):
 		ball.global_position = Vector3(-40, 0.4, -50)
 		ball.linear_velocity = Vector3.ZERO
 	_npc_ai(delta)
@@ -384,8 +453,24 @@ func tick(delta: float) -> void:
 	player._emit_context()
 
 
+func _clamp_player(r: Rect2) -> void:
+	var p := player.global_position
+	var c := Vector3(clampf(p.x, r.position.x, r.end.x), p.y, clampf(p.z, r.position.y, r.end.y))
+	if c.x != p.x or c.z != p.z:
+		player.global_position = c
+		if (c.x - p.x) * player.velocity.x < 0.0:
+			player.velocity.x = 0.0
+		if (c.z - p.z) * player.velocity.z < 0.0:
+			player.velocity.z = 0.0
+
+
 func _npc_ai(delta: float) -> void:
 	var bp := ball.global_position
+	# queimados-bot: pegam a bola que chega no cemitério deles
+	for n in team_a + team_b:
+		if _out.has(n) and _holder == null and _can_grab(n):
+			_grab(n)
+			_npc_throw_t = randf_range(0.6, 1.2)
 	for team in [0, 1]:
 		var list: Array = team_a if team == 0 else team_b
 		var min_x := -51.0 if team == 0 else -39.6
@@ -459,6 +544,8 @@ func cleanup() -> void:
 		ball.live = false
 		ball.hit_body.disconnect(_on_ball_hit)
 		ball.freeze = false
+		ball.collision_layer = 8
+		ball.collision_mask = 1 | 2 | 4 | 8
 		ball.reset_ball()
 	super.cleanup()
 
@@ -541,14 +628,17 @@ func _on_relay(gid: String, from: String, d: Variant) -> void:
 		for k in _human_id.keys():
 			if _human_id[k] == from:
 				r = k
-		if r == null or _countdown > 0.0 or _out.has(r):
+		if r == null or _countdown > 0.0:
 			return
 		match str(d.get("k", "")):
 			"grab":
-				if _can_grab(r):
+				if _can_catch(r):
+					_catch(r)
+				elif _can_grab(r):
 					_grab(r)
 			"dodge":
-				_dodge_until[r] = Time.get_ticks_msec() + int(DODGE_SECS * 1000.0)
+				if not _out.has(r):
+					_dodge_until[r] = Time.get_ticks_msec() + int(DODGE_SECS * 1000.0)
 			"throw":
 				if _holder == r:
 					var dv: Array = d.get("d", [])
@@ -604,13 +694,29 @@ func _start_client() -> void:
 		player.camera_rig.yaw = player.yaw + PI
 		player.camera_rig.snap_to_target()
 	ball.freeze = true
+	# aqui a bola é só um "boneco" do que o anfitrião manda: sem colisão
+	# (antes ela empurrava o próprio jogador quando estava na mão dele)
+	ball.collision_layer = 0
+	ball.collision_mask = 0
 	time_left = TIME
 	super.begin()
 	hud.set_minigame_text("Queimada com a turma · esperando quem começou...")
 
 
 func _client_can_grab() -> bool:
-	return str(_state.get("h", "")) == "" and not _me_out and ball.global_position.distance_to(player.global_position + Vector3(0, 0.3, 0)) < 1.4
+	if str(_state.get("h", "")) != "" or ball.global_position.distance_to(player.global_position + Vector3(0, 0.3, 0)) >= 1.4:
+		return false
+	if _me_out:
+		return _client_grave().grow(1.0).has_point(Vector2(ball.global_position.x, ball.global_position.z))
+	return true
+
+
+func _client_can_catch() -> bool:
+	return str(_state.get("h", "")) == "" and not _me_out and ball.global_position.distance_to(player.global_position + Vector3(0, 1.0, 0)) < 1.9 and ball.global_position.y > 0.4
+
+
+func _client_grave() -> Rect2:
+	return GRAVE_A if my_team == "a" else GRAVE_B
 
 
 func _client_tick(delta: float) -> void:
@@ -639,21 +745,15 @@ func _client_tick(delta: float) -> void:
 	var is_out := me in outs
 	if is_out and not _me_out:
 		player.visual.play("hit")
-		GameManager.show_toast("Você foi queimado! Fique no cemitério e torça pelo seu time.")
-		player.global_position = Vector3(CENTER_X - _side() * 11.0, 0.05, randf_range(-55, -45))
-		player.movement_locked = true
+		GameManager.show_toast("Queimado! No cemitério, pegue a bola e queime alguém para VOLTAR.")
+		player.global_position = Vector3(_client_grave().get_center().x, 0.05, randf_range(-55, -45))
 	elif not is_out and _me_out:
 		player.global_position = Vector3(CENTER_X + _side() * 6.0, 0.05, randf_range(-53, -47))
-		player.movement_locked = false
+		GameManager.show_toast("Você voltou para o jogo!")
 	_me_out = is_out
-	# não passa do meio
-	if not _me_out:
-		var p := player.global_position
-		if COURT.grow(3).has_point(Vector2(p.x, p.z)):
-			if _side() < 0.0 and p.x > CENTER_X - 0.4:
-				player.global_position.x = CENTER_X - 0.4
-			elif _side() > 0.0 and p.x < CENTER_X + 0.4:
-				player.global_position.x = CENTER_X + 0.4
+	# fica no seu lado do campo (ou no seu cemitério)
+	var half := (HALF_A if my_team == "a" else HALF_B) if not _me_out else _client_grave()
+	_clamp_player(half)
 	# bots desenhados onde o anfitrião mandou
 	var list: Array = _state.get("bots", [])
 	while _puppets.size() < list.size():
@@ -685,4 +785,4 @@ func _client_tick(delta: float) -> void:
 
 
 func hints() -> Dictionary:
-	return {"start": "Pegue a bola (botão verde) e SEGURE o amarelo para mirar. Sem bola, o amarelo DESVIA.", "idle": "Chegue perto da bola e toque no botão verde para pegar.", "miss": "Viu a bola vindo? Toque no botão amarelo para desviar com um pulinho!"}
+	return {"start": "Pegue a bola (verde) e SEGURE o amarelo para mirar. Bola vindo? Verde = PEGAR no ar, amarelo = DESVIAR.", "idle": "Chegue perto da bola e toque no botão verde para pegar.", "miss": "Viu a bola vindo? Toque no botão verde para PEGAR ou no amarelo para desviar!"}

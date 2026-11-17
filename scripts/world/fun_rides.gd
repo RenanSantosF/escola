@@ -111,22 +111,34 @@ static func _giant_slide(b: SchoolBuilder, c: WorldBatcher) -> void:
 	var k := 0
 	var h := 3.0
 	while h < TOWER_H:
-		c.box("wood", base + Vector3(0, h, 0), Vector3(3.6, 0.15, 3.6), Color("e9a23b") if k % 2 == 0 else Color("ef6c4a"))
+		# andar com o buraco do elevador no meio
+		var fc := Color("e9a23b") if k % 2 == 0 else Color("ef6c4a")
+		c.box("wood", base + Vector3(0, h, -1.3), Vector3(3.6, 0.15, 1.0), fc)
+		c.box("wood", base + Vector3(0, h, 1.3), Vector3(3.6, 0.15, 1.0), fc)
+		c.box("wood", base + Vector3(-1.3, h, 0), Vector3(1.0, 0.15, 1.6), fc)
+		c.box("wood", base + Vector3(1.3, h, 0), Vector3(1.0, 0.15, 1.6), fc)
 		for s in 4:
 			var rot := s * PI * 0.5
 			var off := Vector3(0, 0, 1.75).rotated(Vector3.UP, rot)
 			c.box("paint", base + off + Vector3(0, h + 0.55, 0), Vector3(3.5, 0.08, 0.06), Color("f4f7fa"), rot)
 		h += 3.3
 		k += 1
-	c.box("wood", base + Vector3(0, top - 0.7, 0), Vector3(3.8, 0.18, 3.8), Color("e9a23b"))
+	c.box("wood", base + Vector3(0, top - 0.7, -1.35), Vector3(3.8, 0.18, 1.1), Color("e9a23b"))
+	c.box("wood", base + Vector3(0, top - 0.7, 1.35), Vector3(3.8, 0.18, 1.1), Color("e9a23b"))
+	c.box("wood", base + Vector3(-1.35, top - 0.7, 0), Vector3(1.1, 0.18, 1.6), Color("e9a23b"))
+	c.box("wood", base + Vector3(1.35, top - 0.7, 0), Vector3(1.1, 0.18, 1.6), Color("e9a23b"))
 	c.cylinder("roof", base + Vector3(0, TOWER_H + 1.6, 0), 0.2, 3.0, 1.6, Color("ff4d6d"), 12)
 	c.sphere("metal", base + Vector3(0, TOWER_H + 2.5, 0), 0.25, Color("ffd23f"))
-	# elevador colorido no centro
-	c.box("glass", base + Vector3(0, TOWER_H * 0.5, 0), Vector3(1.4, TOWER_H, 1.4), Color(0.6, 0.85, 1.0, 1.0), 0.0, false)
+	# poço do elevador (trilhos nos cantos); a cabine que anda é do RideTrack
+	for sx: float in [-0.78, 0.78]:
+		for sz: float in [-0.78, 0.78]:
+			c.box("metal", base + Vector3(sx, (TOWER_H + 0.4) * 0.5, sz), Vector3(0.08, TOWER_H + 0.4, 0.08), Color("ffd23f"))
 	c.collider(base + Vector3(0, TOWER_H * 0.5, 0), Vector3(3.4, TOWER_H, 3.4))
-	# base com degrau
+	# base com degrau e porta do elevador bem marcada
 	c.box("concrete", base + Vector3(0, 0.1, 2.6), Vector3(3.2, 0.2, 1.6), Color("cfd5dc"))
-	b.add_label("TOBOGÃ GIGANTE", base + Vector3(0, 3.8, 1.85), 0.0, 72, Color("e04a3a"), Color(1, 1, 1, 0.92), 0.008, 90.0)
+	c.box("paint", base + Vector3(0, 0.21, 2.6), Vector3(1.6, 0.02, 1.0), Color("ffd23f"))
+	b.add_label("TOBOGÃ GIGANTE", base + Vector3(0, 4.2, 1.85), 0.0, 72, Color("e04a3a"), Color(1, 1, 1, 0.92), 0.008, 90.0)
+	b.add_label("ELEVADOR  ▲", base + Vector3(0, 2.9, 1.85), 0.0, 64, Color("1f6fd0"), Color(1, 1, 1, 0.95), 0.008, 60.0)
 	# o tubo
 	var pts := slide_points()
 	var trail := [Vector2(-45, -82), Vector2(-36, -86), Vector2(-30, -92), Vector2(-38, -95), Vector2(-50, -94)]
@@ -151,8 +163,9 @@ static func _giant_slide(b: SchoolBuilder, c: WorldBatcher) -> void:
 					on_trail = true
 			if hh > 0.6 and not on_trail:
 				c.cylinder("metal", Vector3(mid.x, gy + hh * 0.5, mid.z), 0.12, 0.14, hh, Color("f4f7fa"), 6)
-	b.rides.append({"kind": "slide", "prompt": "Tobogã gigante!", "points": pts,
-		"base": base + Vector3(0, 0.05, 2.6), "lift_top": Vector3(pts[0].x, pts[0].y, pts[0].z), "laps": 1})
+	b.rides.append({"kind": "slide", "prompt": "Subir no elevador do tobogã", "points": pts,
+		"base": base + Vector3(0, 0.05, 2.6), "lift_top": Vector3(pts[0].x, pts[0].y, pts[0].z), "laps": 1,
+		"elevator": base, "elevator_top": top - 0.6})
 	b.add_zone("Tobogã Gigante", Rect2(TOWER.x - 5, TOWER.y - 5, 10, 10), false, "", 7, Color(0.24, 0.76, 1.0))
 
 

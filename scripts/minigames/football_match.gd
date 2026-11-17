@@ -15,6 +15,11 @@ const GOAL_A := Vector3(60, 0, -49)  # gol que o time do jogador ataca
 const GOAL_B := Vector3(20, 0, -49)
 const DRIBBLE_DIST := 0.5
 const CATCH_DIST := 0.95
+## Com a bola no pé o jogador fica mais lento (dá para alcançar e roubar).
+const HOLD_SPEED := 0.76
+## A bola acompanha em toquinhos; se ficar longe demais (curva fechada
+## correndo), escapa do pé.
+const LOSE_DIST := 1.35
 const TACKLE_DIST := 2.4
 const TACKLE_CHANCE := 0.8
 
@@ -411,23 +416,63 @@ func _pressure(n: Node3D, is_team_a: bool) -> float:
 
 ## Passe rasteiro e rápido (antes era lento e dava tempo de cortar).
 static func pass_power(dist: float) -> float:
-	return clampf(dist * 1.15 + 6.0, 9.0, 19.0)
+	return clampf(dist * 1.15 + 6.0, 10.5, 19.0)
 
 
 func _mates_of_player() -> Array:
 	return team_a + humans_a
 
 
+## Direção que o jogador quer (joystick, relativo à câmera); sem joystick, para onde olha.
+func _player_aim() -> Vector3:
+	var raw := player.read_move_raw()
+	if raw.length() > 0.3 and player.camera_rig and player.camera_rig.has_method("get_yaw"):
+		var d := Vector3(raw.x, 0, raw.y).rotated(Vector3.UP, player.camera_rig.get_yaw())
+		return d.normalized()
+	return _fwd(player)
+
+
+## Para onde o colega está correndo (passe na frente dele).
+func _lead(t: Node3D, secs: float) -> Vector3:
+	if t is NPC and (t as NPC).moving:
+		return t.global_position + _fwd(t) * 4.2 * secs
+	if t.get("velocity") != null:
+		var v: Vector3 = t.get("velocity")
+		return t.global_position + Vector3(v.x, 0, v.z) * secs
+	return t.global_position
+
+
+## Colega que vai receber o passe agora (o que tem o anel embaixo).
+func _pass_target() -> Node3D:
+	var saved := player.yaw
+	var aim := _player_aim()
+	player.yaw = atan2(aim.x, aim.z)
+	var t := _best_mate(player, _mates_of_player(), 20.0)
+	player.yaw = saved
+	return t
+
+
+var _receiver: Node3D = null
+var _receiver_t := 0.0
+
+
 func _short_pass() -> void:
-	var t := _best_mate(player, _mates_of_player(), 18.0)
+	var t := _pass_target()
 	if t == null:
-		_kick_from(player, _fwd(player), 7.0, 0.4)
+		_kick_from(player, _player_aim(), 8.0, 0.2)
 		return
-	var to := t.global_position - ball.global_position
+	# passe rasteiro na frente do colega, com força para chegar redondinho
+	var d0 := t.global_position.distance_to(ball.global_position)
+	var p := pass_power(d0)
+	var tgt := _lead(t, d0 / p)
+	var to := tgt - ball.global_position
 	to.y = 0
-	_kick_from(player, to.normalized(), pass_power(to.length()), 0.12)
+	_kick_from(player, to.normalized(), pass_power(to.length()), 0.08)
+	_receiver = t
+	_receiver_t = 1.6
 	if t is NPC:
 		(t as NPC).say("Tô livre!", 1.0)
+		_think[(t as NPC).get_instance_id()] = {"run_to": tgt, "t": 0.9}
 
 
 func _long_pass() -> void:
@@ -449,7 +494,7 @@ func _long_pass() -> void:
 
 func _through_ball() -> void:
 	# passe em profundidade: na frente do colega, rumo ao gol
-	var t := _best_mate(player, _mates_of_player(), 24.0)
+	var t := _pass_target()
 	if t == null:
 		_kick_from(player, _fwd(player), 9.0, 0.3)
 		return
@@ -464,19 +509,34 @@ func _through_ball() -> void:
 		_think[(t as NPC).get_instance_id()] = {"run_to": ahead, "t": 2.5}
 
 
-func _shoot_player(power: float) -> void:
-	var fwd := _fwd(player)
+## Para onde o chute vai no gol (o joystick escolhe o canto). Aparece um alvo no gol.
+func _shot_aim() -> Vector3:
+	var fwd := _player_aim()
 	var to_goal := GOAL_A - player.global_position
 	to_goal.y = 0
-	var dir := fwd
-	# mira assistida aos cantos se estiver virado para o gol
-	if fwd.angle_to(to_goal.normalized()) < deg_to_rad(45):
-		var corner := 1.12 * (1.0 if fwd.z > to_goal.normalized().z else -1.0)
-		var aim := GOAL_A + Vector3(0, 0, corner * randf_range(0.75, 1.0))
-		dir = (aim - player.global_position)
+	if fwd.angle_to(to_goal.normalized()) > deg_to_rad(70):
+		return Vector3.INF  # de costas para o gol: chuta para onde olha
+	# lado escolhido pelo joystick/olhar: canto esquerdo ou direito (ou meio)
+	var side := fwd.cross(to_goal.normalized()).y
+	var z := clampf(-side * 4.0, -1.0, 1.0) * 1.15
+	return GOAL_A + Vector3(0, 0, z)
+
+
+## Força boa = barra entre 55% e 85% (forte e baixo). Cheia demais sobe.
+func _shoot_player(power: float) -> void:
+	var aim := _shot_aim()
+	var dir := _player_aim()
+	if aim != Vector3.INF:
+		dir = aim - player.global_position
 		dir.y = 0
 		dir = dir.normalized()
-	_kick_from(player, dir, lerpf(7.0, 16.0, power), lerpf(0.6, 3.0, power))
+	var sweet := power >= 0.55 and power <= 0.85
+	var speed := lerpf(8.0, 19.0, power)
+	var lift := lerpf(0.4, 2.2, power) if power <= 0.85 else lerpf(2.6, 5.5, (power - 0.85) / 0.15)
+	if sweet:
+		speed += 1.5
+		popup(player.global_position + Vector3(0, 2.3, 0), "CHUTAÇO!", Color("ffd23f"), 64)
+	_kick_from(player, dir, speed, lift)
 
 
 func _ask_ball() -> void:
@@ -518,6 +578,7 @@ func _tackle() -> void:
 func _take(n: Node3D) -> void:
 	holder = n
 	_hold_immune = 0.4
+	ball.global_position = _dribble_pos(n)
 	ball.freeze = true
 	ball.linear_velocity = Vector3.ZERO
 	ball.angular_velocity = Vector3.ZERO
@@ -557,12 +618,61 @@ func _dribble_pos(n: Node3D) -> Vector3:
 	var sp := 0.0
 	if n == player:
 		sp = Vector2(player.velocity.x, player.velocity.z).length()
+		var hv := Vector3(player.velocity.x, 0, player.velocity.z)
+		if hv.length() > 0.5:
+			fwd = hv.normalized()
 	elif n is NPC:
 		sp = 4.0 if (n as NPC).moving else 0.0
 	else:
 		sp = 3.0
-	var loose := DRIBBLE_DIST + (0.25 if sp > 4.6 else 0.0) + sin(Time.get_ticks_msec() * 0.012) * 0.06 * clampf(sp / 4.0, 0.0, 1.0)
-	return n.global_position + fwd * loose + Vector3(0, 0.11, 0)
+	# toquinhos: correndo, a bola vai um pouco à frente e volta para o pé
+	var ph := fmod(Time.get_ticks_msec() * 0.0021, 1.0)
+	var touch := pow(sin(ph * PI), 2.0) * 0.5 * clampf((sp - 1.5) / 3.0, 0.0, 1.0)
+	return n.global_position + fwd * (DRIBBLE_DIST + touch) + Vector3(0, 0.11, 0)
+
+
+# ---- marcas na tela: anel embaixo de quem recebe o passe e alvo no gol
+var _ring: MeshInstance3D
+var _target_mark: MeshInstance3D
+
+
+func _update_aim_marks(delta: float) -> void:
+	_receiver_t = maxf(_receiver_t - delta, 0.0)
+	if _ring == null:
+		_ring = MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = 0.55
+		tm.outer_radius = 0.7
+		tm.rings = 20
+		tm.ring_segments = 5
+		_ring.mesh = tm
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.albedo_color = Color(0.4, 1.0, 0.45, 0.85)
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_ring.material_override = m
+		_ring.scale = Vector3(1, 0.12, 1)
+		_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		world.add_child(_ring)
+		_target_mark = MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.22
+		sm.height = 0.44
+		_target_mark.mesh = sm
+		var m2 := StandardMaterial3D.new()
+		m2.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m2.albedo_color = Color("ff4d6d")
+		_target_mark.material_override = m2
+		world.add_child(_target_mark)
+	var who: Node3D = _pass_target() if holder == player else (_receiver if _receiver_t > 0.0 else null)
+	_ring.visible = who != null and is_instance_valid(who)
+	if _ring.visible:
+		_ring.global_position = who.global_position + Vector3(0, 0.08, 0)
+		_ring.rotate_y(delta * 3.0)
+	var aim := _shot_aim() if holder == player and _charge else Vector3.INF
+	_target_mark.visible = aim != Vector3.INF
+	if _target_mark.visible:
+		_target_mark.global_position = aim + Vector3(-0.3, 0.6 + _power * 1.2, 0)
 
 
 # ---------------------------------------------------------------- jogo
@@ -598,19 +708,36 @@ func tick(delta: float) -> void:
 	_tackle_cd = maxf(_tackle_cd - delta, 0.0)
 	_hold_immune = maxf(_hold_immune - delta, 0.0)
 	if _charge:
-		_power = minf(_power + delta * 0.9, 1.0)
+		_power = minf(_power + delta * 1.25, 1.0)
 		hud.set_meter(_power)
 	_update_hud()
 	if time_left <= 0.0:
 		_finish()
 		return
-	# bola colada no pé de quem conduz
+	player.speed_mult = HOLD_SPEED if holder == player else 1.0
+	# a bola acompanha quem conduz em toquinhos (não fica "colada" demais)
 	if holder != null:
-		ball.global_position = _dribble_pos(holder)
+		var prev := ball.global_position
+		var tgt := _dribble_pos(holder)
+		var k := 1.0 - exp(-(16.0 if holder is NPC else 10.0) * delta)
+		ball.global_position = prev.lerp(tgt, k)
 		ball.rotate_x(delta * 8.0)
+		if holder == player and _hold_immune <= 0.0:
+			var off := Vector2(ball.global_position.x - player.global_position.x, ball.global_position.z - player.global_position.z).length()
+			if off > LOSE_DIST:
+				# curva fechada correndo: a bola escapou do pé
+				var v := (ball.global_position - prev) / maxf(delta, 0.001)
+				v.y = 0.0
+				holder = null
+				ball.freeze = false
+				ball.sleeping = false
+				ball.linear_velocity = v.limit_length(6.0)
+				_free_t = 0.0
+				GameManager.show_toast("A bola escapou! Vire com mais calma.")
 	else:
 		_free_t += delta
 		_try_catch()
+	_update_aim_marks(delta)
 	_check_goal()
 	_check_out(delta)
 	for n in team_a:
@@ -636,6 +763,9 @@ func _try_catch() -> void:
 	var bd := CATCH_DIST
 	for n in cands:
 		var d := Vector2((n as Node3D).global_position.x - bp.x, (n as Node3D).global_position.z - bp.z).length()
+		# quem é o alvo do passe domina com mais facilidade
+		if n == _receiver and _receiver_t > 0.0:
+			d -= 0.5
 		if d < bd:
 			bd = d
 			best = n
@@ -767,6 +897,8 @@ func _field_ai(n: NPC, team: int, delta: float) -> void:
 		_go(n, holder.global_position, true)
 		if n.global_position.distance_to(holder.global_position) < 1.3 and _hold_immune <= 0.0 and holder != keeper_a and holder != keeper_b:
 			var rate: float = float([0.35, 0.7, 1.1][difficulty]) * (0.6 if not (holder is NPC) else 1.0)
+			# bola longe do pé (no toquinho) é mais fácil de roubar
+			rate *= 1.0 + clampf(ball.global_position.distance_to(holder.global_position) - 0.5, 0.0, 1.0) * 1.5
 			if randf() < rate * delta:
 				n.visual.play("kick")
 				if holder == player:
@@ -889,6 +1021,11 @@ func _finish() -> void:
 
 
 func cleanup() -> void:
+	player.speed_mult = 1.0
+	if is_instance_valid(_ring):
+		_ring.queue_free()
+	if is_instance_valid(_target_mark):
+		_target_mark.queue_free()
 	if is_instance_valid(_setup_panel):
 		_setup_panel.queue_free()
 	hud.set_meter(-1.0)
@@ -1178,7 +1315,7 @@ func _client_tick(delta: float) -> void:
 	_state_age += delta
 	_tackle_cd = maxf(_tackle_cd - delta, 0.0)
 	if _charge:
-		_power = minf(_power + delta * 0.9, 1.0)
+		_power = minf(_power + delta * 1.25, 1.0)
 		hud.set_meter(_power)
 	var st := _last_state
 	if st.is_empty():
@@ -1210,8 +1347,9 @@ func _client_tick(delta: float) -> void:
 	var b: Array = st.get("ball", [])
 	if b.size() == 3:
 		_ball_target = Vector3(float(b[0]), float(b[1]), float(b[2]))
+	player.speed_mult = HOLD_SPEED if holder == player else 1.0
 	if holder == player:
-		ball.global_position = _dribble_pos(player)
+		ball.global_position = ball.global_position.lerp(_dribble_pos(player), 1.0 - exp(-12.0 * delta))
 	else:
 		ball.global_position = ball.global_position.lerp(_ball_target, 1.0 - exp(-14.0 * delta))
 	_client_bots(st.get("bots", []), delta)
