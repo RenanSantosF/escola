@@ -34,7 +34,8 @@ class Room {
 
   get phase() { return this.clock.state().phase; }
 
-  /** Carteira do jogador: a mesma de antes (se voltou logo) ou a menor livre. */
+  /** Carteira do jogador: a mesma de antes (se voltou logo) ou uma SORTEADA na
+   *  primeira turma com vaga (a Turma A enche primeiro: amigos ficam juntos). */
   assignDesk(id, now = Date.now()) {
     if (this.desks.has(id)) return this.desks.get(id);
     const taken = new Set(this.desks.values());
@@ -45,7 +46,11 @@ class Room {
     const held = this.deskHold.get(id);
     let desk = -1;
     if (held && !taken.has(held.desk)) desk = held.desk;
-    for (let i = 0; desk < 0 && i < DESKS; i++) if (!taken.has(i)) desk = i;
+    for (let t = 0; desk < 0 && t < CLASSES; t++) {
+      const free = [];
+      for (let k = 0; k < DESKS_PER_CLASS; k++) if (!taken.has(t * DESKS_PER_CLASS + k)) free.push(t * DESKS_PER_CLASS + k);
+      if (free.length) desk = free[crypto.randomInt(free.length)];
+    }
     this.deskHold.delete(id);
     if (desk >= 0) this.desks.set(id, desk);
     return desk;

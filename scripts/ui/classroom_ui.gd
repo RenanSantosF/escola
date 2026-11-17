@@ -75,6 +75,8 @@ func show_task(task: Dictionary, index: int, total: int, results: Array) -> void
 	_feedback.text = ""
 	_header.text = "Tarefa %d de %d  ·  %s" % [index + 1, total, task.subject]
 	_prompt.text = task.prompt
+	# Educação Infantil: letra GRANDE (um adulto lê junto; as respostas são figuras)
+	_prompt.add_theme_font_size_override("font_size", 46 if task.type == "pic" else 34)
 	for c in _dots.get_children():
 		c.queue_free()
 	for i in total:
@@ -91,6 +93,8 @@ func show_task(task: Dictionary, index: int, total: int, results: Array) -> void
 	match task.type:
 		"math", "word", "quiz":
 			_build_choice()
+		"pic":
+			_build_pic()
 		"order":
 			_build_order()
 		"match":
@@ -158,6 +162,42 @@ func _build_choice() -> void:
 		g.add_child(b)
 
 
+# ------------------------------------------------------------ figuras (3–4 anos)
+
+func _build_pic() -> void:
+	if _task.has("show"):
+		var top := PanelContainer.new()
+		top.add_theme_stylebox_override("panel", UITheme.box(Color("fdf6e3"), 22, Color("ffe08a"), 6, 4))
+		var card := PictureCard.new(_task.show)
+		card.custom_minimum_size = Vector2(320, 190)
+		top.add_child(card)
+		var cc := CenterContainer.new()
+		cc.add_child(top)
+		_body.add_child(cc)
+	var g := _grid(_task.options.size())
+	for i in _task.options.size():
+		var b := Button.new()
+		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size = Vector2(210, 170 if _task.has("show") else 200)
+		b.add_theme_stylebox_override("normal", UITheme.box(Color("fdf6e3"), 22, Color("c9b98f"), 0, 6))
+		b.add_theme_stylebox_override("hover", UITheme.box(Color("fffaf0"), 22, Color("c9b98f"), 0, 6))
+		b.add_theme_stylebox_override("pressed", UITheme.box(Color("ffe08a"), 22, Color("c9a03f"), 0, 2))
+		var pc := PictureCard.new(_task.options[i])
+		pc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		pc.offset_left = 10
+		pc.offset_right = -10
+		pc.offset_top = 10
+		pc.offset_bottom = -10
+		b.add_child(pc)
+		var idx = i
+		b.pressed.connect(func(): _on_choice(idx, b))
+		g.add_child(b)
+		# entra pulando, uma de cada vez
+		b.pivot_offset = b.custom_minimum_size * 0.5
+		b.scale = Vector2(0.6, 0.6)
+		create_tween().tween_property(b, "scale", Vector2.ONE, 0.35).set_delay(0.08 * i).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
 func _on_choice(i: int, b: Button) -> void:
 	if _locked:
 		return
@@ -171,6 +211,13 @@ func _on_choice(i: int, b: Button) -> void:
 		for k in g.get_child_count():
 			if k != int(_task.answer) and g.get_child(k) != b:
 				(g.get_child(k) as Control).visible = false
+	if _task.type == "pic":
+		if ok:
+			var tw := create_tween().set_trans(Tween.TRANS_BACK)
+			tw.tween_property(b, "scale", Vector2(1.18, 1.18), 0.15)
+			tw.tween_property(b, "scale", Vector2.ONE, 0.2)
+		_finish(ok, "" if ok else "Era essa aqui, ó!")
+		return
 	_finish(ok, "" if ok else "A resposta era: %s" % _task.options[_task.answer])
 
 

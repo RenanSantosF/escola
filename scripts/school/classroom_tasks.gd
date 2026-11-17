@@ -5,7 +5,7 @@ extends RefCounted
 ## pelo desempenho). 10 matérias; cada aula tem uma matéria principal.
 ## Tipos: math, word, quiz, order, match, find.
 
-const SUBJECTS := ["Matemática", "Português", "Ciências", "Geografia", "História", "Inglês", "Artes", "Física", "Química", "Música"]
+const SUBJECTS := ["Matemática", "Português", "Ciências", "Geografia", "História", "Inglês", "Artes", "Física", "Química", "Música", "Informática", "Educação Física"]
 
 ## [nível mín, nível máx, pergunta, certa, errada1, errada2, errada3]
 const BANK := {
@@ -111,8 +111,60 @@ const BANK := {
 	],
 }
 
+## Sequências para "pôr em ordem" por matéria: [nível mín, enunciado, ordem certa].
+const ORDER_SETS := {
+	"Matemática": [], "Português": [],
+	"Ciências": [
+		[1, "Ponha em ordem: como a planta nasce", ["Semente", "Brotinho", "Planta", "Flor"]],
+		[2, "Ponha em ordem: a vida da borboleta", ["Ovo", "Lagarta", "Casulo", "Borboleta"]],
+		[3, "Ponha em ordem: a vida do sapo", ["Ovo", "Girino", "Sapinho", "Sapo"]],
+		[4, "Ponha em ordem: o caminho da comida", ["Boca", "Esôfago", "Estômago", "Intestino"]],
+		[5, "Do planeta MAIS PERTO ao mais longe do Sol", ["Mercúrio", "Vênus", "Terra", "Marte"]],
+	],
+	"Geografia": [
+		[2, "Do MENOR para o MAIOR", ["Casa", "Bairro", "Cidade", "Estado"]],
+		[3, "Do MENOR para o MAIOR", ["Rua", "Cidade", "País", "Continente"]],
+		[5, "Do país MENOR para o MAIOR (em área)", ["Uruguai", "Argentina", "Brasil", "Rússia"]],
+	],
+	"História": [
+		[3, "Ponha em ordem: do mais ANTIGO ao mais novo", ["Dinossauros", "Pirâmides", "Descobrimento do Brasil", "Internet"]],
+		[4, "Ponha em ordem os fatos do Brasil", ["Chegada dos portugueses", "Independência", "Lei Áurea", "República"]],
+		[5, "Do meio de transporte mais ANTIGO ao mais novo", ["Carroça", "Trem a vapor", "Carro", "Avião a jato"]],
+	],
+	"Inglês": [
+		[1, "Put in order (ponha em ordem): ONE, TWO...", ["One", "Two", "Three", "Four"]],
+		[2, "Os dias: do primeiro ao último da semana de aula", ["Monday", "Tuesday", "Wednesday", "Thursday"]],
+		[4, "Monte a frase em inglês", ["I", "like", "my", "school"]],
+	],
+	"Música": [
+		[2, "Ponha as notas musicais em ordem", ["Dó", "Ré", "Mi", "Fá"]],
+		[4, "Da nota MAIS LONGA para a mais curta", ["Semibreve", "Mínima", "Semínima", "Colcheia"]],
+	],
+	"Artes": [
+		[2, "Ponha em ordem: como pintar um desenho", ["Desenhar a lápis", "Contornar", "Pintar", "Assinar o nome"]],
+	],
+	"Informática": [
+		[2, "Ponha em ordem: usar o computador", ["Ligar", "Entrar", "Usar o programa", "Desligar"]],
+		[3, "Ponha em ordem: mandar um e-mail", ["Abrir o e-mail", "Escrever o endereço", "Escrever a mensagem", "Enviar"]],
+		[5, "Do MENOR para o MAIOR", ["Bit", "Byte", "Kilobyte", "Megabyte"]],
+	],
+	"Educação Física": [
+		[1, "Ponha em ordem: a aula de Educação Física", ["Aquecer", "Alongar", "Jogar", "Beber água"]],
+		[3, "Ponha em ordem: arremesso de basquete", ["Segurar a bola", "Mirar a cesta", "Flexionar os joelhos", "Arremessar"]],
+	],
+	"Física": [
+		[5, "Do MAIS LENTO para o mais rápido", ["Caracol", "Pessoa andando", "Carro", "Avião"]],
+		[6, "Ponha em ordem: o gelo esquentando", ["Gelo", "Água", "Água fervendo", "Vapor"]],
+	],
+	"Química": [
+		[6, "Do MENOR para o MAIOR", ["Átomo", "Molécula", "Célula", "Organismo"]],
+	],
+}
+
 ## Pares para "ligar" por matéria.
 const MATCH_SETS := {
+	"Informática": [["Mouse", "Clicar"], ["Teclado", "Digitar"], ["Monitor", "Ver a imagem"], ["Impressora", "Imprimir"], ["Fone", "Ouvir"], ["Webcam", "Filmar"]],
+	"Educação Física": [["Futebol", "Gol"], ["Basquete", "Cesta"], ["Vôlei", "Rede"], ["Natação", "Piscina"], ["Corrida", "Pista"], ["Judô", "Tatame"]],
 	"Ciências": [["Abelha", "Colmeia"], ["Pássaro", "Ninho"], ["Coração", "Bombeia sangue"], ["Pulmão", "Respiração"], ["Girino", "Sapo"]],
 	"Geografia": [["Bahia", "Salvador"], ["Ceará", "Fortaleza"], ["Paraná", "Curitiba"], ["Amazonas", "Manaus"], ["Pernambuco", "Recife"]],
 	"Inglês": [["Cat", "Gato"], ["House", "Casa"], ["Book", "Livro"], ["Water", "Água"], ["Friend", "Amigo"]],
@@ -147,21 +199,29 @@ var level := 3
 
 func _init(seed_value := 0, level_value := 3) -> void:
 	rng.seed = seed_value if seed_value != 0 else randi()
-	level = clampi(level_value, 1, 9)
+	level = clampi(level_value, 0, 9)
 
 
 ## Idade real -> ano escolar (6 anos = 1º ano ... 14+ = 9º ano).
 static func level_for_age(age: int) -> int:
+	if age <= 4:
+		return 0
 	return clampi(age - 5, 1, 9)
 
 
 ## Aula com matéria principal e tipos variados (sem repetir tipo seguido).
 func make_lesson(count: int, allow_find := true, subject := "") -> Array:
+	if level == 0:
+		return _toddler_lesson(count)
 	if subject == "":
 		subject = SUBJECTS[rng.randi() % SUBJECTS.size()]
-	var plan := ["quiz", "quiz", "match", "order", "quiz"]
+	var plan := ["quiz", "quiz", "quiz", "quiz"]
+	if MATCH_SETS.has(subject):
+		plan.append("match")
+	if ORDER_SETS.has(subject):
+		plan.append("order")
 	if subject == "Matemática":
-		plan = ["math", "math", "match", "order", "problem", "math"]
+		plan = ["math", "math", "match", "order", "problem", "quiz", "math", "quiz"]
 	elif subject == "Português":
 		plan = ["word", "quiz", "order", "match", "word", "quiz"]
 	elif subject in ["Física", "Química"]:
@@ -179,17 +239,42 @@ func make_lesson(count: int, allow_find := true, subject := "") -> Array:
 		if t == last or (t == "find" and out.any(func(x): return x.type == "find")):
 			continue
 		var task := make(t, subject)
-		var key := str(task.get("prompt", "")) + str(task.get("left", ""))
-		# evita pergunta repetida na mesma aula (se ainda houver opções)
-		if prompts.has(key) and i < 90:
+		var key := task_key(task)
+		# evita pergunta repetida na mesma aula e nas últimas aulas (se ainda houver opções)
+		if (prompts.has(key) or (i < 60 and key in _recent_tasks())) and i < 90:
 			continue
 		prompts[key] = true
 		out.append(task)
 		last = t
+	for task in out:
+		_remember_task(task_key(task))
 	return out
 
 
+## Identifica a tarefa (pergunta + conteúdo) para não repetir em seguida.
+static func task_key(task: Dictionary) -> String:
+	return "%s|%s|%s" % [task.get("prompt", ""), str(task.get("left", task.get("items", ""))), str(task.get("word", ""))]
+
+
+## Últimas ~80 tarefas de qualquer tipo (contas, palavras, pares...).
+static func _recent_tasks() -> Array:
+	var sec: Dictionary = SaveManager.section("learning")
+	if not sec.has("recent_t"):
+		sec["recent_t"] = []
+	return sec["recent_t"]
+
+
+static func _remember_task(key: String) -> void:
+	var r := _recent_tasks()
+	r.erase(key)
+	r.append(key)
+	while r.size() > 80:
+		r.pop_front()
+
+
 func make(type: String, subject := "") -> Dictionary:
+	if level == 0 and type != "find":
+		return _pic()
 	match type:
 		"math": return _math()
 		"word": return _word()
@@ -370,7 +455,7 @@ func _word() -> Dictionary:
 
 
 func _bank_for(subject: String) -> Array:
-	var list: Array = (BANK.get(subject, []) as Array) + (QuestionBank.EXTRA.get(subject, []) as Array)
+	var list: Array = (BANK.get(subject, []) as Array) + (QuestionBank.EXTRA.get(subject, []) as Array) + QuestionDB.for_subject(subject)
 	var fit := list.filter(func(q): return level >= int(q[0]) and level <= int(q[1]))
 	if fit.is_empty():
 		# sem pergunta da faixa: usa a mais próxima
@@ -381,7 +466,10 @@ func _bank_for(subject: String) -> Array:
 
 
 func _quiz(subject: String) -> Dictionary:
-	if subject == "" or subject == "Matemática" or not BANK.has(subject):
+	# pergunta SEMPRE da matéria da aula (Matemática sem banco vira conta/probleminha)
+	if subject == "Matemática" and _bank_for(subject).is_empty():
+		return _problem() if rng.randf() < 0.5 else _math()
+	if subject == "" or (BANK.get(subject, []) as Array).is_empty() and (QuestionBank.EXTRA.get(subject, []) as Array).is_empty() and QuestionDB.for_subject(subject).is_empty():
 		subject = BANK.keys()[rng.randi() % BANK.size()]
 	var fit := _bank_for(subject)
 	var q: Array = _pick_fresh(fit)
@@ -423,7 +511,18 @@ func _pick_fresh(fit: Array) -> Array:
 
 
 func _order(subject: String) -> Dictionary:
-	if subject == "Matemática" or rng.randf() < 0.4:
+	if ORDER_SETS.has(subject) and subject != "Matemática" and subject != "Português":
+		var set_: Array = ORDER_SETS[subject].filter(func(o): return level >= int(o[0]))
+		if set_.is_empty():
+			set_ = ORDER_SETS[subject]
+		var o: Array = set_[rng.randi() % set_.size()]
+		var seq: Array = o[2]
+		var its := seq.duplicate()
+		its.shuffle()
+		var ord := seq.map(func(x): return its.find(x))
+		return {"type": "order", "subject": subject, "prompt": str(o[1]), "items": its, "answer_order": ord,
+			"explain": "A ordem certa é: %s." % " → ".join(seq)}
+	if subject == "Matemática":
 		var nums := []
 		var top := 20 + level * 15
 		while nums.size() < 4:
@@ -454,8 +553,10 @@ func _order(subject: String) -> Dictionary:
 
 
 func _match(subject: String) -> Dictionary:
-	if not MATCH_SETS.has(subject):
+	if subject == "":
 		subject = MATCH_SETS.keys()[rng.randi() % MATCH_SETS.size()]
+	elif not MATCH_SETS.has(subject):
+		return _quiz(subject)  # matéria sem pares: pergunta da MESMA matéria
 	var pairs: Array = MATCH_SETS[subject].duplicate()
 	pairs.shuffle()
 	pairs = pairs.slice(0, 3 if level <= 4 else 4)
@@ -488,3 +589,98 @@ static func check_order(task: Dictionary, sequence: Array) -> bool:
 
 static func check_match(task: Dictionary, left_i: int, right_i: int) -> bool:
 	return int(task.pairs.get(left_i, -1)) == right_i
+
+
+# ------------------------------------------------------------ Educação Infantil (3–4 anos)
+## Atividades com FIGURAS (cores, formas, contar, bichos, tamanhos), sem
+## precisar ler: a resposta é sempre tocar numa figura grande.
+
+const PIC_COLORS := {"vermelho": "VERMELHO", "azul": "AZUL", "amarelo": "AMARELO", "verde": "VERDE", "rosa": "ROSA", "laranja": "LARANJA", "roxo": "ROXO"}
+const PIC_SHAPES := {"circle": "a BOLA (círculo)", "square": "o QUADRADO", "triangle": "o TRIÂNGULO", "star": "a ESTRELA", "heart": "o CORAÇÃO"}
+const PIC_SOUNDS := {"cat": "MIAU", "dog": "AU AU", "pig": "OINC OINC", "bird": "PIU PIU", "cow": "MUUU", "duck": "QUÁ QUÁ"}
+const PIC_ANIMAL_NAMES := {"cat": "o gato", "dog": "o cachorro", "pig": "o porquinho", "bird": "o passarinho", "cow": "a vaca", "duck": "o pato", "fish": "o peixe"}
+const PIC_THINGS := ["apple", "ball", "star", "balloon", "flower", "car", "house", "tree", "sun", "moon"]
+const PIC_FOOD := ["apple", "banana", "carrot"]
+const PIC_NOT_FOOD := ["car", "house", "ball", "balloon", "star", "tree"]
+
+
+func _toddler_lesson(count: int) -> Array:
+	var out := []
+	var kinds := ["color", "shape", "count", "big", "sound", "same", "sky", "food", "small", "count2"]
+	kinds.shuffle()
+	var i := 0
+	while out.size() < count and i < 40:
+		var t := _pic(kinds[i % kinds.size()])
+		i += 1
+		if out.any(func(x): return x.prompt == t.prompt):
+			continue
+		out.append(t)
+	return out
+
+
+func _pick(dict_or_arr: Variant, n: int) -> Array:
+	var a: Array = (dict_or_arr as Dictionary).keys() if dict_or_arr is Dictionary else (dict_or_arr as Array).duplicate()
+	a.shuffle()
+	return a.slice(0, n)
+
+
+func _pic_task(prompt: String, opts: Array, answer_i: int, explain: String, show: Variant = null) -> Dictionary:
+	# embaralha mantendo a certa
+	var right = opts[answer_i]
+	opts.shuffle()
+	var t := {"type": "pic", "subject": "Educação Infantil", "prompt": prompt, "options": opts, "answer": opts.find(right), "explain": explain}
+	if show != null:
+		t["show"] = show
+	return t
+
+
+func _pic(kind := "") -> Dictionary:
+	if kind == "":
+		kind = ["color", "shape", "count", "big", "sound", "same", "sky", "food", "small"][rng.randi() % 9]
+	match kind:
+		"color":
+			var cs := _pick(PIC_COLORS, 3)
+			var shape: String = ["circle", "heart", "star", "square"][rng.randi() % 4]
+			return _pic_task("Toque no %s" % PIC_COLORS[cs[0]], cs.map(func(c): return {"kind": "shape", "shape": shape, "color": c}), 0, "Essa é a cor %s!" % PIC_COLORS[cs[0]].to_lower())
+		"shape":
+			var ss := _pick(PIC_SHAPES, 3)
+			var col: String = _pick(PIC_COLORS, 1)[0]
+			return _pic_task("Toque n%s" % PIC_SHAPES[ss[0]], ss.map(func(x): return {"kind": "shape", "shape": x, "color": col}), 0, "Esse é %s!" % PIC_SHAPES[ss[0]])
+		"count", "count2":
+			var n := rng.randi_range(1, 5 if kind == "count" else 3)
+			var thing: String = ["apple", "ball", "star", "balloon", "flower"][rng.randi() % 5]
+			var nums := [n]
+			while nums.size() < 3:
+				var k := rng.randi_range(1, 5)
+				if not k in nums:
+					nums.append(k)
+			return _pic_task("Quantos tem aqui? Conte comigo!", nums.map(func(x): return {"kind": "number", "n": x}), 0, "Tem %d! Vamos contar: %s." % [n, ", ".join(range(1, n + 1).map(func(x): return str(x)))], {"kind": "count", "n": n, "thing": thing})
+		"big", "small":
+			var th: String = PIC_THINGS[rng.randi() % PIC_THINGS.size()]
+			var opts := [{"kind": "thing", "thing": th, "scale": 1.15}, {"kind": "thing", "thing": th, "scale": 0.7}, {"kind": "thing", "thing": th, "scale": 0.4}]
+			if kind == "big":
+				return _pic_task("Qual é o MAIOR?", opts, 0, "Esse é o maior de todos!")
+			return _pic_task("Qual é o MENOR?", opts, 2, "Esse é o menor, pequenininho!")
+		"sound":
+			var an := _pick(PIC_SOUNDS, 3)
+			return _pic_task("Quem faz %s?" % PIC_SOUNDS[an[0]], an.map(func(a): return {"kind": "animal", "animal": a}), 0, "%s faz %s!" % [str(PIC_ANIMAL_NAMES[an[0]]).capitalize(), PIC_SOUNDS[an[0]]])
+		"same":
+			var pool := ["cat", "dog", "pig", "fish", "cow", "bird"]
+			pool.shuffle()
+			var o2 := pool.slice(0, 3).map(func(a): return {"kind": "animal", "animal": a})
+			return _pic_task("Qual é IGUAL a este?", o2, 0, "Isso! São iguaizinhos!", o2[0].duplicate())
+		"sky":
+			var sky := ["sun", "moon", "cloud", "star"]
+			sky.shuffle()
+			var names := {"sun": "o SOL", "moon": "a LUA", "cloud": "a NUVEM", "star": "a ESTRELA"}
+			return _pic_task("Onde está %s?" % names[sky[0]], sky.slice(0, 3).map(func(x): return {"kind": "thing", "thing": x}), 0, "Esse é %s!" % names[sky[0]])
+		"food":
+			var f: String = PIC_FOOD[rng.randi() % PIC_FOOD.size()]
+			var nf := _pick(PIC_NOT_FOOD, 2)
+			var o3 := [{"kind": "thing", "thing": f}] + nf.map(func(x): return {"kind": "thing", "thing": x})
+			return _pic_task("Qual dá para COMER?", o3, 0, "Hum, essa dá para comer! Que gostoso!")
+	return _pic("color")
+
+
+static func check_pic(task: Dictionary, chosen: int) -> bool:
+	return chosen == int(task.answer)

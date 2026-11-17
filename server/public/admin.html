@@ -182,6 +182,22 @@
     </div>
   </div>
 
+  <div class="card" style="margin-top:14px">
+    <h2>Perguntas das aulas (banco de dados)</h2>
+    <p class="muted" style="margin:0">O jogo baixa as perguntas ao abrir. Nível = ano escolar (1 a 9). Para desativar uma pergunta, envie a mesma pergunta com "Ativa" desmarcado.</p>
+    <p id="q-counts" class="muted"></p>
+    <select id="q-s" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:15px;margin:3px 0"></select>
+    <div class="row"><span>Do</span><input type="number" id="q-a" min="1" max="9" value="1" style="width:70px"><span>ao</span><input type="number" id="q-b" min="1" max="9" value="5" style="width:70px"><span>ano</span>
+      <label><input type="checkbox" id="q-on" checked> Ativa</label></div>
+    <input id="q-q" placeholder="Pergunta" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:15px;margin:3px 0">
+    <input id="q-c" placeholder="Resposta CERTA" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:15px;margin:3px 0">
+    <input id="q-w1" placeholder="Errada 1" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:15px;margin:3px 0">
+    <input id="q-w2" placeholder="Errada 2" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:15px;margin:3px 0">
+    <input id="q-w3" placeholder="Errada 3" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:15px;margin:3px 0">
+    <input id="q-e" placeholder="Explicação curta (aparece quando erra)" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:15px;margin:3px 0">
+    <div class="row"><button class="save" id="q-save">Salvar pergunta</button><span class="ok" id="q-msg"></span></div>
+  </div>
+
   <div class="grid2">
     <div class="card"><h2>Jogadores por dia (14 dias)</h2><div class="cols" id="c-days"></div></div>
     <div class="card"><h2>Minutos jogados por dia</h2><div class="cols" id="c-minutes"></div></div>
@@ -295,6 +311,22 @@ async function loadSettings() {
   $('min-v').value = s.minVersion || 0;
   paintBots();
 }
+const Q_SUBJECTS = ['Matemática','Português','Ciências','Geografia','História','Inglês','Artes','Música','Física','Química','Informática','Educação Física'];
+$('q-s').innerHTML = Q_SUBJECTS.map((x) => `<option>${x}</option>`).join('');
+async function loadQuestions() {
+  const r = await fetch('/api/admin/questions', { headers: { 'x-admin-token': token } });
+  if (!r.ok) return;
+  const j = await r.json();
+  $('q-counts').textContent = j.total + ' perguntas ativas · ' + Object.entries(j.counts).map(([k, v]) => k + ': ' + v).join(' · ');
+}
+$('q-save').onclick = async () => {
+  const body = { s: $('q-s').value, a: Number($('q-a').value), b: Number($('q-b').value), q: $('q-q').value, c: $('q-c').value,
+    w: [$('q-w1').value, $('q-w2').value, $('q-w3').value], e: $('q-e').value, active: $('q-on').checked };
+  const r = await fetch('/api/admin/questions', { method: 'POST', headers: { 'x-admin-token': token, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  $('q-msg').textContent = r.ok ? 'Salva! (' + j.total + ' perguntas)' + (j.saved ? '' : ' — sem banco: some se o servidor reiniciar') : (j.error || 'Não salvou.');
+  if (r.ok) { ['q-q','q-c','q-w1','q-w2','q-w3','q-e'].forEach((id) => { $(id).value = ''; }); loadQuestions(); }
+};
 $('bots-on').onchange = paintBots;
 $('bots-n').oninput = paintBots;
 $('bots-save').onclick = async () => {
@@ -484,7 +516,7 @@ async function render(scrollTop) {
     cache.game = await api('/api/admin/games/' + view.game + '?days=' + view.days);
     drawGame();
     $('sub').textContent = 'Atualizado ' + when(cache.game.generatedAt) + ' · ' + cache.game.game.name;
-    if (view.game === 'escola') { await load(); if (scrollTop !== false) await loadSettings(); $('sub').textContent = 'Atualizado ' + when(cache.game.generatedAt) + ' · Recess Club'; }
+    if (view.game === 'escola') { await load(); if (scrollTop !== false) await loadSettings(); loadQuestions(); $('sub').textContent = 'Atualizado ' + when(cache.game.generatedAt) + ' · Recess Club'; }
   }
 }
 

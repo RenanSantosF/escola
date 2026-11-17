@@ -3,7 +3,9 @@
 // mundo da sala vive o mesmo momento (chegada, aula, recreio, volta, aula,
 // saída). Quem entra no meio recebe a fase atual e quanto falta.
 //
-// state() -> {day, phase, index, startedAt, endsAt, seed}
+// state() -> {day, phase, index, startedAt, endsAt, seed, schedule}
+// schedule: a grade do dia (salas das turmas, matérias e onde é cada aula),
+// sorteada pelo servidor a cada dia (src/schedule.js).
 
 const PHASES = [
   { id: 'arrival', ms: 75000 },
@@ -13,6 +15,8 @@ const PHASES = [
   { id: 'class2', ms: 180000 },
   { id: 'end', ms: 45000 },
 ];
+
+const schedule = require('./schedule');
 
 class SchoolClock {
   /**
@@ -25,6 +29,9 @@ class SchoolClock {
     this.index = Math.max(0, PHASES.findIndex((p) => p.id === (opts.startPhase || 'arrival')));
     this.startedAt = now;
     this.seed = Math.floor(Math.random() * 1e9);
+    this.rng = opts.rng || Math.random;
+    this.decks = [];
+    this.schedule = schedule.make(this.rng, this.decks);
   }
 
   duration(i) { return Math.round(PHASES[i].ms * this.scale); }
@@ -42,6 +49,7 @@ class SchoolClock {
         this.index = 0;
         this.day++;
         this.seed = Math.floor(Math.random() * 1e9);
+        this.schedule = schedule.make(this.rng, this.decks);
       }
       this.startedAt = end;
       started.push(this.state(now));
@@ -63,6 +71,7 @@ class SchoolClock {
       day: this.day, phase: PHASES[this.index].id, index: this.index,
       startedAt: this.startedAt, endsAt: this.endsAt, now, seed: this.seed,
       left: Math.max(0, Math.ceil((this.endsAt - now) / 1000)),
+      schedule: this.schedule,
     };
   }
 }

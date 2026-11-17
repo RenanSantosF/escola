@@ -1,0 +1,3463 @@
+{
+"version": 1,
+"questions": [
+{
+"s": "Informática",
+"a": 1,
+"b": 3,
+"q": "Qual destes usamos para CLICAR no computador?",
+"c": "Mouse",
+"w": [
+"Monitor",
+"Caixa de som",
+"Impressora"
+],
+"e": "O mouse move a setinha e clica."
+},
+{
+"s": "Informática",
+"a": 1,
+"b": 3,
+"q": "Com o que digitamos letras no computador?",
+"c": "Teclado",
+"w": [
+"Mouse",
+"Monitor",
+"Pen drive"
+],
+"e": "O teclado tem as letras e os números."
+},
+{
+"s": "Informática",
+"a": 1,
+"b": 4,
+"q": "Onde vemos as imagens do computador?",
+"c": "Monitor",
+"w": [
+"Teclado",
+"Mouse",
+"Cabo"
+],
+"e": "O monitor (tela) mostra as imagens."
+},
+{
+"s": "Informática",
+"a": 1,
+"b": 4,
+"q": "Para ouvir o som do computador usamos...",
+"c": "Fone ou caixa de som",
+"w": [
+"Teclado",
+"Mouse",
+"Webcam"
+],
+"e": "Fones e caixas de som tocam os sons."
+},
+{
+"s": "Informática",
+"a": 2,
+"b": 4,
+"q": "Qual aparelho coloca o que está no computador no papel?",
+"c": "Impressora",
+"w": [
+"Scanner",
+"Microfone",
+"Monitor"
+],
+"e": "A impressora imprime no papel."
+},
+{
+"s": "Informática",
+"a": 2,
+"b": 5,
+"q": "O que devemos fazer antes de tirar o computador da tomada?",
+"c": "Desligar direitinho",
+"w": [
+"Puxar o fio",
+"Bater na tela",
+"Nada"
+],
+"e": "Desligar pelo botão evita perder trabalhos."
+},
+{
+"s": "Informática",
+"a": 2,
+"b": 5,
+"q": "Senha boa é aquela que...",
+"c": "Ninguém adivinha",
+"w": [
+"É o seu nome",
+"É 1234",
+"Você conta para todos"
+],
+"e": "Senha é segredo: misture letras e números."
+},
+{
+"s": "Informática",
+"a": 2,
+"b": 6,
+"q": "Se um desconhecido na internet pedir seu endereço, você...",
+"c": "Não conta e avisa um adulto",
+"w": [
+"Conta tudo",
+"Manda foto da casa",
+"Marca um encontro"
+],
+"e": "Nunca passe dados pessoais para desconhecidos."
+},
+{
+"s": "Informática",
+"a": 3,
+"b": 6,
+"q": "A tecla que apaga a letra ANTES do cursor é...",
+"c": "Backspace",
+"w": [
+"Enter",
+"Espaço",
+"Shift"
+],
+"e": "Backspace apaga para trás."
+},
+{
+"s": "Informática",
+"a": 3,
+"b": 6,
+"q": "A tecla que faz letra MAIÚSCULA enquanto seguramos é...",
+"c": "Shift",
+"w": [
+"Ctrl",
+"Tab",
+"Esc"
+],
+"e": "Segurando Shift, a letra sai maiúscula."
+},
+{
+"s": "Informática",
+"a": 3,
+"b": 6,
+"q": "Qual é um navegador de internet?",
+"c": "Chrome",
+"w": [
+"Word",
+"Paint",
+"Calculadora"
+],
+"e": "Navegadores abrem sites: Chrome, Firefox, Edge..."
+},
+{
+"s": "Informática",
+"a": 3,
+"b": 7,
+"q": "O que é um vírus de computador?",
+"c": "Programa que estraga o computador",
+"w": [
+"Um resfriado",
+"Um jogo",
+"Um teclado novo"
+],
+"e": "Vírus é um programa malicioso."
+},
+{
+"s": "Informática",
+"a": 3,
+"b": 7,
+"q": "Arquivo de música geralmente termina em...",
+"c": ".mp3",
+"w": [
+".jpg",
+".doc",
+".exe"
+],
+"e": "MP3 é um formato de áudio."
+},
+{
+"s": "Informática",
+"a": 3,
+"b": 7,
+"q": "Arquivo de foto geralmente termina em...",
+"c": ".jpg",
+"w": [
+".mp3",
+".txt",
+".zip"
+],
+"e": "JPG e PNG são formatos de imagem."
+},
+{
+"s": "Informática",
+"a": 4,
+"b": 8,
+"q": "O que é um algoritmo?",
+"c": "Uma sequência de passos",
+"w": [
+"Um tipo de vírus",
+"Um mouse sem fio",
+"Uma tela"
+],
+"e": "Algoritmo é uma receita: passos em ordem."
+},
+{
+"s": "Informática",
+"a": 4,
+"b": 8,
+"q": "Ctrl + C serve para...",
+"c": "Copiar",
+"w": [
+"Colar",
+"Apagar",
+"Salvar"
+],
+"e": "Ctrl+C copia e Ctrl+V cola."
+},
+{
+"s": "Informática",
+"a": 4,
+"b": 8,
+"q": "Ctrl + V serve para...",
+"c": "Colar",
+"w": [
+"Copiar",
+"Fechar",
+"Imprimir"
+],
+"e": "Ctrl+V cola o que foi copiado."
+},
+{
+"s": "Informática",
+"a": 4,
+"b": 8,
+"q": "Ctrl + Z serve para...",
+"c": "Desfazer",
+"w": [
+"Salvar",
+"Copiar",
+"Sair"
+],
+"e": "Ctrl+Z desfaz a última ação."
+},
+{
+"s": "Informática",
+"a": 4,
+"b": 8,
+"q": "Qual destes é um sistema operacional?",
+"c": "Windows",
+"w": [
+"Google",
+"YouTube",
+"WhatsApp"
+],
+"e": "Windows, Android e Linux são sistemas operacionais."
+},
+{
+"s": "Informática",
+"a": 4,
+"b": 9,
+"q": "O cérebro do computador é o...",
+"c": "Processador",
+"w": [
+"Monitor",
+"Mouse",
+"Gabinete vazio"
+],
+"e": "O processador (CPU) faz as contas."
+},
+{
+"s": "Informática",
+"a": 5,
+"b": 9,
+"q": "Quanto vale 1 byte?",
+"c": "8 bits",
+"w": [
+"2 bits",
+"10 bits",
+"100 bits"
+],
+"e": "1 byte = 8 bits."
+},
+{
+"s": "Informática",
+"a": 5,
+"b": 9,
+"q": "O que faz um robô seguir comandos?",
+"c": "Programação",
+"w": [
+"Pilha só",
+"Pintura",
+"Sorte"
+],
+"e": "Programamos o robô com instruções."
+},
+{
+"s": "Informática",
+"a": 5,
+"b": 9,
+"q": "Cyberbullying é...",
+"c": "Ofender alguém pela internet",
+"w": [
+"Jogar online",
+"Um antivírus",
+"Um site de jogos"
+],
+"e": "Ofender pela internet machuca: avise um adulto."
+},
+{
+"s": "Informática",
+"a": 5,
+"b": 9,
+"q": "Uma \"repetição\" na programação serve para...",
+"c": "Fazer algo várias vezes",
+"w": [
+"Apagar tudo",
+"Desligar",
+"Deixar mais lento"
+],
+"e": "Laços repetem comandos sem escrever de novo."
+},
+{
+"s": "Informática",
+"a": 6,
+"b": 9,
+"q": "Quantos kilobytes tem 1 megabyte (aprox.)?",
+"c": "1000",
+"w": [
+"10",
+"100",
+"1.000.000"
+],
+"e": "1 MB ≈ 1000 KB."
+},
+{
+"s": "Informática",
+"a": 6,
+"b": 9,
+"q": "\"Se chover, leve guarda-chuva\" é um exemplo de...",
+"c": "Condição (se/então)",
+"w": [
+"Repetição",
+"Variável",
+"Vírus"
+],
+"e": "Condições escolhem o que fazer: SE... ENTÃO."
+},
+{
+"s": "Informática",
+"a": 6,
+"b": 9,
+"q": "Em programação, uma variável serve para...",
+"c": "Guardar um valor",
+"w": [
+"Desligar o PC",
+"Pintar a tela",
+"Imprimir"
+],
+"e": "Variável é uma caixinha que guarda informação."
+},
+{
+"s": "Informática",
+"a": 7,
+"b": 9,
+"q": "O sistema binário usa os números...",
+"c": "0 e 1",
+"w": [
+"1 e 2",
+"0 a 9",
+"Só letras"
+],
+"e": "O computador pensa em 0 e 1."
+},
+{
+"s": "Informática",
+"a": 7,
+"b": 9,
+"q": "Em binário, o número 2 se escreve...",
+"c": "10",
+"w": [
+"2",
+"11",
+"01"
+],
+"e": "2 em binário é 10."
+},
+{
+"s": "Informática",
+"a": 7,
+"b": 9,
+"q": "Fake news é...",
+"c": "Notícia falsa",
+"w": [
+"Notícia nova",
+"Jornal impresso",
+"Rádio"
+],
+"e": "Confira a fonte antes de compartilhar."
+},
+{
+"s": "Educação Física",
+"a": 1,
+"b": 3,
+"q": "Antes de fazer exercício é bom...",
+"c": "Aquecer o corpo",
+"w": [
+"Dormir",
+"Comer muito",
+"Ficar parado"
+],
+"e": "O aquecimento prepara os músculos."
+},
+{
+"s": "Educação Física",
+"a": 1,
+"b": 3,
+"q": "Depois de correr muito devemos...",
+"c": "Beber água",
+"w": [
+"Comer bala",
+"Correr mais",
+"Prender a respiração"
+],
+"e": "A água repõe o que perdemos no suor."
+},
+{
+"s": "Educação Física",
+"a": 1,
+"b": 4,
+"q": "No futebol, onde a bola precisa entrar para ser gol?",
+"c": "No gol",
+"w": [
+"Na cesta",
+"Na rede do vôlei",
+"Na piscina"
+],
+"e": "Gol é quando a bola entra no gol!"
+},
+{
+"s": "Educação Física",
+"a": 1,
+"b": 4,
+"q": "No basquete, fazemos pontos jogando a bola na...",
+"c": "Cesta",
+"w": [
+"Trave",
+"Rede",
+"Linha"
+],
+"e": "A bola tem que passar pela cesta."
+},
+{
+"s": "Educação Física",
+"a": 2,
+"b": 4,
+"q": "Quantos jogadores tem um time de futebol em campo?",
+"c": "11",
+"w": [
+"5",
+"7",
+"15"
+],
+"e": "São 11 jogadores, contando o goleiro."
+},
+{
+"s": "Educação Física",
+"a": 2,
+"b": 5,
+"q": "No futebol, quem pode pegar a bola com a mão?",
+"c": "O goleiro",
+"w": [
+"O atacante",
+"O zagueiro",
+"Ninguém"
+],
+"e": "Só o goleiro, dentro da área."
+},
+{
+"s": "Educação Física",
+"a": 2,
+"b": 5,
+"q": "Quantos jogadores tem um time de vôlei em quadra?",
+"c": "6",
+"w": [
+"11",
+"5",
+"8"
+],
+"e": "No vôlei são 6 de cada lado."
+},
+{
+"s": "Educação Física",
+"a": 2,
+"b": 5,
+"q": "Quantos jogadores um time de basquete tem em quadra?",
+"c": "5",
+"w": [
+"6",
+"11",
+"3"
+],
+"e": "No basquete, 5 de cada time."
+},
+{
+"s": "Educação Física",
+"a": 2,
+"b": 6,
+"q": "Na queimada, quem é atingido pela bola...",
+"c": "Vai para o cemitério",
+"w": [
+"Ganha ponto",
+"Vira goleiro",
+"Sai da escola"
+],
+"e": "Quem é queimado vai para trás do time adversário."
+},
+{
+"s": "Educação Física",
+"a": 3,
+"b": 6,
+"q": "Alongar o corpo ajuda a...",
+"c": "Evitar machucados",
+"w": [
+"Ficar com fome",
+"Ficar com sono",
+"Ficar mais baixo"
+],
+"e": "Alongamento deixa os músculos flexíveis."
+},
+{
+"s": "Educação Física",
+"a": 3,
+"b": 6,
+"q": "Qual esporte é jogado na piscina?",
+"c": "Natação",
+"w": [
+"Judô",
+"Tênis",
+"Handebol"
+],
+"e": "A natação é na água."
+},
+{
+"s": "Educação Física",
+"a": 3,
+"b": 6,
+"q": "No vôlei, a bola deve passar...",
+"c": "Por cima da rede",
+"w": [
+"Por baixo da rede",
+"Pelo chão",
+"Pela trave"
+],
+"e": "No vôlei não pode deixar a bola cair na sua quadra."
+},
+{
+"s": "Educação Física",
+"a": 3,
+"b": 7,
+"q": "O coração bate mais rápido quando...",
+"c": "Corremos",
+"w": [
+"Dormimos",
+"Sentamos",
+"Lemos"
+],
+"e": "O exercício faz o coração bombear mais sangue."
+},
+{
+"s": "Educação Física",
+"a": 3,
+"b": 7,
+"q": "Fair play significa...",
+"c": "Jogo limpo",
+"w": [
+"Jogo rápido",
+"Jogo sujo",
+"Jogo de cartas"
+],
+"e": "Respeitar regras, colegas e adversários."
+},
+{
+"s": "Educação Física",
+"a": 4,
+"b": 7,
+"q": "Em que país nasceram os Jogos Olímpicos?",
+"c": "Grécia",
+"w": [
+"Brasil",
+"China",
+"EUA"
+],
+"e": "Os primeiros Jogos foram na Grécia Antiga."
+},
+{
+"s": "Educação Física",
+"a": 4,
+"b": 8,
+"q": "Os anéis olímpicos são quantos?",
+"c": "5",
+"w": [
+"3",
+"4",
+"6"
+],
+"e": "Cinco anéis: os continentes unidos pelo esporte."
+},
+{
+"s": "Educação Física",
+"a": 4,
+"b": 8,
+"q": "Qual destes é um esporte de luta?",
+"c": "Judô",
+"w": [
+"Vôlei",
+"Natação",
+"Ciclismo"
+],
+"e": "Judô, karatê e capoeira são lutas."
+},
+{
+"s": "Educação Física",
+"a": 4,
+"b": 8,
+"q": "A capoeira mistura luta com...",
+"c": "Música e dança",
+"w": [
+"Natação",
+"Corrida de carro",
+"Pintura"
+],
+"e": "A capoeira tem ginga, berimbau e cantos."
+},
+{
+"s": "Educação Física",
+"a": 5,
+"b": 9,
+"q": "Quanto tempo dura uma partida de futebol (sem acréscimos)?",
+"c": "90 minutos",
+"w": [
+"60 minutos",
+"45 minutos",
+"120 minutos"
+],
+"e": "Dois tempos de 45 minutos."
+},
+{
+"s": "Educação Física",
+"a": 5,
+"b": 9,
+"q": "No handebol, jogamos a bola com...",
+"c": "As mãos",
+"w": [
+"Os pés",
+"A cabeça",
+"Um taco"
+],
+"e": "Handebol é com as mãos (hand = mão)."
+},
+{
+"s": "Educação Física",
+"a": 5,
+"b": 9,
+"q": "Qual alimento dá mais energia para o esporte?",
+"c": "Frutas e cereais",
+"w": [
+"Refrigerante",
+"Salgadinho",
+"Bala"
+],
+"e": "Frutas, arroz e massas dão energia boa."
+},
+{
+"s": "Educação Física",
+"a": 6,
+"b": 9,
+"q": "Exercício aeróbico é aquele que...",
+"c": "Usa muito oxigênio (como correr)",
+"w": [
+"Usa só força",
+"Não cansa",
+"É feito dormindo"
+],
+"e": "Correr, pedalar e nadar são aeróbicos."
+},
+{
+"s": "Educação Física",
+"a": 6,
+"b": 9,
+"q": "Uma maratona tem cerca de...",
+"c": "42 km",
+"w": [
+"10 km",
+"100 km",
+"5 km"
+],
+"e": "A maratona tem 42,195 km."
+},
+{
+"s": "Educação Física",
+"a": 7,
+"b": 9,
+"q": "Qual país mais venceu Copas do Mundo de futebol masculino?",
+"c": "Brasil",
+"w": [
+"Alemanha",
+"Argentina",
+"França"
+],
+"e": "O Brasil é pentacampeão (5 títulos)."
+},
+{
+"s": "Matemática",
+"a": 1,
+"b": 3,
+"q": "Qual número vem depois do 9?",
+"c": "10",
+"w": [
+"8",
+"11",
+"19"
+],
+"e": "Depois do 9 vem o 10."
+},
+{
+"s": "Matemática",
+"a": 1,
+"b": 3,
+"q": "Quantos lados tem um triângulo?",
+"c": "3",
+"w": [
+"4",
+"5",
+"2"
+],
+"e": "TRI = três lados."
+},
+{
+"s": "Matemática",
+"a": 1,
+"b": 3,
+"q": "Qual forma parece uma bola?",
+"c": "Esfera",
+"w": [
+"Cubo",
+"Pirâmide",
+"Cilindro"
+],
+"e": "A esfera é redondinha como a bola."
+},
+{
+"s": "Matemática",
+"a": 1,
+"b": 4,
+"q": "Quantos dias tem uma semana?",
+"c": "7",
+"w": [
+"5",
+"10",
+"30"
+],
+"e": "Domingo a sábado: 7 dias."
+},
+{
+"s": "Matemática",
+"a": 1,
+"b": 4,
+"q": "Qual número é o MAIOR?",
+"c": "25",
+"w": [
+"19",
+"9",
+"21"
+],
+"e": "25 é o maior desses."
+},
+{
+"s": "Matemática",
+"a": 2,
+"b": 4,
+"q": "Quantas dezenas tem o número 40?",
+"c": "4",
+"w": [
+"40",
+"0",
+"14"
+],
+"e": "40 = 4 dezenas."
+},
+{
+"s": "Matemática",
+"a": 2,
+"b": 4,
+"q": "Quantos meses tem um ano?",
+"c": "12",
+"w": [
+"10",
+"7",
+"30"
+],
+"e": "Janeiro a dezembro: 12 meses."
+},
+{
+"s": "Matemática",
+"a": 2,
+"b": 5,
+"q": "Quantos minutos tem uma hora?",
+"c": "60",
+"w": [
+"100",
+"30",
+"24"
+],
+"e": "1 hora = 60 minutos."
+},
+{
+"s": "Matemática",
+"a": 2,
+"b": 5,
+"q": "Metade de 10 é...",
+"c": "5",
+"w": [
+"2",
+"10",
+"20"
+],
+"e": "10 dividido por 2 = 5."
+},
+{
+"s": "Matemática",
+"a": 2,
+"b": 5,
+"q": "O dobro de 6 é...",
+"c": "12",
+"w": [
+"3",
+"8",
+"36"
+],
+"e": "Dobro é duas vezes: 6 + 6 = 12."
+},
+{
+"s": "Matemática",
+"a": 3,
+"b": 5,
+"q": "Quantos lados tem um quadrado?",
+"c": "4",
+"w": [
+"3",
+"5",
+"6"
+],
+"e": "O quadrado tem 4 lados iguais."
+},
+{
+"s": "Matemática",
+"a": 3,
+"b": 6,
+"q": "Quantas horas tem um dia?",
+"c": "24",
+"w": [
+"12",
+"60",
+"7"
+],
+"e": "Um dia completo tem 24 horas."
+},
+{
+"s": "Matemática",
+"a": 3,
+"b": 6,
+"q": "Quantos centímetros tem 1 metro?",
+"c": "100",
+"w": [
+"10",
+"1000",
+"50"
+],
+"e": "1 metro = 100 centímetros."
+},
+{
+"s": "Matemática",
+"a": 3,
+"b": 6,
+"q": "Um número par é...",
+"c": "8",
+"w": [
+"7",
+"9",
+"11"
+],
+"e": "Pares terminam em 0, 2, 4, 6 ou 8."
+},
+{
+"s": "Matemática",
+"a": 3,
+"b": 6,
+"q": "Quanto é 1 real em centavos?",
+"c": "100 centavos",
+"w": [
+"10 centavos",
+"50 centavos",
+"1000 centavos"
+],
+"e": "R$ 1,00 = 100 centavos."
+},
+{
+"s": "Matemática",
+"a": 4,
+"b": 7,
+"q": "Quantos gramas tem 1 quilo?",
+"c": "1000",
+"w": [
+"100",
+"10",
+"500"
+],
+"e": "1 kg = 1000 g."
+},
+{
+"s": "Matemática",
+"a": 4,
+"b": 7,
+"q": "Um hexágono tem quantos lados?",
+"c": "6",
+"w": [
+"5",
+"8",
+"7"
+],
+"e": "HEXA = seis."
+},
+{
+"s": "Matemática",
+"a": 4,
+"b": 7,
+"q": "Qual fração representa METADE?",
+"c": "1/2",
+"w": [
+"1/3",
+"2/3",
+"1/4"
+],
+"e": "Metade é uma de duas partes iguais."
+},
+{
+"s": "Matemática",
+"a": 4,
+"b": 7,
+"q": "Um ângulo reto mede...",
+"c": "90°",
+"w": [
+"180°",
+"45°",
+"360°"
+],
+"e": "O canto de um quadrado tem 90 graus."
+},
+{
+"s": "Matemática",
+"a": 4,
+"b": 8,
+"q": "Qual número é primo?",
+"c": "7",
+"w": [
+"9",
+"15",
+"21"
+],
+"e": "Primo só divide por 1 e por ele mesmo."
+},
+{
+"s": "Matemática",
+"a": 5,
+"b": 8,
+"q": "Qual é a fração equivalente a 2/4?",
+"c": "1/2",
+"w": [
+"2/8",
+"4/2",
+"1/4"
+],
+"e": "2/4 simplificado é 1/2."
+},
+{
+"s": "Matemática",
+"a": 5,
+"b": 8,
+"q": "0,5 é o mesmo que...",
+"c": "1/2",
+"w": [
+"1/5",
+"5",
+"5/100"
+],
+"e": "0,5 = cinco décimos = metade."
+},
+{
+"s": "Matemática",
+"a": 5,
+"b": 8,
+"q": "A soma dos ângulos de um triângulo é...",
+"c": "180°",
+"w": [
+"90°",
+"360°",
+"270°"
+],
+"e": "Todo triângulo soma 180°."
+},
+{
+"s": "Matemática",
+"a": 5,
+"b": 9,
+"q": "10% de 200 é...",
+"c": "20",
+"w": [
+"10",
+"2",
+"200"
+],
+"e": "10% é dividir por 10: 200 ÷ 10 = 20."
+},
+{
+"s": "Matemática",
+"a": 6,
+"b": 9,
+"q": "Quanto é 2 elevado a 3?",
+"c": "8",
+"w": [
+"6",
+"9",
+"5"
+],
+"e": "2³ = 2 × 2 × 2 = 8."
+},
+{
+"s": "Matemática",
+"a": 6,
+"b": 9,
+"q": "A raiz quadrada de 49 é...",
+"c": "7",
+"w": [
+"9",
+"6",
+"24,5"
+],
+"e": "7 × 7 = 49."
+},
+{
+"s": "Matemática",
+"a": 6,
+"b": 9,
+"q": "-3 + 5 é igual a...",
+"c": "2",
+"w": [
+"-8",
+"8",
+"-2"
+],
+"e": "Andando 5 para frente a partir de -3 chegamos a 2."
+},
+{
+"s": "Matemática",
+"a": 6,
+"b": 9,
+"q": "A área de um retângulo 4 x 3 é...",
+"c": "12",
+"w": [
+"7",
+"14",
+"24"
+],
+"e": "Área = base × altura = 12."
+},
+{
+"s": "Matemática",
+"a": 7,
+"b": 9,
+"q": "Se x + 4 = 10, quanto vale x?",
+"c": "6",
+"w": [
+"14",
+"4",
+"10"
+],
+"e": "x = 10 - 4 = 6."
+},
+{
+"s": "Matemática",
+"a": 7,
+"b": 9,
+"q": "O perímetro de um quadrado de lado 5 é...",
+"c": "20",
+"w": [
+"25",
+"10",
+"15"
+],
+"e": "4 lados × 5 = 20."
+},
+{
+"s": "Matemática",
+"a": 7,
+"b": 9,
+"q": "Quanto é 25% de 80?",
+"c": "20",
+"w": [
+"25",
+"40",
+"8"
+],
+"e": "25% é um quarto: 80 ÷ 4 = 20."
+},
+{
+"s": "Matemática",
+"a": 8,
+"b": 9,
+"q": "Se 2x = 18, então x vale...",
+"c": "9",
+"w": [
+"16",
+"20",
+"36"
+],
+"e": "x = 18 ÷ 2 = 9."
+},
+{
+"s": "Matemática",
+"a": 8,
+"b": 9,
+"q": "A raiz quadrada de 144 é...",
+"c": "12",
+"w": [
+"14",
+"72",
+"11"
+],
+"e": "12 × 12 = 144."
+},
+{
+"s": "Português",
+"a": 1,
+"b": 3,
+"q": "Qual palavra começa com a letra M?",
+"c": "Macaco",
+"w": [
+"Gato",
+"Pato",
+"Sapo"
+],
+"e": "MACACO começa com M."
+},
+{
+"s": "Português",
+"a": 1,
+"b": 3,
+"q": "Qual é a última letra do alfabeto?",
+"c": "Z",
+"w": [
+"Y",
+"X",
+"A"
+],
+"e": "O alfabeto vai do A ao Z."
+},
+{
+"s": "Português",
+"a": 1,
+"b": 3,
+"q": "Quantas letras tem a palavra SOL?",
+"c": "3",
+"w": [
+"2",
+"4",
+"5"
+],
+"e": "S-O-L: três letras."
+},
+{
+"s": "Português",
+"a": 1,
+"b": 4,
+"q": "Qual palavra rima com MÃO?",
+"c": "Pão",
+"w": [
+"Pé",
+"Mesa",
+"Bola"
+],
+"e": "MÃO e PÃO terminam com -ÃO."
+},
+{
+"s": "Português",
+"a": 1,
+"b": 4,
+"q": "Qual destas é uma VOGAL?",
+"c": "E",
+"w": [
+"B",
+"T",
+"M"
+],
+"e": "As vogais são A, E, I, O, U."
+},
+{
+"s": "Português",
+"a": 2,
+"b": 4,
+"q": "Qual é o plural de FLOR?",
+"c": "Flores",
+"w": [
+"Flors",
+"Floris",
+"Florzinha"
+],
+"e": "Palavras terminadas em R ganham -ES."
+},
+{
+"s": "Português",
+"a": 2,
+"b": 4,
+"q": "O contrário de GRANDE é...",
+"c": "Pequeno",
+"w": [
+"Enorme",
+"Alto",
+"Gordo"
+],
+"e": "GRANDE x PEQUENO."
+},
+{
+"s": "Português",
+"a": 2,
+"b": 5,
+"q": "Qual palavra está escrita certa?",
+"c": "Casa",
+"w": [
+"Kaza",
+"Caza",
+"Kasa"
+],
+"e": "CASA se escreve com C e S."
+},
+{
+"s": "Português",
+"a": 2,
+"b": 5,
+"q": "Qual palavra tem 2 sílabas?",
+"c": "Bola",
+"w": [
+"Borboleta",
+"Sol",
+"Macaco"
+],
+"e": "BO-LA tem duas sílabas."
+},
+{
+"s": "Português",
+"a": 3,
+"b": 5,
+"q": "Qual palavra é um adjetivo?",
+"c": "Bonito",
+"w": [
+"Correr",
+"Mesa",
+"Ontem"
+],
+"e": "Adjetivo dá qualidade: bonito, alto, feliz."
+},
+{
+"s": "Português",
+"a": 3,
+"b": 6,
+"q": "Qual é o feminino de LEÃO?",
+"c": "Leoa",
+"w": [
+"Leona",
+"Leãa",
+"Leoazinha"
+],
+"e": "O feminino de leão é LEOA."
+},
+{
+"s": "Português",
+"a": 3,
+"b": 6,
+"q": "Qual é o coletivo de PEIXES?",
+"c": "Cardume",
+"w": [
+"Enxame",
+"Bando",
+"Rebanho"
+],
+"e": "Grupo de peixes é CARDUME."
+},
+{
+"s": "Português",
+"a": 3,
+"b": 6,
+"q": "Qual é o coletivo de OVELHAS?",
+"c": "Rebanho",
+"w": [
+"Cardume",
+"Matilha",
+"Constelação"
+],
+"e": "Grupo de ovelhas é REBANHO."
+},
+{
+"s": "Português",
+"a": 3,
+"b": 6,
+"q": "Qual é o coletivo de ESTRELAS?",
+"c": "Constelação",
+"w": [
+"Arquipélago",
+"Alcateia",
+"Frota"
+],
+"e": "Grupo de estrelas é CONSTELAÇÃO."
+},
+{
+"s": "Português",
+"a": 3,
+"b": 7,
+"q": "Qual sinal mostra espanto ou alegria?",
+"c": "!",
+"w": [
+"?",
+",",
+"."
+],
+"e": "O ponto de exclamação mostra emoção."
+},
+{
+"s": "Português",
+"a": 4,
+"b": 7,
+"q": "Qual palavra é um pronome?",
+"c": "Ele",
+"w": [
+"Casa",
+"Correr",
+"Feliz"
+],
+"e": "Pronomes substituem nomes: eu, tu, ele..."
+},
+{
+"s": "Português",
+"a": 4,
+"b": 7,
+"q": "Qual palavra é proparoxítona?",
+"c": "Lâmpada",
+"w": [
+"Café",
+"Casa",
+"Jacaré"
+],
+"e": "LÂM-pa-da: a sílaba forte é a antepenúltima."
+},
+{
+"s": "Português",
+"a": 4,
+"b": 8,
+"q": "Qual palavra se escreve com SS?",
+"c": "Pássaro",
+"w": [
+"Casa",
+"Mesa",
+"Rosa"
+],
+"e": "PÁSSARO tem SS entre vogais com som de S."
+},
+{
+"s": "Português",
+"a": 4,
+"b": 8,
+"q": "Qual destes é um substantivo próprio?",
+"c": "Brasil",
+"w": [
+"cidade",
+"país",
+"menino"
+],
+"e": "Nomes próprios começam com maiúscula."
+},
+{
+"s": "Português",
+"a": 5,
+"b": 8,
+"q": "Em 'Os meninos jogam bola', o verbo está no...",
+"c": "Plural",
+"w": [
+"Singular",
+"Futuro",
+"Passado"
+],
+"e": "JOGAM concorda com 'os meninos' (plural)."
+},
+{
+"s": "Português",
+"a": 5,
+"b": 8,
+"q": "Qual palavra é paroxítona?",
+"c": "Mesa",
+"w": [
+"Café",
+"Lâmpada",
+"Sofá"
+],
+"e": "ME-sa: sílaba forte é a penúltima."
+},
+{
+"s": "Português",
+"a": 5,
+"b": 9,
+"q": "Qual é o sinônimo de FELIZ?",
+"c": "Contente",
+"w": [
+"Triste",
+"Bravo",
+"Cansado"
+],
+"e": "Sinônimos têm sentido parecido."
+},
+{
+"s": "Português",
+"a": 5,
+"b": 9,
+"q": "'Mas' é uma conjunção que indica...",
+"c": "Oposição",
+"w": [
+"Soma",
+"Tempo",
+"Lugar"
+],
+"e": "MAS mostra ideia contrária."
+},
+{
+"s": "Português",
+"a": 6,
+"b": 9,
+"q": "Qual é a forma correta?",
+"c": "Por que você chorou?",
+"w": [
+"Porque você chorou?",
+"Porquê você chorou?",
+"Por quê você chorou?"
+],
+"e": "Em perguntas usamos POR QUE separado."
+},
+{
+"s": "Português",
+"a": 6,
+"b": 9,
+"q": "Qual frase usa a crase corretamente?",
+"c": "Vou à escola.",
+"w": [
+"Vou à pé.",
+"Vou à casa dele.",
+"Comecei à estudar."
+],
+"e": "À = preposição A + artigo A (a escola)."
+},
+{
+"s": "Português",
+"a": 7,
+"b": 9,
+"q": "O sujeito de 'Choveu muito ontem' é...",
+"c": "Inexistente",
+"w": [
+"Ontem",
+"Muito",
+"Chuva"
+],
+"e": "Verbos de fenômenos da natureza não têm sujeito."
+},
+{
+"s": "Português",
+"a": 7,
+"b": 9,
+"q": "'O vento sussurrava' é uma...",
+"c": "Personificação",
+"w": [
+"Hipérbole",
+"Rima",
+"Onomatopeia"
+],
+"e": "Dar ação humana a coisas é personificação."
+},
+{
+"s": "Português",
+"a": 8,
+"b": 9,
+"q": "'Chorei rios de lágrimas' é uma...",
+"c": "Hipérbole",
+"w": [
+"Metáfora simples",
+"Ironia",
+"Personificação"
+],
+"e": "Hipérbole é exagero proposital."
+},
+{
+"s": "Ciências",
+"a": 1,
+"b": 3,
+"q": "Do que as plantas precisam para viver?",
+"c": "Água e luz",
+"w": [
+"Chocolate",
+"Escuridão",
+"Barulho"
+],
+"e": "Plantas precisam de água, luz e ar."
+},
+{
+"s": "Ciências",
+"a": 1,
+"b": 3,
+"q": "Qual animal vive na água?",
+"c": "Peixe",
+"w": [
+"Cachorro",
+"Galinha",
+"Gato"
+],
+"e": "O peixe respira na água pelas brânquias."
+},
+{
+"s": "Ciências",
+"a": 1,
+"b": 3,
+"q": "Com que parte do corpo enxergamos?",
+"c": "Olhos",
+"w": [
+"Ouvidos",
+"Nariz",
+"Boca"
+],
+"e": "A visão fica nos olhos."
+},
+{
+"s": "Ciências",
+"a": 1,
+"b": 3,
+"q": "Qual destes alimentos é uma fruta?",
+"c": "Banana",
+"w": [
+"Arroz",
+"Pão",
+"Queijo"
+],
+"e": "A banana é uma fruta."
+},
+{
+"s": "Ciências",
+"a": 1,
+"b": 4,
+"q": "Qual animal bota ovos?",
+"c": "Galinha",
+"w": [
+"Vaca",
+"Cachorro",
+"Gato"
+],
+"e": "A galinha é uma ave: bota ovos."
+},
+{
+"s": "Ciências",
+"a": 1,
+"b": 4,
+"q": "O que devemos fazer antes de comer?",
+"c": "Lavar as mãos",
+"w": [
+"Correr",
+"Dormir",
+"Pular"
+],
+"e": "Mãos limpas evitam doenças."
+},
+{
+"s": "Ciências",
+"a": 2,
+"b": 4,
+"q": "Qual animal é mamífero?",
+"c": "Baleia",
+"w": [
+"Tubarão",
+"Sardinha",
+"Polvo"
+],
+"e": "A baleia mama quando é filhote."
+},
+{
+"s": "Ciências",
+"a": 2,
+"b": 4,
+"q": "De onde vem o leite que bebemos geralmente?",
+"c": "Da vaca",
+"w": [
+"Da galinha",
+"Do porco",
+"Do peixe"
+],
+"e": "O leite mais comum é o da vaca."
+},
+{
+"s": "Ciências",
+"a": 2,
+"b": 5,
+"q": "O gelo derretido vira...",
+"c": "Água",
+"w": [
+"Areia",
+"Ar",
+"Fogo"
+],
+"e": "Gelo é água no estado sólido."
+},
+{
+"s": "Ciências",
+"a": 2,
+"b": 5,
+"q": "Qual animal é herbívoro?",
+"c": "Coelho",
+"w": [
+"Leão",
+"Tubarão",
+"Gavião"
+],
+"e": "Herbívoros comem plantas."
+},
+{
+"s": "Ciências",
+"a": 2,
+"b": 5,
+"q": "Qual é a estrela mais próxima da Terra?",
+"c": "Sol",
+"w": [
+"Lua",
+"Marte",
+"Estrela Dalva"
+],
+"e": "O Sol é uma estrela!"
+},
+{
+"s": "Ciências",
+"a": 3,
+"b": 5,
+"q": "Respiramos para pegar qual gás?",
+"c": "Oxigênio",
+"w": [
+"Gás carbônico",
+"Fumaça",
+"Hélio"
+],
+"e": "Inspiramos oxigênio."
+},
+{
+"s": "Ciências",
+"a": 3,
+"b": 6,
+"q": "O que soltamos quando expiramos?",
+"c": "Gás carbônico",
+"w": [
+"Oxigênio",
+"Água pura",
+"Sangue"
+],
+"e": "Expiramos gás carbônico."
+},
+{
+"s": "Ciências",
+"a": 3,
+"b": 6,
+"q": "Onde fica o cérebro?",
+"c": "Na cabeça",
+"w": [
+"Na barriga",
+"No pé",
+"No braço"
+],
+"e": "O cérebro fica protegido pelo crânio."
+},
+{
+"s": "Ciências",
+"a": 3,
+"b": 6,
+"q": "Qual órgão bombeia o sangue?",
+"c": "Coração",
+"w": [
+"Pulmão",
+"Estômago",
+"Rim"
+],
+"e": "O coração é uma bomba muscular."
+},
+{
+"s": "Ciências",
+"a": 3,
+"b": 6,
+"q": "O que forma a chuva?",
+"c": "Nuvens",
+"w": [
+"Pedras",
+"Vento só",
+"Fumaça"
+],
+"e": "O vapor vira nuvem e cai como chuva."
+},
+{
+"s": "Ciências",
+"a": 3,
+"b": 7,
+"q": "Qual destes é um inseto?",
+"c": "Formiga",
+"w": [
+"Aranha",
+"Minhoca",
+"Caracol"
+],
+"e": "Insetos têm 6 patas."
+},
+{
+"s": "Ciências",
+"a": 4,
+"b": 7,
+"q": "Quantas patas tem um inseto?",
+"c": "6",
+"w": [
+"8",
+"4",
+"10"
+],
+"e": "Insetos têm 6 patas; aranhas têm 8."
+},
+{
+"s": "Ciências",
+"a": 4,
+"b": 7,
+"q": "Qual planeta tem anéis famosos?",
+"c": "Saturno",
+"w": [
+"Marte",
+"Mercúrio",
+"Terra"
+],
+"e": "Os anéis de Saturno são de gelo e rocha."
+},
+{
+"s": "Ciências",
+"a": 4,
+"b": 7,
+"q": "O que a planta solta na fotossíntese?",
+"c": "Oxigênio",
+"w": [
+"Fumaça",
+"Gás carbônico",
+"Areia"
+],
+"e": "Na fotossíntese a planta libera oxigênio."
+},
+{
+"s": "Ciências",
+"a": 4,
+"b": 8,
+"q": "O ciclo da água começa com a...",
+"c": "Evaporação",
+"w": [
+"Explosão",
+"Fotossíntese",
+"Digestão"
+],
+"e": "O sol esquenta a água e ela evapora."
+},
+{
+"s": "Ciências",
+"a": 4,
+"b": 8,
+"q": "Qual órgão filtra o sangue e faz a urina?",
+"c": "Rins",
+"w": [
+"Pulmões",
+"Coração",
+"Estômago"
+],
+"e": "Os rins limpam o sangue."
+},
+{
+"s": "Ciências",
+"a": 5,
+"b": 8,
+"q": "Qual é o satélite natural da Terra?",
+"c": "Lua",
+"w": [
+"Sol",
+"Marte",
+"Vênus"
+],
+"e": "A Lua gira em volta da Terra."
+},
+{
+"s": "Ciências",
+"a": 5,
+"b": 8,
+"q": "Animais que comem plantas e carne são...",
+"c": "Onívoros",
+"w": [
+"Herbívoros",
+"Carnívoros",
+"Decompositores"
+],
+"e": "O ser humano é onívoro."
+},
+{
+"s": "Ciências",
+"a": 5,
+"b": 8,
+"q": "O que protege o cérebro?",
+"c": "Crânio",
+"w": [
+"Costela",
+"Fêmur",
+"Coluna"
+],
+"e": "O crânio é o osso da cabeça."
+},
+{
+"s": "Ciências",
+"a": 5,
+"b": 9,
+"q": "Por onde a planta absorve água?",
+"c": "Raízes",
+"w": [
+"Flores",
+"Frutos",
+"Folhas só"
+],
+"e": "As raízes absorvem a água do solo."
+},
+{
+"s": "Ciências",
+"a": 6,
+"b": 9,
+"q": "A menor unidade dos seres vivos é a...",
+"c": "Célula",
+"w": [
+"Molécula",
+"Órgão",
+"Tecido"
+],
+"e": "Todo ser vivo é feito de células."
+},
+{
+"s": "Ciências",
+"a": 6,
+"b": 9,
+"q": "Qual vitamina o sol ajuda o corpo a produzir?",
+"c": "Vitamina D",
+"w": [
+"Vitamina C",
+"Vitamina A",
+"Vitamina K"
+],
+"e": "Tomar sol (com cuidado) ajuda a fazer vitamina D."
+},
+{
+"s": "Ciências",
+"a": 6,
+"b": 9,
+"q": "A camada de gases que envolve a Terra é a...",
+"c": "Atmosfera",
+"w": [
+"Crosta",
+"Hidrosfera",
+"Litosfera"
+],
+"e": "A atmosfera tem o ar que respiramos."
+},
+{
+"s": "Ciências",
+"a": 7,
+"b": 9,
+"q": "Qual doença é causada por um vírus?",
+"c": "Gripe",
+"w": [
+"Cárie",
+"Fratura",
+"Miopia"
+],
+"e": "A gripe é causada pelo vírus influenza."
+},
+{
+"s": "Ciências",
+"a": 7,
+"b": 9,
+"q": "O DNA tem a forma de uma...",
+"c": "Dupla hélice",
+"w": [
+"Esfera",
+"Pirâmide",
+"Linha reta"
+],
+"e": "O DNA parece uma escada torcida."
+},
+{
+"s": "Ciências",
+"a": 8,
+"b": 9,
+"q": "A mitocôndria é responsável pela...",
+"c": "Respiração celular",
+"w": [
+"Fotossíntese",
+"Digestão",
+"Reprodução"
+],
+"e": "Ela produz a energia da célula."
+},
+{
+"s": "Geografia",
+"a": 1,
+"b": 3,
+"q": "Onde moramos com nossa família?",
+"c": "Casa",
+"w": [
+"Escola",
+"Mercado",
+"Hospital"
+],
+"e": "A casa é nossa moradia."
+},
+{
+"s": "Geografia",
+"a": 1,
+"b": 3,
+"q": "Qual é o lugar onde estudamos?",
+"c": "Escola",
+"w": [
+"Padaria",
+"Praia",
+"Farmácia"
+],
+"e": "Na escola aprendemos e brincamos."
+},
+{
+"s": "Geografia",
+"a": 1,
+"b": 4,
+"q": "Qual destes é um meio de transporte aéreo?",
+"c": "Avião",
+"w": [
+"Carro",
+"Barco",
+"Trem"
+],
+"e": "O avião voa pelo ar."
+},
+{
+"s": "Geografia",
+"a": 1,
+"b": 4,
+"q": "O semáforo vermelho manda...",
+"c": "Parar",
+"w": [
+"Andar",
+"Correr",
+"Buzinar"
+],
+"e": "Vermelho é PARE."
+},
+{
+"s": "Geografia",
+"a": 2,
+"b": 4,
+"q": "Qual estação do ano é mais fria?",
+"c": "Inverno",
+"w": [
+"Verão",
+"Primavera",
+"Outono"
+],
+"e": "No inverno faz mais frio."
+},
+{
+"s": "Geografia",
+"a": 2,
+"b": 5,
+"q": "Na primavera aparecem muitas...",
+"c": "Flores",
+"w": [
+"Neves",
+"Folhas secas",
+"Tempestades de gelo"
+],
+"e": "Primavera é a estação das flores."
+},
+{
+"s": "Geografia",
+"a": 2,
+"b": 5,
+"q": "Quantos pontos cardeais existem?",
+"c": "4",
+"w": [
+"2",
+"8",
+"6"
+],
+"e": "Norte, Sul, Leste e Oeste."
+},
+{
+"s": "Geografia",
+"a": 3,
+"b": 5,
+"q": "Qual é a capital de São Paulo?",
+"c": "São Paulo",
+"w": [
+"Campinas",
+"Santos",
+"Rio de Janeiro"
+],
+"e": "A capital do estado tem o mesmo nome."
+},
+{
+"s": "Geografia",
+"a": 3,
+"b": 6,
+"q": "Qual é a capital do Rio de Janeiro?",
+"c": "Rio de Janeiro",
+"w": [
+"Niterói",
+"Petrópolis",
+"Búzios"
+],
+"e": "A capital do estado do RJ é a cidade do Rio."
+},
+{
+"s": "Geografia",
+"a": 3,
+"b": 6,
+"q": "Quantos estados tem o Brasil?",
+"c": "26 e o Distrito Federal",
+"w": [
+"20",
+"30",
+"10"
+],
+"e": "São 26 estados e o DF."
+},
+{
+"s": "Geografia",
+"a": 3,
+"b": 6,
+"q": "Qual é a capital de Minas Gerais?",
+"c": "Belo Horizonte",
+"w": [
+"Ouro Preto",
+"Uberlândia",
+"Juiz de Fora"
+],
+"e": "BH é a capital mineira."
+},
+{
+"s": "Geografia",
+"a": 3,
+"b": 7,
+"q": "Instrumento que aponta sempre para o norte:",
+"c": "Bússola",
+"w": [
+"Relógio",
+"Régua",
+"Termômetro"
+],
+"e": "A agulha da bússola aponta para o norte."
+},
+{
+"s": "Geografia",
+"a": 4,
+"b": 7,
+"q": "Qual é a capital do Rio Grande do Sul?",
+"c": "Porto Alegre",
+"w": [
+"Pelotas",
+"Gramado",
+"Caxias do Sul"
+],
+"e": "Porto Alegre é a capital gaúcha."
+},
+{
+"s": "Geografia",
+"a": 4,
+"b": 7,
+"q": "Qual região do Brasil tem mais estados?",
+"c": "Nordeste",
+"w": [
+"Sul",
+"Sudeste",
+"Centro-Oeste"
+],
+"e": "O Nordeste tem 9 estados."
+},
+{
+"s": "Geografia",
+"a": 4,
+"b": 8,
+"q": "O Cerrado fica principalmente no...",
+"c": "Centro-Oeste",
+"w": [
+"Sul",
+"Litoral",
+"Amazonas"
+],
+"e": "O Cerrado é a savana brasileira."
+},
+{
+"s": "Geografia",
+"a": 4,
+"b": 8,
+"q": "Qual bioma tem as Cataratas do Iguaçu?",
+"c": "Mata Atlântica",
+"w": [
+"Caatinga",
+"Pampa",
+"Pantanal"
+],
+"e": "As cataratas ficam no Paraná, na Mata Atlântica."
+},
+{
+"s": "Geografia",
+"a": 5,
+"b": 8,
+"q": "Qual é o maior continente?",
+"c": "Ásia",
+"w": [
+"África",
+"América",
+"Europa"
+],
+"e": "A Ásia é o maior em área e população."
+},
+{
+"s": "Geografia",
+"a": 5,
+"b": 8,
+"q": "Qual país faz fronteira com o Brasil?",
+"c": "Argentina",
+"w": [
+"México",
+"Chile",
+"Equador"
+],
+"e": "Argentina, Uruguai, Paraguai e outros fazem fronteira."
+},
+{
+"s": "Geografia",
+"a": 5,
+"b": 9,
+"q": "Quais países NÃO fazem fronteira com o Brasil?",
+"c": "Chile e Equador",
+"w": [
+"Peru e Bolívia",
+"Uruguai e Paraguai",
+"Venezuela e Colômbia"
+],
+"e": "Chile e Equador são os únicos da América do Sul sem fronteira conosco."
+},
+{
+"s": "Geografia",
+"a": 6,
+"b": 9,
+"q": "O maior deserto quente do mundo é o...",
+"c": "Saara",
+"w": [
+"Atacama",
+"Gobi",
+"Kalahari"
+],
+"e": "O Saara fica no norte da África."
+},
+{
+"s": "Geografia",
+"a": 6,
+"b": 9,
+"q": "Latitude mede a distância até a linha do...",
+"c": "Equador",
+"w": [
+"Greenwich",
+"Trópico de Câncer",
+"Polo Sul"
+],
+"e": "Latitude vai de 0° (Equador) a 90°."
+},
+{
+"s": "Geografia",
+"a": 7,
+"b": 9,
+"q": "O movimento da Terra em volta do Sol se chama...",
+"c": "Translação",
+"w": [
+"Rotação",
+"Precessão",
+"Nutação"
+],
+"e": "A translação dura cerca de 365 dias."
+},
+{
+"s": "Geografia",
+"a": 7,
+"b": 9,
+"q": "A camada mais externa da Terra é a...",
+"c": "Crosta",
+"w": [
+"Manto",
+"Núcleo",
+"Atmosfera"
+],
+"e": "Vivemos sobre a crosta terrestre."
+},
+{
+"s": "Geografia",
+"a": 8,
+"b": 9,
+"q": "Urbanização é...",
+"c": "O crescimento das cidades",
+"w": [
+"O plantio no campo",
+"A criação de gado",
+"A pesca"
+],
+"e": "Mais gente indo viver nas cidades."
+},
+{
+"s": "História",
+"a": 1,
+"b": 3,
+"q": "Quem conta histórias da família antiga para nós?",
+"c": "Os avós",
+"w": [
+"Os bebês",
+"Os cachorros",
+"Ninguém"
+],
+"e": "Os avós lembram como era antigamente."
+},
+{
+"s": "História",
+"a": 1,
+"b": 4,
+"q": "Antigamente, como as pessoas iluminavam a casa à noite?",
+"c": "Velas e lampiões",
+"w": [
+"Lâmpadas LED",
+"Celulares",
+"Televisão"
+],
+"e": "Antes da eletricidade usavam velas."
+},
+{
+"s": "História",
+"a": 1,
+"b": 4,
+"q": "Qual destes brinquedos é bem antigo?",
+"c": "Pião",
+"w": [
+"Videogame",
+"Tablet",
+"Drone"
+],
+"e": "O pião é brinquedo de muitas gerações."
+},
+{
+"s": "História",
+"a": 2,
+"b": 4,
+"q": "Quem eram os primeiros habitantes do Brasil?",
+"c": "Os indígenas",
+"w": [
+"Os portugueses",
+"Os japoneses",
+"Os ingleses"
+],
+"e": "Os povos indígenas já viviam aqui."
+},
+{
+"s": "História",
+"a": 2,
+"b": 5,
+"q": "O Dia do Índio (Povos Indígenas) é comemorado em...",
+"c": "19 de abril",
+"w": [
+"7 de setembro",
+"25 de dezembro",
+"1º de janeiro"
+],
+"e": "19 de abril valoriza os povos originários."
+},
+{
+"s": "História",
+"a": 2,
+"b": 5,
+"q": "O Dia da Independência do Brasil é...",
+"c": "7 de setembro",
+"w": [
+"15 de novembro",
+"21 de abril",
+"12 de outubro"
+],
+"e": "7 de setembro de 1822."
+},
+{
+"s": "História",
+"a": 3,
+"b": 5,
+"q": "Quem chegou ao Brasil em 1500?",
+"c": "Pedro Álvares Cabral",
+"w": [
+"Dom Pedro II",
+"Tiradentes",
+"Getúlio Vargas"
+],
+"e": "A frota de Cabral chegou em 1500."
+},
+{
+"s": "História",
+"a": 3,
+"b": 6,
+"q": "Quem proclamou a independência do Brasil?",
+"c": "Dom Pedro I",
+"w": [
+"Cabral",
+"Tiradentes",
+"Princesa Isabel"
+],
+"e": "Dom Pedro I, às margens do Ipiranga."
+},
+{
+"s": "História",
+"a": 3,
+"b": 6,
+"q": "Qual produto deu nome ao nosso país?",
+"c": "Pau-brasil",
+"w": [
+"Café",
+"Cana-de-açúcar",
+"Ouro"
+],
+"e": "A madeira pau-brasil dava tinta vermelha."
+},
+{
+"s": "História",
+"a": 3,
+"b": 6,
+"q": "O 21 de abril lembra...",
+"c": "Tiradentes",
+"w": [
+"A Independência",
+"O Natal",
+"A República"
+],
+"e": "Tiradentes, herói da Inconfidência Mineira."
+},
+{
+"s": "História",
+"a": 4,
+"b": 7,
+"q": "Quem assinou a Lei Áurea?",
+"c": "Princesa Isabel",
+"w": [
+"Dom Pedro I",
+"Cabral",
+"Getúlio Vargas"
+],
+"e": "A Lei Áurea (1888) aboliu a escravidão."
+},
+{
+"s": "História",
+"a": 4,
+"b": 7,
+"q": "A Proclamação da República foi em...",
+"c": "15 de novembro de 1889",
+"w": [
+"7 de setembro de 1822",
+"22 de abril de 1500",
+"1º de maio de 1900"
+],
+"e": "Deodoro da Fonseca proclamou a República."
+},
+{
+"s": "História",
+"a": 4,
+"b": 7,
+"q": "Qual foi a primeira capital do Brasil?",
+"c": "Salvador",
+"w": [
+"Brasília",
+"Rio de Janeiro",
+"São Paulo"
+],
+"e": "Salvador foi capital de 1549 a 1763."
+},
+{
+"s": "História",
+"a": 4,
+"b": 8,
+"q": "Os egípcios antigos construíram as...",
+"c": "Pirâmides",
+"w": [
+"Torres Eiffel",
+"Muralhas da China",
+"Estátuas da Ilha de Páscoa"
+],
+"e": "As pirâmides eram túmulos dos faraós."
+},
+{
+"s": "História",
+"a": 5,
+"b": 8,
+"q": "Quem foi Zumbi dos Palmares?",
+"c": "Líder do quilombo dos Palmares",
+"w": [
+"Um rei português",
+"Um presidente",
+"Um navegador"
+],
+"e": "Zumbi lutou contra a escravidão."
+},
+{
+"s": "História",
+"a": 5,
+"b": 8,
+"q": "O Dia da Consciência Negra é em...",
+"c": "20 de novembro",
+"w": [
+"13 de maio",
+"7 de setembro",
+"21 de abril"
+],
+"e": "Lembra a morte de Zumbi dos Palmares."
+},
+{
+"s": "História",
+"a": 5,
+"b": 9,
+"q": "A escrita foi inventada há cerca de...",
+"c": "5 mil anos",
+"w": [
+"50 anos",
+"500 anos",
+"1 milhão de anos"
+],
+"e": "Os sumérios criaram a escrita cuneiforme."
+},
+{
+"s": "História",
+"a": 6,
+"b": 9,
+"q": "Os jogos olímpicos começaram na...",
+"c": "Grécia Antiga",
+"w": [
+"Roma Moderna",
+"China",
+"Inglaterra"
+],
+"e": "Começaram em Olímpia, na Grécia."
+},
+{
+"s": "História",
+"a": 6,
+"b": 9,
+"q": "Quem foi o primeiro presidente do Brasil?",
+"c": "Deodoro da Fonseca",
+"w": [
+"Getúlio Vargas",
+"Juscelino Kubitschek",
+"Dom Pedro II"
+],
+"e": "Deodoro, em 1889."
+},
+{
+"s": "História",
+"a": 6,
+"b": 9,
+"q": "Brasília foi inaugurada por...",
+"c": "Juscelino Kubitschek",
+"w": [
+"Getúlio Vargas",
+"Dom Pedro I",
+"Tiradentes"
+],
+"e": "JK inaugurou Brasília em 1960."
+},
+{
+"s": "História",
+"a": 7,
+"b": 9,
+"q": "A Revolução Industrial começou na...",
+"c": "Inglaterra",
+"w": [
+"Brasil",
+"Japão",
+"Egito"
+],
+"e": "No século XVIII, com as máquinas a vapor."
+},
+{
+"s": "História",
+"a": 7,
+"b": 9,
+"q": "Quem chegou à América em 1492?",
+"c": "Cristóvão Colombo",
+"w": [
+"Cabral",
+"Vasco da Gama",
+"Marco Polo"
+],
+"e": "Colombo chegou à América em 1492."
+},
+{
+"s": "História",
+"a": 8,
+"b": 9,
+"q": "A Segunda Guerra Mundial terminou em...",
+"c": "1945",
+"w": [
+"1918",
+"1964",
+"1822"
+],
+"e": "Ela durou de 1939 a 1945."
+},
+{
+"s": "Inglês",
+"a": 1,
+"b": 3,
+"q": "Como se diz OI em inglês?",
+"c": "Hello",
+"w": [
+"Bye",
+"Thanks",
+"Please"
+],
+"e": "Hello = Olá / Oi."
+},
+{
+"s": "Inglês",
+"a": 1,
+"b": 3,
+"q": "RED em português é...",
+"c": "Vermelho",
+"w": [
+"Azul",
+"Verde",
+"Amarelo"
+],
+"e": "Red = vermelho."
+},
+{
+"s": "Inglês",
+"a": 1,
+"b": 3,
+"q": "BLUE em português é...",
+"c": "Azul",
+"w": [
+"Rosa",
+"Preto",
+"Branco"
+],
+"e": "Blue = azul."
+},
+{
+"s": "Inglês",
+"a": 1,
+"b": 4,
+"q": "DOG em português é...",
+"c": "Cachorro",
+"w": [
+"Gato",
+"Pato",
+"Peixe"
+],
+"e": "Dog = cachorro."
+},
+{
+"s": "Inglês",
+"a": 1,
+"b": 4,
+"q": "Como se diz UM em inglês?",
+"c": "One",
+"w": [
+"Two",
+"Ten",
+"Zero"
+],
+"e": "One = 1."
+},
+{
+"s": "Inglês",
+"a": 2,
+"b": 4,
+"q": "THREE é o número...",
+"c": "3",
+"w": [
+"2",
+"13",
+"30"
+],
+"e": "Three = três."
+},
+{
+"s": "Inglês",
+"a": 2,
+"b": 4,
+"q": "APPLE em português é...",
+"c": "Maçã",
+"w": [
+"Banana",
+"Uva",
+"Pera"
+],
+"e": "Apple = maçã."
+},
+{
+"s": "Inglês",
+"a": 2,
+"b": 5,
+"q": "Como se diz OBRIGADO em inglês?",
+"c": "Thank you",
+"w": [
+"Sorry",
+"Hello",
+"Goodbye"
+],
+"e": "Thank you = obrigado(a)."
+},
+{
+"s": "Inglês",
+"a": 2,
+"b": 5,
+"q": "SCHOOL em português é...",
+"c": "Escola",
+"w": [
+"Casa",
+"Rua",
+"Parque"
+],
+"e": "School = escola."
+},
+{
+"s": "Inglês",
+"a": 3,
+"b": 5,
+"q": "MOTHER em português é...",
+"c": "Mãe",
+"w": [
+"Pai",
+"Irmã",
+"Avó"
+],
+"e": "Mother = mãe."
+},
+{
+"s": "Inglês",
+"a": 3,
+"b": 6,
+"q": "Qual é o dia SÁBADO em inglês?",
+"c": "Saturday",
+"w": [
+"Sunday",
+"Monday",
+"Friday"
+],
+"e": "Saturday = sábado."
+},
+{
+"s": "Inglês",
+"a": 3,
+"b": 6,
+"q": "GOOD MORNING significa...",
+"c": "Bom dia",
+"w": [
+"Boa noite",
+"Boa tarde",
+"Tchau"
+],
+"e": "Good morning = bom dia."
+},
+{
+"s": "Inglês",
+"a": 3,
+"b": 6,
+"q": "Como se diz LÁPIS em inglês?",
+"c": "Pencil",
+"w": [
+"Pen",
+"Book",
+"Bag"
+],
+"e": "Pencil = lápis; pen = caneta."
+},
+{
+"s": "Inglês",
+"a": 3,
+"b": 7,
+"q": "TEACHER em português é...",
+"c": "Professor(a)",
+"w": [
+"Aluno",
+"Diretor",
+"Médico"
+],
+"e": "Teacher = professor(a)."
+},
+{
+"s": "Inglês",
+"a": 4,
+"b": 7,
+"q": "Qual é o plural de CHILD?",
+"c": "Children",
+"w": [
+"Childs",
+"Childes",
+"Child"
+],
+"e": "Child = criança; children = crianças."
+},
+{
+"s": "Inglês",
+"a": 4,
+"b": 7,
+"q": "'I am happy' significa...",
+"c": "Eu estou feliz",
+"w": [
+"Eu sou alto",
+"Eu tenho fome",
+"Eu estou triste"
+],
+"e": "Happy = feliz."
+},
+{
+"s": "Inglês",
+"a": 4,
+"b": 8,
+"q": "Qual é o passado de GO?",
+"c": "Went",
+"w": [
+"Goed",
+"Gone",
+"Going"
+],
+"e": "Go é irregular: went."
+},
+{
+"s": "Inglês",
+"a": 5,
+"b": 8,
+"q": "'How old are you?' pergunta...",
+"c": "Sua idade",
+"w": [
+"Seu nome",
+"Onde mora",
+"Se está bem"
+],
+"e": "How old are you? = Quantos anos você tem?"
+},
+{
+"s": "Inglês",
+"a": 5,
+"b": 8,
+"q": "Qual é o oposto de BIG?",
+"c": "Small",
+"w": [
+"Tall",
+"Long",
+"Fast"
+],
+"e": "Big = grande; small = pequeno."
+},
+{
+"s": "Inglês",
+"a": 5,
+"b": 9,
+"q": "'She ___ a student.' Complete:",
+"c": "is",
+"w": [
+"are",
+"am",
+"be"
+],
+"e": "Com she/he/it usamos IS."
+},
+{
+"s": "Inglês",
+"a": 6,
+"b": 9,
+"q": "Qual é o passado de EAT?",
+"c": "Ate",
+"w": [
+"Eated",
+"Eaten",
+"Eat"
+],
+"e": "Eat → ate (irregular)."
+},
+{
+"s": "Inglês",
+"a": 6,
+"b": 9,
+"q": "'Where do you live?' pergunta...",
+"c": "Onde você mora",
+"w": [
+"O que você come",
+"Quando você nasceu",
+"Quem é você"
+],
+"e": "Where = onde."
+},
+{
+"s": "Inglês",
+"a": 7,
+"b": 9,
+"q": "'They have been playing' está no...",
+"c": "Present perfect continuous",
+"w": [
+"Simple past",
+"Future",
+"Simple present"
+],
+"e": "Have been + -ing."
+},
+{
+"s": "Artes",
+"a": 1,
+"b": 3,
+"q": "Misturando azul e amarelo temos...",
+"c": "Verde",
+"w": [
+"Roxo",
+"Laranja",
+"Rosa"
+],
+"e": "Azul + amarelo = verde."
+},
+{
+"s": "Artes",
+"a": 1,
+"b": 3,
+"q": "Com o que pintamos um quadro?",
+"c": "Pincel e tinta",
+"w": [
+"Garfo",
+"Tesoura",
+"Martelo"
+],
+"e": "Pincel e tinta fazem a pintura."
+},
+{
+"s": "Artes",
+"a": 1,
+"b": 4,
+"q": "Misturando vermelho e branco temos...",
+"c": "Rosa",
+"w": [
+"Verde",
+"Azul",
+"Marrom"
+],
+"e": "Vermelho + branco = rosa."
+},
+{
+"s": "Artes",
+"a": 2,
+"b": 4,
+"q": "As cores primárias são...",
+"c": "Vermelho, azul e amarelo",
+"w": [
+"Verde, roxo e laranja",
+"Preto e branco",
+"Rosa e cinza"
+],
+"e": "Com elas fazemos as outras cores."
+},
+{
+"s": "Artes",
+"a": 2,
+"b": 5,
+"q": "Escultura é uma arte feita em...",
+"c": "Três dimensões",
+"w": [
+"Só papel",
+"Só música",
+"Só dança"
+],
+"e": "Esculturas têm volume (largura, altura e profundidade)."
+},
+{
+"s": "Artes",
+"a": 3,
+"b": 6,
+"q": "Quem pintou a Mona Lisa?",
+"c": "Leonardo da Vinci",
+"w": [
+"Picasso",
+"Van Gogh",
+"Tarsila do Amaral"
+],
+"e": "Da Vinci pintou a Mona Lisa."
+},
+{
+"s": "Artes",
+"a": 3,
+"b": 6,
+"q": "Tarsila do Amaral pintou o famoso quadro...",
+"c": "Abaporu",
+"w": [
+"Mona Lisa",
+"Noite Estrelada",
+"O Grito"
+],
+"e": "Abaporu (1928) é ícone do modernismo brasileiro."
+},
+{
+"s": "Artes",
+"a": 3,
+"b": 7,
+"q": "Cores quentes são...",
+"c": "Vermelho, laranja e amarelo",
+"w": [
+"Azul e verde",
+"Roxo e azul",
+"Cinza e preto"
+],
+"e": "Lembram o fogo e o sol."
+},
+{
+"s": "Artes",
+"a": 4,
+"b": 7,
+"q": "Cores frias são...",
+"c": "Azul e verde",
+"w": [
+"Vermelho e laranja",
+"Amarelo e rosa",
+"Marrom e laranja"
+],
+"e": "Lembram água e floresta."
+},
+{
+"s": "Artes",
+"a": 4,
+"b": 8,
+"q": "Quem pintou 'A Noite Estrelada'?",
+"c": "Van Gogh",
+"w": [
+"Da Vinci",
+"Portinari",
+"Michelangelo"
+],
+"e": "Vincent van Gogh, em 1889."
+},
+{
+"s": "Artes",
+"a": 5,
+"b": 8,
+"q": "Mosaico é feito com...",
+"c": "Pedacinhos colados",
+"w": [
+"Uma só tinta",
+"Argila só",
+"Lápis de cor só"
+],
+"e": "Pequenas peças formam a imagem."
+},
+{
+"s": "Artes",
+"a": 5,
+"b": 9,
+"q": "Quem pintou o teto da Capela Sistina?",
+"c": "Michelangelo",
+"w": [
+"Picasso",
+"Monet",
+"Di Cavalcanti"
+],
+"e": "Michelangelo levou 4 anos."
+},
+{
+"s": "Artes",
+"a": 6,
+"b": 9,
+"q": "O cubismo foi criado por...",
+"c": "Picasso",
+"w": [
+"Van Gogh",
+"Monet",
+"Da Vinci"
+],
+"e": "Picasso e Braque criaram o cubismo."
+},
+{
+"s": "Artes",
+"a": 6,
+"b": 9,
+"q": "Grafite é uma arte feita em...",
+"c": "Muros da cidade",
+"w": [
+"Teatro",
+"Livros",
+"Celulares"
+],
+"e": "O grafite é arte urbana nos muros."
+},
+{
+"s": "Música",
+"a": 1,
+"b": 3,
+"q": "Qual instrumento tem teclas brancas e pretas?",
+"c": "Piano",
+"w": [
+"Violão",
+"Flauta",
+"Tambor"
+],
+"e": "O piano tem 88 teclas."
+},
+{
+"s": "Música",
+"a": 1,
+"b": 3,
+"q": "Qual instrumento a gente toca batendo?",
+"c": "Tambor",
+"w": [
+"Flauta",
+"Violino",
+"Gaita"
+],
+"e": "O tambor é de percussão."
+},
+{
+"s": "Música",
+"a": 1,
+"b": 4,
+"q": "Qual instrumento a gente toca soprando?",
+"c": "Flauta",
+"w": [
+"Bateria",
+"Violão",
+"Piano"
+],
+"e": "A flauta é um instrumento de sopro."
+},
+{
+"s": "Música",
+"a": 2,
+"b": 4,
+"q": "Quantas notas musicais básicas existem?",
+"c": "7",
+"w": [
+"5",
+"10",
+"12"
+],
+"e": "Dó, ré, mi, fá, sol, lá, si."
+},
+{
+"s": "Música",
+"a": 2,
+"b": 5,
+"q": "O violão tem quantas cordas?",
+"c": "6",
+"w": [
+"4",
+"8",
+"12"
+],
+"e": "O violão comum tem 6 cordas."
+},
+{
+"s": "Música",
+"a": 2,
+"b": 5,
+"q": "Quem rege uma orquestra é o...",
+"c": "Maestro",
+"w": [
+"Cantor",
+"Baterista",
+"Plateia"
+],
+"e": "O maestro conduz os músicos."
+},
+{
+"s": "Música",
+"a": 3,
+"b": 6,
+"q": "Som FORTE ou FRACO é chamado de...",
+"c": "Intensidade",
+"w": [
+"Altura",
+"Duração",
+"Timbre"
+],
+"e": "Intensidade é o volume do som."
+},
+{
+"s": "Música",
+"a": 3,
+"b": 6,
+"q": "Som AGUDO ou GRAVE é chamado de...",
+"c": "Altura",
+"w": [
+"Intensidade",
+"Duração",
+"Ritmo"
+],
+"e": "Altura: fino (agudo) ou grosso (grave)."
+},
+{
+"s": "Música",
+"a": 3,
+"b": 7,
+"q": "O samba é um ritmo típico do...",
+"c": "Brasil",
+"w": [
+"Japão",
+"Estados Unidos",
+"Rússia"
+],
+"e": "O samba nasceu no Brasil."
+},
+{
+"s": "Música",
+"a": 4,
+"b": 7,
+"q": "O berimbau é usado na...",
+"c": "Capoeira",
+"w": [
+"Ópera",
+"Valsa",
+"Orquestra"
+],
+"e": "O berimbau comanda a roda de capoeira."
+},
+{
+"s": "Música",
+"a": 4,
+"b": 8,
+"q": "Pauta musical tem quantas linhas?",
+"c": "5",
+"w": [
+"4",
+"6",
+"7"
+],
+"e": "A pauta (pentagrama) tem 5 linhas."
+},
+{
+"s": "Música",
+"a": 5,
+"b": 8,
+"q": "Quem compôs a 'Nona Sinfonia'?",
+"c": "Beethoven",
+"w": [
+"Mozart",
+"Villa-Lobos",
+"Bach"
+],
+"e": "Beethoven compôs mesmo quase surdo."
+},
+{
+"s": "Música",
+"a": 5,
+"b": 9,
+"q": "Heitor Villa-Lobos foi um compositor...",
+"c": "Brasileiro",
+"w": [
+"Alemão",
+"Italiano",
+"Russo"
+],
+"e": "Villa-Lobos é o maior compositor erudito do Brasil."
+},
+{
+"s": "Música",
+"a": 6,
+"b": 9,
+"q": "O que é timbre?",
+"c": "A \"voz\" de cada instrumento",
+"w": [
+"O volume",
+"A velocidade",
+"A letra da música"
+],
+"e": "Timbre diferencia um piano de um violão."
+},
+{
+"s": "Física",
+"a": 4,
+"b": 7,
+"q": "O que faz as coisas caírem no chão?",
+"c": "Gravidade",
+"w": [
+"Vento",
+"Luz",
+"Som"
+],
+"e": "A gravidade puxa tudo para a Terra."
+},
+{
+"s": "Física",
+"a": 4,
+"b": 7,
+"q": "O som viaja mais rápido no...",
+"c": "Metal",
+"w": [
+"Ar",
+"Vácuo",
+"Nada"
+],
+"e": "O som é mais rápido em sólidos."
+},
+{
+"s": "Física",
+"a": 5,
+"b": 8,
+"q": "No vácuo (espaço) o som...",
+"c": "Não se propaga",
+"w": [
+"É mais alto",
+"É mais rápido",
+"Fica colorido"
+],
+"e": "O som precisa de matéria para viajar."
+},
+{
+"s": "Física",
+"a": 5,
+"b": 8,
+"q": "A luz do Sol leva cerca de quanto tempo para chegar à Terra?",
+"c": "8 minutos",
+"w": [
+"1 segundo",
+"1 dia",
+"1 ano"
+],
+"e": "A luz viaja 150 milhões de km em ~8 min."
+},
+{
+"s": "Física",
+"a": 5,
+"b": 8,
+"q": "Qual material conduz bem eletricidade?",
+"c": "Cobre",
+"w": [
+"Borracha",
+"Madeira",
+"Plástico"
+],
+"e": "Fios elétricos são de cobre."
+},
+{
+"s": "Física",
+"a": 6,
+"b": 9,
+"q": "A unidade de força é o...",
+"c": "Newton",
+"w": [
+"Metro",
+"Litro",
+"Watt"
+],
+"e": "Homenagem a Isaac Newton."
+},
+{
+"s": "Física",
+"a": 6,
+"b": 9,
+"q": "Velocidade = distância dividida por...",
+"c": "Tempo",
+"w": [
+"Massa",
+"Força",
+"Volume"
+],
+"e": "v = d / t."
+},
+{
+"s": "Física",
+"a": 6,
+"b": 9,
+"q": "Um carro anda 100 km em 2 horas. Sua velocidade média é...",
+"c": "50 km/h",
+"w": [
+"200 km/h",
+"100 km/h",
+"25 km/h"
+],
+"e": "100 ÷ 2 = 50 km/h."
+},
+{
+"s": "Física",
+"a": 7,
+"b": 9,
+"q": "O arco-íris acontece porque a luz se...",
+"c": "Decompõe nas gotas",
+"w": [
+"Apaga",
+"Esquenta",
+"Congela"
+],
+"e": "A luz branca se separa em cores."
+},
+{
+"s": "Física",
+"a": 7,
+"b": 9,
+"q": "Energia dos ventos é chamada de...",
+"c": "Eólica",
+"w": [
+"Solar",
+"Nuclear",
+"Hidrelétrica"
+],
+"e": "Turbinas eólicas giram com o vento."
+},
+{
+"s": "Física",
+"a": 8,
+"b": 9,
+"q": "A primeira lei de Newton fala da...",
+"c": "Inércia",
+"w": [
+"Gravidade",
+"Eletricidade",
+"Luz"
+],
+"e": "Corpos tendem a continuar como estão."
+},
+{
+"s": "Química",
+"a": 5,
+"b": 8,
+"q": "A água ferve a quantos graus (ao nível do mar)?",
+"c": "100 °C",
+"w": [
+"50 °C",
+"0 °C",
+"200 °C"
+],
+"e": "A água ferve a 100 °C."
+},
+{
+"s": "Química",
+"a": 5,
+"b": 8,
+"q": "A água congela a...",
+"c": "0 °C",
+"w": [
+"100 °C",
+"10 °C",
+"-50 °C"
+],
+"e": "Abaixo de 0 °C a água vira gelo."
+},
+{
+"s": "Química",
+"a": 5,
+"b": 8,
+"q": "Os três estados da matéria são...",
+"c": "Sólido, líquido e gasoso",
+"w": [
+"Quente, frio e morno",
+"Grande, médio e pequeno",
+"Duro, mole e macio"
+],
+"e": "Gelo, água e vapor."
+},
+{
+"s": "Química",
+"a": 6,
+"b": 9,
+"q": "A fórmula da água é...",
+"c": "H2O",
+"w": [
+"CO2",
+"O2",
+"NaCl"
+],
+"e": "Dois hidrogênios e um oxigênio."
+},
+{
+"s": "Química",
+"a": 6,
+"b": 9,
+"q": "A ferrugem acontece quando o ferro reage com...",
+"c": "Oxigênio e água",
+"w": [
+"Areia",
+"Luz",
+"Açúcar"
+],
+"e": "A oxidação forma a ferrugem."
+},
+{
+"s": "Química",
+"a": 6,
+"b": 9,
+"q": "Misturar água e óleo forma uma mistura...",
+"c": "Heterogênea",
+"w": [
+"Homogênea",
+"Pura",
+"Gasosa"
+],
+"e": "Dá para ver as duas partes separadas."
+},
+{
+"s": "Química",
+"a": 7,
+"b": 9,
+"q": "O símbolo químico do ouro é...",
+"c": "Au",
+"w": [
+"Ou",
+"Go",
+"Ag"
+],
+"e": "Au vem do latim 'aurum'."
+},
+{
+"s": "Química",
+"a": 7,
+"b": 9,
+"q": "O símbolo químico da prata é...",
+"c": "Ag",
+"w": [
+"Pr",
+"Pt",
+"Au"
+],
+"e": "Ag vem do latim 'argentum'."
+},
+{
+"s": "Química",
+"a": 7,
+"b": 9,
+"q": "O que tem pH menor que 7 é...",
+"c": "Ácido",
+"w": [
+"Básico",
+"Neutro",
+"Gasoso"
+],
+"e": "Limão e vinagre são ácidos."
+},
+{
+"s": "Química",
+"a": 8,
+"b": 9,
+"q": "A tabela periódica organiza os...",
+"c": "Elementos químicos",
+"w": [
+"Planetas",
+"Animais",
+"Países"
+],
+"e": "Ela tem mais de 110 elementos."
+}
+]
+}

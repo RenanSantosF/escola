@@ -33,6 +33,7 @@ func _ready() -> void:
 	# versão desatualizada? (pergunta ao servidor enquanto carrega; se for, trava na tela de atualizar)
 	if not _is_test_run():
 		NetworkManager.check_version()
+		QuestionDB.refresh(self)  # perguntas novas do banco de dados do servidor
 	# abertura FT (1,8 s): espera acabar antes de carregar a escola (fica lisa)
 	if FTSplash.playing:
 		await FTSplash.finished

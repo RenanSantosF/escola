@@ -15,6 +15,7 @@ func _ready() -> void:
 	Settings.set_value("quality", Settings.Quality.MEDIUM, false)  # não depende do que ficou salvo
 	NPCManager.STUDENT_BOTS = true  # os testes antigos contam com alunos-bot andando
 	SchoolDay.SPECIAL_ROOMS = false  # e com as duas aulas na Sala 5
+	SchoolDay.RANDOM_SCHEDULE = false  # e com a grade antiga (turmas nas Salas 5, 6 e 4)
 	SaveManager.reset()
 	_test_save_system()
 	_test_settings()
@@ -91,6 +92,8 @@ func _ready() -> void:
 	await _test_dicas()
 	await _test_tela_amigos()
 	await _test_duas_turmas()
+	await _test_grade_do_dia()
+	await _test_educacao_infantil()
 	await _test_interpolacao()
 	_finish()
 
@@ -2123,7 +2126,11 @@ func _test_salas_alcancaveis() -> void:
 	var sd: SchoolDay = main.school_day
 	var nav: NavGraph = main.npcs.nav
 	var rooms: Array = SchoolDay.SUBJECT_ROOMS.values()
-	rooms.append("Sala 5")
+	for lst in Schedule.SUBJECT_ROOMS.values():
+		for r in lst:
+			if r != "" and not r in rooms:
+				rooms.append(r)
+	rooms.append_array(Schedule.CLASSROOMS)
 	var bad: Array = []
 	for rn in rooms:
 		var tgt := sd.room_point(rn)
@@ -2230,6 +2237,97 @@ func _test_duas_turmas() -> void:
 	check(NPCManager.CLASS_ROOM == "Sala 5" and npcm.teacher == marcia and not npcm.room_teachers["Sala 6"].active and not npcm.room_teachers["Sala 4"].active, "turmas: voltou para a Turma A (Sala 5) e os outros professores somem sem alunos")
 	npcm.apply_desks({}, "")
 	NetworkManager.my_id = ""
+
+
+func _test_grade_do_dia() -> void:
+	var sd: SchoolDay = main.school_day
+	var npcm: NPCManager = main.npcs
+	await _clear_discipline()
+	SchoolDay.RANDOM_SCHEDULE = true
+	SchoolDay.SPECIAL_ROOMS = true
+	# grade fixa de teste: Turma A na Sala 9, 1ª aula de Informática na sala de informática
+	var g := {"rooms": ["Sala 9", "Sala 2", "Sala 13"], "classes": [
+		[{"subj": "Informática", "room": "Sala de Informática"}, {"subj": "Português", "room": ""}],
+		[{"subj": "Educação Física", "room": "Quadra Poliesportiva"}, {"subj": "Música", "room": "Sala de Música"}],
+		[{"subj": "História", "room": "Sala de Vídeo"}, {"subj": "Matemática", "room": ""}]]}
+	sd.schedule = g
+	npcm.set_turma_rooms(g.rooms, 0)
+	sd._subjects = sd._day_subjects()
+	check(NPCManager.CLASS_ROOM == "Sala 9" and npcm.player_desk.room == "Sala 9", "grade: a turma muda de sala (Sala 9) e a carteira vai junto", NPCManager.CLASS_ROOM)
+	check(sd._subjects == ["Informática", "Português"], "grade: matérias vêm da grade (tem Informática)", str(sd._subjects))
+	check(sd.room_for_class(0) == "Sala de Informática" and sd.room_for_class(1) == "Sala 9", "grade: 1ª aula na sala de informática, 2ª na sala da turma")
+	check(npcm.teacher == npcm.turma_teacher_list[0], "grade: a professora da Turma A vai com a turma")
+	# carteira sorteada (não é sempre a mesma)
+	var desks := {}
+	for i in 12:
+		npcm._pick_player_desk()
+		desks[npcm.player_desk] = true
+	check(desks.size() >= 3, "grade: a carteira é sorteada entre as 12 (%d diferentes)" % desks.size())
+	sd._begin_class(0)
+	await _wait(0.5)
+	var rp := sd.room_point("Sala de Informática")
+	check(npcm.teacher.active and npcm.teacher.global_position.distance_to(rp) < 6.0, "grade: a professora está na sala de informática")
+	# a professora sumiu: o vigia traz de volta
+	npcm.teacher.teleport(Vector3(0, -50, 0))
+	npcm.teacher.set_active(false)
+	sd._watch_teacher()
+	check(npcm.teacher.active and npcm.teacher.global_position.distance_to(rp) < 6.0, "grade: toda aula tem professor(a) (volta se sumir)")
+	_place(rp, 0)
+	await _wait(2.5)
+	check(sd._task_active or sd.classroom_ui.visible, "grade: na sala de informática a tarefa aparece")
+	var subj_ok := true
+	for t in sd.lesson:
+		if not (str(t.subject) in ["Informática", "Ajude a professora"]):
+			subj_ok = false
+	check(subj_ok, "grade: as perguntas são da matéria da aula (Informática)", str(sd.lesson.map(func(t): return t.subject)))
+	sd.classroom_ui.hide_panel()
+	sd._task_active = false
+	# sorteio local: 3 salas diferentes e todas as matérias aparecem
+	var rng := RandomNumberGenerator.new()
+	var seen := {}
+	var ok3 := true
+	for i in 30:
+		var m := Schedule.make(rng)
+		if Array(m.rooms).size() != 3 or m.rooms[0] == m.rooms[1] or m.rooms[1] == m.rooms[2] or m.rooms[0] == m.rooms[2]:
+			ok3 = false
+		for t in m.classes:
+			for c in t:
+				seen[c.subj] = true
+	check(ok3 and seen.size() == Schedule.SUBJECT_ROOMS.size(), "grade: sorteio com 3 salas diferentes e todas as matérias (%d)" % seen.size())
+	# perguntas: sem repetir a mesma sequência e banco grande
+	check(QuestionDB.count() >= 250, "perguntas: banco com %d perguntas extras" % QuestionDB.count())
+	var gen := ClassroomTasks.new(0, 4)
+	var l1 := gen.make_lesson(7, false, "Ciências").map(func(t): return ClassroomTasks.task_key(t))
+	var l2 := gen.make_lesson(7, false, "Ciências").map(func(t): return ClassroomTasks.task_key(t))
+	var same := 0
+	for k in l1:
+		if k in l2:
+			same += 1
+	check(same <= 1, "perguntas: duas aulas seguidas não repetem as mesmas perguntas (%d iguais)" % same)
+	# volta ao padrão dos testes antigos
+	SchoolDay.RANDOM_SCHEDULE = false
+	SchoolDay.SPECIAL_ROOMS = false
+	sd.schedule = {}
+	npcm.set_turma_rooms(["Sala 5", "Sala 6", "Sala 4"], 0)
+	await _recess()
+
+
+func _test_educacao_infantil() -> void:
+	var gen := ClassroomTasks.new(0, 0)
+	var lesson := gen.make_lesson(7, true, "Matemática")
+	var all_pic := lesson.all(func(t): return t.type == "pic" and t.options.size() >= 2 and int(t.answer) >= 0)
+	check(all_pic and lesson.size() == 7, "3 anos: a aula inteira é com figuras (sem ler)")
+	var kinds := {}
+	for t in lesson:
+		kinds[t.prompt.split(" ")[0]] = true
+	check(kinds.size() >= 4, "3 anos: atividades variadas (%d tipos)" % kinds.size())
+	check(ClassroomTasks.level_for_age(3) == 0 and ClassroomTasks.level_for_age(4) == 0, "3 anos: idade 3–4 = Educação Infantil")
+	var ui: ClassroomUI = main.school_day.classroom_ui
+	ui.show_task(lesson[0], 0, 7, [])
+	await _frames(3)
+	var cards := ui.find_children("*", "PictureCard", true, false)
+	check(cards.size() >= 2, "3 anos: a lousa mostra figuras grandes (%d)" % cards.size())
+	ui.hide_panel()
 
 
 func _test_tela_amigos() -> void:

@@ -4,7 +4,8 @@ extends RefCounted
 ## desempenho ajusta automaticamente (+/- 2 anos) — se acertar muito, as
 ## perguntas ficam mais desafiadoras; se errar muito, ficam mais fáceis.
 
-const MIN_AGE := 5
+## 3 e 4 anos = Educação Infantil (atividades com figuras, sem ler).
+const MIN_AGE := 3
 const MAX_AGE := 15
 
 
@@ -27,11 +28,15 @@ static func set_age(a: int) -> void:
 
 
 static func level() -> int:
-	return clampi(ClassroomTasks.level_for_age(age()) + int(data().get("offset", 0)), 1, 9)
+	var off := int(data().get("offset", 0))
+	if age() <= 4:
+		# Educação Infantil: figuras; se acertar muito, passa para o 1º ano
+		return 1 if off >= 1 else 0
+	return clampi(ClassroomTasks.level_for_age(age()) + off, 1, 9)
 
 
 static func grade_name() -> String:
-	return "%dº ano" % level()
+	return "Educação Infantil" if level() == 0 else "%dº ano" % level()
 
 
 ## Registra um resultado; a cada 6 respostas reavalia a dificuldade.
@@ -42,7 +47,7 @@ static func record(ok: bool) -> void:
 	if recent.size() >= 6:
 		var rate := float(recent.count(1)) / recent.size()
 		var off := int(d.get("offset", 0))
-		if rate >= 0.84 and off < 2:
+		if rate >= 0.84 and off < (1 if age() <= 4 else 2):
 			d["offset"] = off + 1
 			GameManager.show_toast("Você está mandando bem! As atividades vão ficar mais desafiadoras.")
 		elif rate <= 0.34 and off > -2:

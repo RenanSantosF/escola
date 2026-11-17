@@ -4,5 +4,6 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 COPY src ./src
 COPY public ./public
+COPY data ./data
 ENV NODE_ENV=production
 CMD ["node", "src/server.js"]

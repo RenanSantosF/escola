@@ -9,9 +9,10 @@ signal dialogue_requested(npc: NPC, lines: Array)
 signal npc_bumped(npc: NPC, intensity: float)
 
 ## Sala da MINHA turma. Online a escola tem 3 turmas de 12 (carteiras 0-11
-## na Sala 5, 12-23 na Sala 6, 24-35 na Sala 4); o servidor diz qual é a minha.
+## na Turma A, 12-23 na B, 24-35 na C). As salas das turmas mudam todo dia:
+## o servidor sorteia (grade do dia, Schedule); sozinho, o jogo sorteia.
 static var CLASS_ROOM := "Sala 5"
-const TURMA_ROOMS := ["Sala 5", "Sala 6", "Sala 4"]
+static var TURMA_ROOMS: Array = ["Sala 5", "Sala 6", "Sala 4"]
 const TURMA_TEACHERS := ["teacher", "teacher_b", "teacher_c"]
 const DESKS_PER_TURMA := 12
 signal turma_changed(room: String)
@@ -46,6 +47,10 @@ var classmates: Array[NPC] = []
 var others: Array[NPC] = []
 var teacher: NPC  # professora da MINHA turma
 var room_teachers := {}  # sala da turma -> professor(a) dela
+var turma_teacher_list: Array[NPC] = []  # professor(a) da Turma A, B, C
+## Onde a aula de cada turma está acontecendo agora (sala da turma -> sala da
+## aula; ex.: "Sala 9" -> "Sala de Informática"). Vazio = na própria sala.
+var turma_class_room := {}
 var turma_players := {}  # sala -> quantos colegas online estão nela (fora eu)
 var other_turma_players := 0
 var director: NPC
@@ -115,12 +120,9 @@ func _pick_player_desk() -> void:
 	var info: Dictionary = world.builder.classrooms.get(CLASS_ROOM, {})
 	if list.is_empty() or info.is_empty():
 		return
-	var r: Rect2 = info.rect
-	var target := Vector3(r.get_center().x, 0, r.get_center().y)
-	var best: Seat = null
-	for s in list:
-		if best == null or s.global_position.distance_to(target) < best.global_position.distance_to(target):
-			best = s
+	# carteira sorteada entre as 12 da turma (cada dia num lugar diferente)
+	var choices := desk_seats()
+	var best: Seat = choices.pick_random() if not choices.is_empty() else list[0]
 	if player_desk and player_desk.has_meta("my_desk"):
 		player_desk.remove_meta("my_desk")
 	player_desk = best
@@ -266,6 +268,8 @@ func _set_turma_room(room: String) -> void:
 	CLASS_ROOM = room
 	var old := teacher
 	teacher = room_teachers.get(room, teacher)
+	if teacher == null and not turma_teacher_list.is_empty():
+		teacher = turma_teacher_list[0]
 	if old and old != teacher and (old.sitting or old.seat):
 		old.force_unseat()
 	if teacher:
@@ -282,6 +286,66 @@ func _set_turma_room(room: String) -> void:
 				teacher.sit_on(sofa)
 	_place_other_teacher()
 	turma_changed.emit(room)
+
+
+## Grade do dia: as três turmas mudam de sala. Os professores vão junto
+## (o da Turma A continua sendo o da Turma A) e a minha carteira é sorteada
+## de novo na sala nova.
+func set_turma_rooms(rooms: Array, my_turma: int) -> void:
+	if rooms.size() < TURMA_ROOMS.size() or turma_teacher_list.size() < TURMA_ROOMS.size():
+		return
+	for r in rooms:
+		if not world.builder.classrooms.has(r):
+			return
+	var changed := rooms != TURMA_ROOMS
+	if changed:
+		TURMA_ROOMS = rooms.duplicate()
+		room_teachers.clear()
+		for i in TURMA_ROOMS.size():
+			room_teachers[TURMA_ROOMS[i]] = turma_teacher_list[i]
+		turma_class_room.clear()
+	var want: String = TURMA_ROOMS[clampi(my_turma, 0, TURMA_ROOMS.size() - 1)]
+	if not changed and want == CLASS_ROOM:
+		return
+	_set_turma_room(want)
+	if NetworkManager.is_online() and not NetworkManager.desks.is_empty():
+		apply_desks(NetworkManager.desks, NetworkManager.my_id)
+	else:
+		_pick_player_desk()
+		player_desk_changed.emit(player_desk)
+	# colegas-bot (testes antigos) vão para as carteiras da sala nova
+	var seats := desk_seats()
+	var k := 0
+	for n in classmates:
+		var d: Seat = n.activity_data.get("desk")
+		if d and d.room == CLASS_ROOM:
+			continue
+		if n.sitting or n.seat:
+			n.force_unseat()
+		while k < seats.size() and (seats[k] == player_desk or seats[k].occupant != null):
+			k += 1
+		n.activity_data["desk"] = seats[k] if k < seats.size() else null
+		n.activity_data["home"] = CLASS_ROOM
+		k += 1
+
+
+## Lugar da professora numa sala: o da lousa (salas de aula) ou na frente
+## do meio da sala especial (laboratório, informática, quadra...).
+func class_spot(room: String) -> Transform3D:
+	var info: Dictionary = world.builder.classrooms.get(room, {})
+	if info.has("teacher"):
+		return Transform3D(Basis(Vector3.UP, info.board_yaw), info.teacher)
+	return Transform3D(Basis(), room_point(room) + Vector3(0, 0, -1.5))
+
+
+## Ponto no meio de uma sala/área (na altura do andar dela).
+func room_point(room_name: String) -> Vector3:
+	for z in world.builder.zones:
+		if str(z.name) == room_name:
+			var c: Vector2 = (z.rect as Rect2).get_center()
+			var y0 := float(z.get("y0", -0.5))
+			return Vector3(c.x, y0 + 0.55 if y0 > 1.0 else 0.05, c.y)
+	return player_desk.global_position if player_desk else Vector3.ZERO
 
 
 ## Professores das OUTRAS turmas.
@@ -303,6 +367,7 @@ func _place_other_teacher() -> void:
 			continue
 		var info: Dictionary = world.builder.classrooms.get(r, {})
 		var want := int(turma_players.get(r, 0)) > 0 and phase in ["arrival", "class", "return"] and not info.is_empty()
+		var where: String = turma_class_room.get(r, "") if phase == "class" else ""
 		if not want:
 			if t.active:
 				if t.sitting or t.seat:
@@ -310,10 +375,11 @@ func _place_other_teacher() -> void:
 				t.set_active(false)
 				t.teleport(Vector3(0, -50, 0))
 			continue
-		var spot: Vector3 = info.teacher
+		var cs := class_spot(where if where != "" else r)
+		var spot: Vector3 = cs.origin
 		if not t.active or t.global_position.distance_to(spot) > 3.0:
 			t.set_active(true)
-			t.teleport(spot, info.board_yaw)
+			t.teleport(spot, cs.basis.get_euler().y)
 		t.activity = "teach"
 
 
@@ -426,6 +492,7 @@ func _spawn_all(n_class: int, n_other: int) -> void:
 	for i in TURMA_ROOMS.size():
 		var t := _make(NPCRoster.ADULTS[TURMA_TEACHERS[i]])
 		room_teachers[TURMA_ROOMS[i]] = t
+		turma_teacher_list.append(t)
 		if TURMA_ROOMS[i] != CLASS_ROOM:
 			t.set_active(false)
 			t.teleport(Vector3(0, -50, 0))

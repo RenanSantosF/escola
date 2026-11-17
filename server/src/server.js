@@ -42,6 +42,7 @@ const { CATALOG } = require('./games');
 const { Database } = require('./db');
 const gameSettings = require('./settings');
 const { Friends } = require('./friends');
+const { QuestionBank } = require('./questions');
 
 const NEAR_DIST = 18; // metros do canal "Perto de mim"
 const EMOTES = new Set(['wave', 'celebrate', 'clap', 'sad', 'stretch', 'scratch_head', 'look_around', 'raise_hand']);
@@ -64,6 +65,7 @@ function createServer(opts = {}) {
     onBlock: (id, other) => dbSafe(db.saveBlock(id, other)),
   });
   const friends = opts.friends || new Friends();
+  const questions = opts.questions || new QuestionBank();
   const online = new Map(); // id da conta -> jogador conectado (para amigos: "está na sala 1234")
   // CLOCK_SCALE/CLOCK_START só para testes locais (o dia inteiro em segundos, ou já no recreio)
   const rooms = new RoomManager({ clock: { scale: opts.clockScale ?? (Number(process.env.CLOCK_SCALE) || 1), startPhase: opts.clockStart ?? process.env.CLOCK_START } });
@@ -100,6 +102,7 @@ function createServer(opts = {}) {
       for (const [id, until] of await db.loadMutes()) safety.mutedUntil.set(id, until);
       for (const [id, other] of await db.loadBlocks()) safety.block(id, other, false);
       friends.load(await db.loadFriends());
+      questions.load(await db.loadQuestions().catch(() => []));
       gameSettings.apply(await db.loadSettings().catch(() => null));
       console.log('Banco de dados conectado: ' + analytics.events.length + ' eventos carregados');
       return true;
@@ -183,6 +186,24 @@ function createServer(opts = {}) {
       return res.end(html);
     }
     // versão mínima do app: o jogo pergunta ao abrir
+    // Perguntas das aulas (banco de dados). ?v=versão que o jogo já tem
+    if (url === '/api/questions' && req.method === 'GET') {
+      const p = questions.payload();
+      const have = Number(new URL(req.url, 'http://x').searchParams.get('v')) || 0;
+      if (have === p.version) return json(200, { same: true, version: p.version });
+      return json(200, p);
+    }
+    if (url === '/api/admin/questions' && req.method === 'GET') {
+      if (!isAdmin(req)) return json(403, { ok: false });
+      return json(200, { ok: true, counts: questions.counts(), total: questions.all().length, extra: [...questions.extra.values()].slice(-300) });
+    }
+    if (url === '/api/admin/questions' && req.method === 'POST') {
+      if (!isAdmin(req)) return json(403, { ok: false });
+      const r = questions.add(await readJson(req, 8192));
+      if (r.error) return json(400, { ok: false, error: r.error });
+      const id = await db.saveQuestion(r.q).catch(() => null);
+      return json(200, { ok: true, saved: id !== null, total: questions.all().length });
+    }
     if (url === '/api/version' && req.method === 'GET') {
       return json(200, { ok: true, min: gameSettings.settings.minVersion, store: gameSettings.STORE_URL });
     }
@@ -498,7 +519,7 @@ function createServer(opts = {}) {
       }
       if (ws.readyState !== 1) return;
       const acc = accounts.getOrCreate(token, { age: m.age, level: m.level, look: m.look });
-      if (Number.isFinite(m.age)) acc.age = Math.max(5, Math.min(18, m.age | 0));
+      if (Number.isFinite(m.age)) acc.age = Math.max(3, Math.min(18, m.age | 0));
       dbSafe(db.saveAccount(acc));
       player = { id: acc.id, name: acc.name, level: acc.level, look: acc.look, pos: [0, 0, 70], yaw: 0, anim: 'idle', ws, acc, dirty: true };
       let r;
