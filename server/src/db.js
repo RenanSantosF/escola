@@ -69,6 +69,35 @@ create table if not exists settings (
   key text primary key,
   value jsonb not null
 );
+create table if not exists game_sessions (
+  game text not null,
+  sid text not null,
+  uid text not null,
+  start_at timestamptz not null,
+  last_at timestamptz not null,
+  seconds int not null default 0,
+  version text not null default '',
+  platform text not null default '',
+  ended boolean not null default false,
+  primary key (game, sid)
+);
+create index if not exists game_sessions_start_idx on game_sessions (start_at);
+create table if not exists game_players (
+  game text not null,
+  uid text not null,
+  first_at timestamptz not null,
+  last_at timestamptz not null,
+  primary key (game, uid)
+);
+create table if not exists game_events (
+  id bigserial primary key,
+  game text not null,
+  at timestamptz not null,
+  uid text not null,
+  type text not null,
+  data jsonb not null default '{}'
+);
+create index if not exists game_events_at_idx on game_events (at);
 create table if not exists blocks (
   account_id text not null,
   blocked_id text not null,
@@ -197,6 +226,49 @@ class Database {
     const r = await this.pool.query(
       `select at, uid, type, data from events where at > now() - ($1 || ' days')::interval order by at desc limit $2`, [String(days), limit]);
     return r.rows.reverse().map((x) => ({ at: new Date(x.at).getTime(), uid: x.uid, type: x.type, data: x.data || {} }));
+  }
+
+  // ---------------------------------------------------------- outros jogos
+  async upsertGameSession(x) {
+    if (!this.ready || !x) return;
+    await this.pool.query(
+      `insert into game_sessions (game, sid, uid, start_at, last_at, seconds, version, platform, ended)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       on conflict (game, sid) do update set start_at = least(game_sessions.start_at, excluded.start_at),
+         last_at = greatest(game_sessions.last_at, excluded.last_at), seconds = greatest(game_sessions.seconds, excluded.seconds),
+         version = case when excluded.version <> '' then excluded.version else game_sessions.version end,
+         platform = case when excluded.platform <> '' then excluded.platform else game_sessions.platform end,
+         ended = game_sessions.ended or excluded.ended`,
+      [x.game, x.sid, x.uid, new Date(x.start), new Date(x.last), x.seconds | 0, x.version || '', x.platform || '', !!x.ended]);
+  }
+
+  async upsertGamePlayer(p) {
+    if (!this.ready || !p) return;
+    await this.pool.query(
+      `insert into game_players (game, uid, first_at, last_at) values ($1,$2,$3,$4)
+       on conflict (game, uid) do update set first_at = least(game_players.first_at, excluded.first_at),
+         last_at = greatest(game_players.last_at, excluded.last_at)`,
+      [p.game, p.uid, new Date(p.first), new Date(p.last)]);
+  }
+
+  async insertGameEvent(e) {
+    if (!this.ready) return;
+    await this.pool.query('insert into game_events (game, at, uid, type, data) values ($1,$2,$3,$4,$5)',
+      [e.game, new Date(e.at), e.uid, e.type, JSON.stringify(e.data || {})]);
+  }
+
+  async loadGames(days = 180) {
+    if (!this.ready) return { sessions: [], players: [], events: [] };
+    const iv = String(days);
+    const s = await this.pool.query(`select * from game_sessions where start_at > now() - ($1 || ' days')::interval`, [iv]);
+    const p = await this.pool.query('select * from game_players');
+    const e = await this.pool.query(`select game, at, uid, type, data from game_events where at > now() - ($1 || ' days')::interval order by at desc limit 200000`, [iv]);
+    return {
+      sessions: s.rows.map((x) => ({ game: x.game, sid: x.sid, uid: x.uid, start: new Date(x.start_at).getTime(), last: new Date(x.last_at).getTime(),
+        seconds: x.seconds, version: x.version, platform: x.platform, ended: x.ended })),
+      players: p.rows.map((x) => ({ game: x.game, uid: x.uid, first: new Date(x.first_at).getTime(), last: new Date(x.last_at).getTime() })),
+      events: e.rows.reverse().map((x) => ({ game: x.game, at: new Date(x.at).getTime(), uid: x.uid, type: x.type, data: x.data || {} })),
+    };
   }
 
   // ---------------------------------------------------------- segurança

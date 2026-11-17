@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Recess Club · Painel</title>
+<title>Painel dos Jogos</title>
 <style>
   :root {
     --bg: #f4f6fb; --card: #ffffff; --ink: #1f2a44; --muted: #6b7690; --line: #e3e8f2;
@@ -64,18 +64,76 @@
   .cfg .big { font-size: 26px; font-weight: 800; min-width: 34px; text-align: center; }
   .cfg button.save { padding: 10px 18px; border: 0; border-radius: 10px; background: var(--blue); color: #fff; font-weight: 700; cursor: pointer; }
   .cfg .ok { color: var(--green); font-size: 13px; font-weight: 600; }
+
+  /* ---- vários jogos */
+  :root { --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300;
+    --up: #1a8a4a; --down: #d0352a; --grid: #e9edf5; --heat0: #eef2f8; }
+  @media (prefers-color-scheme: dark) {
+    :root { --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c;
+      --up: #4cc985; --down: #ff7b6e; --grid: #222b45; --heat0: #1d2640; }
+  }
+  nav.tabs { display: flex; gap: 6px; overflow-x: auto; padding: 10px 16px; background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; scrollbar-width: thin; }
+  nav.tabs[hidden] { display: none; }
+  nav.tabs button { flex: none; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 7px; }
+  nav.tabs button.on { background: var(--ink); color: var(--card); border-color: var(--ink); }
+  nav.tabs .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .bar-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .bar-top h2 { margin: 0; font-size: 20px; }
+  .bar-top .sp { flex: 1; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--card); }
+  .seg button { border: 0; background: transparent; color: var(--muted); padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .seg button.on { background: var(--blue); color: #fff; }
+  .delta { font-size: 12px; font-weight: 700; margin-top: 2px; }
+  .delta.up { color: var(--up); } .delta.down { color: var(--down); } .delta.flat { color: var(--muted); }
+  .kpi .v small { font-size: 15px; font-weight: 700; color: var(--muted); }
+  .chart { position: relative; width: 100%; }
+  .chart svg { display: block; width: 100%; overflow: visible; }
+  .chart text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin: 0 0 8px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 12px; height: 4px; border-radius: 2px; display: inline-block; }
+  .legend i.sq { height: 12px; border-radius: 3px; }
+  #tip { position: fixed; pointer-events: none; z-index: 50; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.18); min-width: 120px; display: none; }
+  #tip b { display: block; margin-bottom: 4px; }
+  #tip .r { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+  #tip .r i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 4px; }
+  .heat { display: grid; grid-template-columns: 30px repeat(24, minmax(0, 1fr)); gap: 2px; font-size: 10px; color: var(--muted); }
+  .heat .h { text-align: left; white-space: nowrap; overflow: visible; min-width: 0; }
+  .heat .cell { aspect-ratio: 1; border-radius: 3px; min-height: 10px; }
+  .scroll { overflow-x: auto; }
+  .scroll td, .scroll th { white-space: nowrap; }
+  .tall { max-height: 560px; overflow-y: auto; }
+  .tall th { position: sticky; top: 0; background: var(--card); }
+  .rank td, .rank th { white-space: nowrap; }
+  .rank tr.click { cursor: pointer; }
+  .rank tr.click:hover td { background: var(--bg); }
+  .scorebar { display: inline-block; width: 70px; height: 8px; border-radius: 4px; background: var(--line); vertical-align: middle; margin-right: 6px; overflow: hidden; }
+  .scorebar i { display: block; height: 100%; background: var(--ink); border-radius: 4px; }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; background: var(--line); color: var(--ink); }
+  .pill.new { background: color-mix(in srgb, var(--s3) 25%, transparent); }
+  .pill.live { background: color-mix(in srgb, var(--green) 25%, transparent); }
+  .hl { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-bottom: 14px; }
+  .hl .card .l { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+  .hl .card .g { font-size: 19px; font-weight: 800; margin: 4px 0 2px; display: flex; align-items: center; gap: 8px; }
+  .hl .card .s { color: var(--muted); font-size: 13px; }
+  .cohort td.c { text-align: center; font-variant-numeric: tabular-nums; border-radius: 4px; }
+  .empty { color: var(--muted); padding: 24px 0; text-align: center; }
+  .spark { width: 90px; height: 24px; }
+  section[hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <header>
   <div>
-    <h1>Recess Club — Painel</h1>
-    <div class="sub" id="sub">Estatísticas anônimas do jogo</div>
+    <h1>Painel dos Jogos</h1>
+    <div class="sub" id="sub">Estatísticas anônimas de todos os jogos</div>
   </div>
   <div class="sp"></div>
   <button id="refresh" hidden>Atualizar</button>
   <button id="logout" hidden>Sair</button>
 </header>
+<nav class="tabs" id="tabs" hidden></nav>
+<div id="tip"></div>
 
 <div id="login" class="card">
   <h2>Entrar</h2>
@@ -86,6 +144,10 @@
 </div>
 
 <main id="app" hidden>
+  <section id="v-overview" hidden></section>
+  <section id="v-game" hidden></section>
+  <section id="v-escola" hidden>
+  <h2 style="margin:26px 0 12px;font-size:18px">Recess Club — loja, brincadeiras, bots e denúncias</h2>
   <div class="grid">
     <div class="card kpi live"><div class="l"><span class="dot"></span>Online agora</div><div class="v" id="k-online">0</div><div class="s" id="k-rooms"></div></div>
     <div class="card kpi"><div class="l">Jogadores (total)</div><div class="v" id="k-total">0</div><div class="s" id="k-new"></div></div>
@@ -148,6 +210,7 @@
     <div class="card"><h2>Denúncias recentes</h2><table id="t-reports"></table></div>
   </div>
   <p class="note" id="note"></p>
+  </section>
 </main>
 
 <script>
@@ -242,16 +305,356 @@ $('bots-save').onclick = async () => {
   $('bots-msg').textContent = r.ok ? 'Salvo! Vale para as próximas partidas.' + (j.saved ? '' : ' (sem banco: volta ao padrão se o servidor reiniciar)') : 'Não salvou.';
 };
 
+// =================================================================== vários jogos
+let GAMELIST = [];            // [{id, name, emoji, color}]
+let view = { game: 'todos', days: 30 };
+let cache = { overview: null, game: null };
+const fmt = (n) => (n == null ? '—' : Number(n).toLocaleString('pt-BR'));
+const pctTxt = (n) => (n == null ? '—' : String(n).replace('.', ',') + '%');
+const minTxt = (n) => (n == null ? '—' : String(n).replace('.', ',') + ' min');
+const sv = (c) => `var(--s${c})`;
+const dm = (d) => d.slice(8) + '/' + d.slice(5, 7);
+const WEEK = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const SVGNS = 'http://www.w3.org/2000/svg';
+const api = (u) => fetch(u, { headers: { 'x-admin-token': token } }).then((r) => { if (r.status === 403) throw new Error('403'); return r.json(); });
+
+// ---------- dica flutuante
+const tip = $('tip');
+function showTip(e, html) {
+  tip.innerHTML = html; tip.style.display = 'block';
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + w > innerWidth - 8) x = e.clientX - w - 14;
+  if (y + h > innerHeight - 8) y = e.clientY - h - 14;
+  tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px';
+}
+const hideTip = () => { tip.style.display = 'none'; };
+document.addEventListener('scroll', hideTip, true);
+const tipRow = (color, name, val) => `<div class="r"><span><i style="background:${color}"></i>${esc(name)}</span><b style="margin:0">${esc(val)}</b></div>`;
+
+function niceMax(v) {
+  if (v <= 5) return 5;
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  for (const m of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * p >= v) return m * p;
+  return 10 * p;
+}
+function el(tag, attrs, parent) {
+  const n = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(n);
+  return n;
+}
+function axes(svg, W, H, P, max, labels, yFmt) {
+  for (let i = 0; i <= 4; i++) {
+    const v = (max / 4) * i, y = P.t + (1 - i / 4) * (H - P.t - P.b);
+    el('line', { x1: P.l, x2: W - P.r, y1: y, y2: y, stroke: 'var(--grid)', 'stroke-width': 1 }, svg);
+    el('text', { x: P.l - 6, y: y + 4, 'text-anchor': 'end' }, svg).textContent = yFmt(Math.round(v * 10) / 10);
+  }
+  const step = Math.ceil(labels.length / Math.max(2, Math.floor((W - P.l - P.r) / 46)));
+  return step;
+}
+
+/** Linhas com régua e dica. series: [{name, color, values}] */
+function lineChart(id, labels, series, o = {}) {
+  const box = $(id);
+  if (!box) return;
+  box.innerHTML = '';
+  if (series.length > 1) box.insertAdjacentHTML('beforeend', '<div class="legend">' + series.map((s) => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join('') + '</div>');
+  const W = Math.max(280, box.clientWidth), H = o.h || 210, P = { l: 40, r: 14, t: 10, b: 24 };
+  const vals = series.flatMap((s) => s.values.filter((v) => v != null));
+  if (!vals.length || vals.every((v) => v === 0) && o.emptyIfZero) { box.insertAdjacentHTML('beforeend', '<div class="empty">Sem dados ainda</div>'); return; }
+  const max = o.max || niceMax(Math.max(1, ...vals));
+  const yFmt = o.yFmt || fmt;
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, height: H, role: 'img', 'aria-label': o.label || '' });
+  box.appendChild(svg);
+  const step = axes(svg, W, H, P, max, labels, yFmt);
+  const n = labels.length;
+  const x = (i) => P.l + (n < 2 ? (W - P.l - P.r) / 2 : (i * (W - P.l - P.r)) / (n - 1));
+  const y = (v) => P.t + (1 - v / max) * (H - P.t - P.b);
+  labels.forEach((l, i) => { if (i % step === 0 || i === n - 1 && n < 10) el('text', { x: x(i), y: H - 6, 'text-anchor': 'middle' }, svg).textContent = l; });
+  for (const s of series) {
+    let d = '', pen = false;
+    s.values.forEach((v, i) => { if (v == null) { pen = false; return; } d += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1); pen = true; });
+    el('path', { d, fill: 'none', stroke: s.color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
+    if (n <= 16) s.values.forEach((v, i) => { if (v != null) el('circle', { cx: x(i), cy: y(v), r: 3, fill: s.color, stroke: 'var(--card)', 'stroke-width': 2 }, svg); });
+  }
+  const cross = el('line', { y1: P.t, y2: H - P.b, stroke: 'var(--muted)', 'stroke-width': 1, 'stroke-dasharray': '3 3', opacity: 0 }, svg);
+  const dots = series.map((s) => el('circle', { r: 4.5, fill: s.color, stroke: 'var(--card)', 'stroke-width': 2, opacity: 0 }, svg));
+  const hit = el('rect', { x: P.l - 8, y: 0, width: W - P.l - P.r + 16, height: H, fill: 'transparent' }, svg);
+  hit.addEventListener('mousemove', (e) => {
+    const r = svg.getBoundingClientRect();
+    const px = ((e.clientX - r.left) / r.width) * W;
+    const i = Math.max(0, Math.min(n - 1, Math.round(((px - P.l) / (W - P.l - P.r)) * (n - 1))));
+    cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.setAttribute('opacity', 1);
+    series.forEach((s, k) => { const v = s.values[i]; dots[k].setAttribute('opacity', v == null ? 0 : 1); if (v != null) { dots[k].setAttribute('cx', x(i)); dots[k].setAttribute('cy', y(v)); } });
+    const rows = series.map((s) => ({ s, v: s.values[i] })).sort((a, b) => (b.v ?? -1) - (a.v ?? -1));
+    showTip(e, `<b>${esc((o.tipLabel || ((l) => l))(labels[i], i))}</b>` + rows.map(({ s, v }) => tipRow(s.color, s.name, v == null ? '—' : yFmt(v))).join(''));
+  });
+  hit.addEventListener('mouseleave', () => { cross.setAttribute('opacity', 0); dots.forEach((d) => d.setAttribute('opacity', 0)); hideTip(); });
+}
+
+/** Colunas (empilhadas se houver mais de uma série). */
+function barChart(id, labels, series, o = {}) {
+  const box = $(id);
+  if (!box) return;
+  box.innerHTML = '';
+  if (series.length > 1) box.insertAdjacentHTML('beforeend', '<div class="legend">' + series.map((s) => `<span><i class="sq" style="background:${s.color}"></i>${esc(s.name)}</span>`).join('') + '</div>');
+  const totals = labels.map((_, i) => series.reduce((a, s) => a + (s.values[i] || 0), 0));
+  if (totals.every((t) => t === 0)) { box.insertAdjacentHTML('beforeend', '<div class="empty">Sem dados ainda</div>'); return; }
+  const W = Math.max(280, box.clientWidth), H = o.h || 210, P = { l: 40, r: 8, t: 10, b: 24 };
+  const max = niceMax(Math.max(1, ...totals));
+  const yFmt = o.yFmt || fmt;
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, height: H, role: 'img' });
+  box.appendChild(svg);
+  const step = axes(svg, W, H, P, max, labels, yFmt);
+  const n = labels.length, slot = (W - P.l - P.r) / n, bw = Math.max(3, Math.min(34, slot - 4));
+  const y = (v) => P.t + (1 - v / max) * (H - P.t - P.b);
+  labels.forEach((l, i) => {
+    const cx = P.l + slot * i + slot / 2;
+    if (i % step === 0) el('text', { x: cx, y: H - 6, 'text-anchor': 'middle' }, svg).textContent = l;
+    let acc = 0;
+    const segs = series.map((s) => ({ s, v: s.values[i] || 0 })).filter((z) => z.v > 0);
+    segs.forEach((z, k) => {
+      const y0 = y(acc), y1 = y(acc + z.v);
+      acc += z.v;
+      const top = k === segs.length - 1;
+      const h = Math.max(1, y0 - y1 - (top ? 0 : 2));
+      const r = top ? Math.min(4, bw / 2, h) : 0;
+      const x0 = cx - bw / 2, yt = y0 - h;
+      const d = `M${x0} ${y0}V${yt + r}Q${x0} ${yt} ${x0 + r} ${yt}H${x0 + bw - r}Q${x0 + bw} ${yt} ${x0 + bw} ${yt + r}V${y0}Z`;
+      el('path', { d, fill: z.s.color }, svg);
+    });
+    const hit = el('rect', { x: P.l + slot * i, y: P.t, width: slot, height: H - P.t - P.b, fill: 'transparent' }, svg);
+    hit.addEventListener('mousemove', (e) => showTip(e, `<b>${esc((o.tipLabel || ((l) => l))(l, i))}</b>` +
+      series.map((s) => tipRow(s.color, s.name, yFmt(s.values[i] || 0))).join('') + (series.length > 1 ? tipRow('transparent', 'Total', yFmt(totals[i])) : '')));
+    hit.addEventListener('mouseleave', hideTip);
+  });
+}
+
+function heatColor(v, max) {
+  if (!v) return 'var(--heat0)';
+  return `color-mix(in srgb, var(--s1) ${Math.round(18 + (v / max) * 82)}%, var(--heat0))`;
+}
+function deltaHtml(cur, prev, unit = '%', inverse = false) {
+  if (prev == null || cur == null) return '<div class="delta flat">sem período anterior</div>';
+  let diff, txt;
+  if (unit === 'pp') { diff = Math.round((cur - prev) * 10) / 10; txt = (diff > 0 ? '+' : '') + String(diff).replace('.', ',') + ' p.p.'; }
+  else if (prev === 0) { if (cur === 0) return '<div class="delta flat">= período anterior</div>'; diff = 1; txt = 'novo'; }
+  else { diff = Math.round(((cur - prev) / prev) * 100); txt = (diff > 0 ? '+' : '') + diff + '%'; }
+  if (diff === 0) return '<div class="delta flat">= período anterior</div>';
+  const good = inverse ? diff < 0 : diff > 0;
+  return `<div class="delta ${good ? 'up' : 'down'}">${diff > 0 ? '▲' : '▼'} ${txt} <span class="muted" style="font-weight:500">vs período anterior</span></div>`;
+}
+const kpi = (label, value, sub = '', extra = '') => `<div class="card kpi ${extra}"><div class="l">${label}</div><div class="v">${value}</div>${sub}</div>`;
+
+// ---------- abas
+function paintTabs() {
+  const items = [{ id: 'todos', name: 'Todos os jogos', emoji: '🏆' }, ...GAMELIST];
+  $('tabs').innerHTML = items.map((g) => `<button data-id="${g.id}" class="${view.game === g.id ? 'on' : ''}">${g.color ? `<span class="sw" style="background:${sv(g.color)}"></span>` : ''}${g.emoji} ${esc(g.name)}</button>`).join('');
+  $('tabs').querySelectorAll('button').forEach((b) => { b.onclick = () => go(b.dataset.id); });
+  const on = $('tabs').querySelector('.on');
+  if (on) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+function go(game, days) {
+  view.game = game;
+  if (days) view.days = days;
+  try { history.replaceState(null, '', '#' + game + (game !== 'todos' ? '/' + view.days : '')); } catch (e) {}
+  render(true);
+}
+function readHash() {
+  const [g, d] = location.hash.slice(1).split('/');
+  if (g) view.game = g;
+  if (Number(d)) view.days = Number(d);
+}
+
+async function render(scrollTop) {
+  $('login').hidden = true; $('app').hidden = false; $('refresh').hidden = false; $('logout').hidden = false; $('tabs').hidden = false;
+  if (!GAMELIST.length) { const o = await api('/api/admin/games'); cache.overview = o; GAMELIST = [...o.games].sort((a, b) => a.color - b.color).map(({ id, name, emoji, color }) => ({ id, name, emoji, color })); }
+  if (view.game !== 'todos' && !GAMELIST.some((g) => g.id === view.game)) view.game = 'todos';
+  paintTabs();
+  $('v-overview').hidden = view.game !== 'todos';
+  $('v-game').hidden = view.game === 'todos';
+  $('v-escola').hidden = view.game !== 'escola';
+  if (scrollTop) scrollTo(0, 0);
+  if (view.game === 'todos') {
+    cache.overview = await api('/api/admin/games');
+    drawOverview();
+    $('sub').textContent = 'Atualizado ' + when(cache.overview.generatedAt) + ' · todos os jogos';
+  } else {
+    cache.game = await api('/api/admin/games/' + view.game + '?days=' + view.days);
+    drawGame();
+    $('sub').textContent = 'Atualizado ' + when(cache.game.generatedAt) + ' · ' + cache.game.game.name;
+    if (view.game === 'escola') { await load(); if (scrollTop !== false) await loadSettings(); $('sub').textContent = 'Atualizado ' + when(cache.game.generatedAt) + ' · Recess Club'; }
+  }
+}
+
+// ---------- visão geral
+function drawOverview() {
+  const o = cache.overview;
+  const gs = o.games;
+  const any = gs.some((g) => g.total > 0);
+  const best = (k, f = (g) => g[k]) => gs.filter((g) => f(g) != null && f(g) > 0).sort((a, b) => f(b) - f(a))[0];
+  const hl = (label, g, val, sub) => `<div class="card"><div class="l">${label}</div>${g ? `<div class="g"><span class="sw" style="width:12px;height:12px;border-radius:3px;display:inline-block;background:${sv(g.color)}"></span>${g.emoji} ${esc(g.name)}</div><div class="s">${val}${sub ? ' · ' + sub : ''}</div>` : '<div class="g muted">—</div><div class="s">Sem dados ainda</div>'}</div>`;
+  const top = gs[0] && gs[0].score > 0 ? gs[0] : null;
+  const bA = best('active7'), bM = best('minPerPlayer'), bD = best('d1'), bG = best('growth');
+  const onlineAll = gs.reduce((a, g) => a + g.online, 0);
+  const active = gs.reduce((a, g) => a + g.active7, 0);
+  const hours = gs.reduce((a, g) => a + g.hours7, 0);
+  const newp = gs.reduce((a, g) => a + g.new7, 0);
+  $('v-overview').innerHTML = `
+  <div class="bar-top"><h2>🏆 Todos os jogos <span class="muted" style="font-size:14px;font-weight:500">· últimos 7 dias</span></h2></div>
+  <div class="grid" style="margin-bottom:14px">
+    ${kpi('<span class="dot"></span>Jogando agora', fmt(onlineAll), '<div class="s">somando todos os jogos</div>', 'live')}
+    ${kpi('Jogadores ativos (7 dias)', fmt(active), '<div class="s">aparelhos únicos, por jogo</div>')}
+    ${kpi('Novos (7 dias)', fmt(newp), '<div class="s">primeira vez em algum jogo</div>')}
+    ${kpi('Horas jogadas (7 dias)', fmt(Math.round(hours * 10) / 10) + ' <small>h</small>', '')}
+  </div>
+  <div class="hl">
+    ${hl('⭐ Destaque da semana', top, top ? 'nota ' + top.score + ' de 100' : '', top ? fmt(top.active7) + ' jogadores' : '')}
+    ${hl('👥 Mais jogadores', bA, bA ? fmt(bA.active7) + ' ativos' : '', bA ? fmt(bA.new7) + ' novos' : '')}
+    ${hl('⏱️ Prende mais tempo', bM, bM ? minTxt(bM.minPerPlayer) + ' por jogador' : '', bM ? minTxt(bM.avgMin) + ' por sessão' : '')}
+    ${hl('🔁 Melhor retenção (D1)', bD, bD ? pctTxt(bD.d1) + ' voltam no dia seguinte' : '', '')}
+    ${hl('📈 Mais cresceu', bG, bG ? '+' + bG.growth + '% de jogadores' : '', 'vs 7 dias anteriores')}
+  </div>
+  <div class="card"><h2>Ranking dos jogos</h2>
+    <div class="scroll"><table class="rank">
+      <tr><th>#</th><th>Jogo</th><th>Destaque</th><th>Agora</th><th>Ativos 7d</th><th>Crescimento</th><th>Novos 7d</th><th>Hoje</th><th>Sessão média</th><th>Min/jogador</th><th>Retenção D1</th><th>D7</th><th>Horas 7d</th><th>14 dias</th></tr>
+      ${gs.map((g, i) => `<tr class="click" data-id="${g.id}">
+        <td>${i + 1}</td>
+        <td><b><span class="sw" style="width:10px;height:10px;border-radius:3px;display:inline-block;background:${sv(g.color)};margin-right:6px"></span>${g.emoji} ${esc(g.name)}</b></td>
+        <td><span class="scorebar"><i style="width:${g.score}%"></i></span>${g.score}</td>
+        <td class="n">${g.online ? '<span class="pill live">' + g.online + '</span>' : '0'}</td>
+        <td class="n">${fmt(g.active7)}</td>
+        <td class="n">${g.growth == null ? '<span class="muted">novo</span>' : `<span class="delta ${g.growth > 0 ? 'up' : g.growth < 0 ? 'down' : 'flat'}" style="display:inline">${g.growth > 0 ? '▲ +' : g.growth < 0 ? '▼ ' : ''}${g.growth}%</span>`}</td>
+        <td class="n">${fmt(g.new7)}</td>
+        <td class="n">${fmt(g.dau)}</td>
+        <td class="n">${minTxt(g.avgMin)}</td>
+        <td class="n">${minTxt(g.minPerPlayer)}</td>
+        <td class="n">${pctTxt(g.d1)}</td>
+        <td class="n">${pctTxt(g.d7)}</td>
+        <td class="n">${fmt(g.hours7)}</td>
+        <td>${spark(g.daily14, sv(g.color))}</td></tr>`).join('')}
+    </table></div>
+    <p class="note" style="margin-top:10px">A nota de destaque (0–100) junta: alcance (35%), minutos por jogador (25%), retenção D1 (25%) e crescimento (15%), sempre comparando com o melhor jogo. Clique num jogo para ver os detalhes.</p>
+  </div>
+  <div class="grid2">
+    <div class="card"><h2>Jogadores ativos por dia (14 dias)</h2><div class="chart" id="o-active"></div></div>
+    <div class="card"><h2>Minutos jogados por dia (14 dias)</h2><div class="chart" id="o-minutes"></div></div>
+  </div>
+  ${any ? '' : '<p class="note">Ainda não chegou nenhum dado dos jogos. Assim que alguém abrir uma versão com o envio de estatísticas, os números aparecem aqui.</p>'}`;
+  $('v-overview').querySelectorAll('tr.click').forEach((tr) => { tr.onclick = () => go(tr.dataset.id); });
+  const byColor = [...gs].sort((a, b) => a.color - b.color);
+  const labels = o.days.map(dm);
+  lineChart('o-active', labels, byColor.map((g) => ({ name: g.name, color: sv(g.color), values: g.daily14 })), { label: 'Jogadores ativos por dia' });
+  lineChart('o-minutes', labels, byColor.map((g) => ({ name: g.name, color: sv(g.color), values: g.minutes14 })), { label: 'Minutos jogados por dia' });
+}
+function spark(vals, color) {
+  const max = Math.max(1, ...vals), W = 90, H = 24;
+  const pts = vals.map((v, i) => `${(i * (W - 4)) / Math.max(1, vals.length - 1) + 2},${H - 3 - (v / max) * (H - 6)}`).join(' ');
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+
+// ---------- um jogo
+function drawGame() {
+  const s = cache.game, g = s.game, c = sv(g.color);
+  const P = s.players, S = s.sessions, R = s.retention;
+  const per = s.days === 1 ? 'hoje' : s.days + ' dias';
+  const liveSub = s.live ? `<div class="s">${s.live.online} no modo online agora</div>` : '<div class="s">com o jogo aberto</div>';
+  const labels = s.daily.map((d) => dm(d.day));
+  const wd = (d) => WEEK[new Date(d + 'T12:00:00Z').getUTCDay()];
+  const tipDay = (l, i) => wd(s.daily[i].day) + ', ' + l;
+  $('v-game').innerHTML = `
+  <div class="bar-top">
+    <h2><span class="sw" style="width:14px;height:14px;border-radius:4px;display:inline-block;background:${c};margin-right:4px"></span>${g.emoji} ${esc(g.name)}</h2>
+    <div class="sp"></div>
+    <div class="seg" id="g-days">${[[1, 'Hoje'], [7, '7 dias'], [14, '14 dias'], [30, '30 dias'], [90, '90 dias']].map(([d, l]) => `<button data-d="${d}" class="${s.days === d ? 'on' : ''}">${l}</button>`).join('')}</div>
+  </div>
+  <div class="grid">
+    ${kpi('<span class="dot"></span>Jogando agora', fmt(s.online), liveSub, 'live')}
+    ${kpi('Jogadores ativos · ' + per, fmt(P.active), deltaHtml(P.active, P.prevActive))}
+    ${kpi('Novos jogadores · ' + per, fmt(P.new), deltaHtml(P.new, P.prevNew))}
+    ${kpi('Hoje / 7 dias / 30 dias', `${fmt(P.dau)} <small>/ ${fmt(P.wau)} / ${fmt(P.mau)}</small>`, `<div class="s">${fmt(P.total)} jogadores desde o início · fidelidade ${P.stickiness}%</div>`)}
+    ${kpi('Tempo médio por sessão', minTxt(S.avgMin), deltaHtml(S.avgMin, S.prevAvgMin))}
+    ${kpi('Tempo por jogador · ' + per, minTxt(S.minPerPlayer), `<div class="s">${String(S.perPlayer).replace('.', ',')} sessões por jogador · mediana ${minTxt(S.medianMin)}</div>`)}
+    ${kpi('Sessões · ' + per, fmt(S.count), deltaHtml(S.count, S.prevCount))}
+    ${kpi('Horas jogadas · ' + per, fmt(S.hours) + ' <small>h</small>', deltaHtml(S.hours, S.prevHours))}
+    ${kpi('Retenção D1', pctTxt(R.d1.pct), R.d1.base ? deltaHtml(R.d1.pct, R.d1.prev, 'pp') : '<div class="s">ainda sem base (precisa de 1 dia)</div>')}
+    ${kpi('Retenção D7', pctTxt(R.d7.pct), R.d7.base ? deltaHtml(R.d7.pct, R.d7.prev, 'pp') : '<div class="s">ainda sem base (precisa de 7 dias)</div>')}
+    ${kpi('Retenção D30', pctTxt(R.d30.pct), R.d30.base ? deltaHtml(R.d30.pct, R.d30.prev, 'pp') : '<div class="s">ainda sem base (precisa de 30 dias)</div>')}
+  </div>
+  <div class="grid2">
+    <div class="card"><h2>Quem joga por dia: novos e que voltaram</h2><div class="chart" id="g-active"></div></div>
+    <div class="card"><h2>Tempo médio por sessão (min)</h2><div class="chart" id="g-avg"></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h2>Curva de retenção (% que volta N dias depois)</h2><div class="chart" id="g-curve"></div><p class="note" style="margin-top:6px">D1 = voltou no dia seguinte ao primeiro acesso; D7 = voltou uma semana depois.</p></div>
+    <div class="card"><h2>Evolução da retenção D1 (por dia de entrada)</h2><div class="chart" id="g-d1"></div><p class="note" style="margin-top:6px">Se a linha sobe, os jogadores novos estão voltando mais.</p></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h2>Que horas jogam (horário de Brasília)</h2><div id="g-heat"></div><p class="note" style="margin-top:8px">Cada quadrado = sessões iniciadas naquele dia da semana e hora. Mais escuro = mais gente.</p></div>
+    <div class="card"><h2>Quanto tempo ficam (duração das sessões)</h2><div class="chart" id="g-len"></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h2>Minutos jogados por dia</h2><div class="chart" id="g-min"></div></div>
+    <div class="card"><h2>Retenção por semana de entrada</h2><div class="scroll" id="g-cohort"></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card" style="grid-column:1/-1"><h2>Quem entrou (sessões mais recentes)</h2><div class="scroll tall"><table id="g-recent"></table></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h2>Jogadores mais dedicados · ${per}</h2><div class="scroll"><table id="g-top"></table></div></div>
+    <div class="card"><h2>${view.game === 'escola' ? 'Brincadeiras' : 'Fases / partidas'} · ${per}</h2><div class="scroll"><table id="g-levels"></table></div></div>
+    <div class="card"><h2>Versões do app (sessões)</h2><div class="bars" id="g-ver"></div><h2 style="margin-top:16px">Plataforma</h2><div class="bars" id="g-plat"></div></div>
+    ${s.custom.length ? '<div class="card"><h2>Outros eventos</h2><div class="bars" id="g-custom"></div></div>' : ''}
+  </div>
+  <p class="note">Jogadores são aparelhos anônimos (código aleatório, mostrado só pelos 6 primeiros caracteres). Nenhum nome, e-mail ou localização é coletado.</p>`;
+  $('g-days').querySelectorAll('button').forEach((b) => { b.onclick = () => go(view.game, Number(b.dataset.d)); });
+  const cNew = g.color === 3 ? 'var(--s1)' : 'var(--s3)';
+  barChart('g-active', labels, [{ name: 'Voltaram', color: c, values: s.daily.map((d) => d.returning) }, { name: 'Novos', color: cNew, values: s.daily.map((d) => d.new) }], { tipLabel: tipDay });
+  lineChart('g-avg', labels, [{ name: 'Minutos por sessão', color: c, values: s.daily.map((d) => (d.sessions ? d.avgMin : null)) }], { yFmt: (v) => String(v).replace('.', ','), tipLabel: tipDay });
+  const curve = s.curve.filter((p) => p.pct != null);
+  lineChart('g-curve', s.curve.map((p) => 'D' + p.day), [{ name: '% que voltou', color: c, values: s.curve.map((p) => p.pct) }], { max: 100, yFmt: (v) => v + '%', tipLabel: (l, i) => l + ' · base ' + fmt(s.curve[i].base) + ' jogadores' });
+  if (!curve.length) $('g-curve').innerHTML = '<div class="empty">Sem dados ainda</div>';
+  lineChart('g-d1', labels, [{ name: 'Retenção D1', color: c, values: s.daily.map((d) => d.d1) }], { max: 100, yFmt: (v) => v + '%', tipLabel: (l, i) => 'Entraram em ' + tipDay(l, i) });
+  barChart('g-len', s.lenBuckets.map((b) => b.label), [{ name: 'Sessões', color: c, values: s.lenBuckets.map((b) => b.count) }]);
+  barChart('g-min', labels, [{ name: 'Minutos', color: c, values: s.daily.map((d) => d.minutes) }], { tipLabel: tipDay });
+  // mapa de calor
+  const hmax = Math.max(1, ...s.hours.flat());
+  let h = '<div class="heat"><div></div>' + Array.from({ length: 24 }, (_, i) => `<div class="h">${i % 3 === 0 ? i + 'h' : ''}</div>`).join('');
+  s.hours.forEach((row, d) => { h += `<div>${WEEK[d]}</div>` + row.map((v, hr) => `<div class="cell" data-t="${WEEK[d]} ${hr}h–${hr + 1}h: ${v} sessões" style="background:${heatColor(v, hmax)}"></div>`).join(''); });
+  $('g-heat').innerHTML = h + '</div>';
+  $('g-heat').querySelectorAll('.cell').forEach((x) => { x.onmousemove = (e) => showTip(e, esc(x.dataset.t)); x.onmouseleave = hideTip; });
+  // coortes
+  const maxW = Math.max(0, ...s.cohorts.map((x) => x.weeks.length));
+  $('g-cohort').innerHTML = `<table class="cohort"><tr><th>Semana de entrada</th><th>Novos</th>${Array.from({ length: maxW }, (_, i) => `<th>Sem ${i + 1}</th>`).join('')}</tr>` +
+    s.cohorts.map((x) => `<tr><td>${dm(x.week)}</td><td class="n">${fmt(x.size)}</td>${Array.from({ length: maxW }, (_, i) => { const v = x.weeks[i]; return v == null || !x.size ? '<td></td>' : `<td class="c" style="background:${heatColor(v, 100)};color:${v > 55 ? '#fff' : 'var(--ink)'}">${v}%</td>`; }).join('')}</tr>`).join('') + '</table>';
+  // tabelas
+  const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'agora' : m < 60 ? 'há ' + m + ' min' : m < 1440 ? 'há ' + Math.round(m / 60) + ' h' : 'há ' + Math.round(m / 1440) + ' d'; };
+  $('g-recent').innerHTML = '<tr><th>Jogador</th><th>Entrou</th><th></th><th>Ficou</th><th>Visita nº</th><th>Versão</th><th>Plataforma</th></tr>' + (s.recent.length ? s.recent.map((r) =>
+    `<tr><td><code>${esc(r.who)}</code> ${r.online ? '<span class="pill live">jogando</span>' : ''} ${r.nth === 1 ? '<span class="pill new">novo</span>' : ''}</td><td>${when(r.start)}</td><td class="muted">${ago(r.start)}</td><td class="n">${minTxt(r.minutes)}</td><td class="n">${r.nth}ª</td><td>${esc(r.version || '—')}</td><td>${esc(r.platform || '—')}</td></tr>`).join('') : '<tr><td colspan="7" class="muted">Sem dados ainda</td></tr>');
+  table('g-top', ['Jogador', 'Minutos', 'Sessões', 'Dias', 'Desde'], s.top.map((t) => [t.who, t.minutes, t.sessions, t.days, when(t.since)]));
+  const lvName = (l) => (view.game === 'escola' ? (GAMES[l] || l) : (isNaN(l) ? l : 'Fase ' + l));
+  table('g-levels', ['Fase', 'Partidas', 'Jogadores', 'Venceu / recorde', 'Pontos (média)'], s.levels.map((l) => [lvName(l.level), l.plays, l.players, l.winPct + '%', l.avgScore || '—']));
+  bars('g-ver', s.versions.map(([v, n]) => [v, n]), c);
+  bars('g-plat', s.platforms.map(([v, n]) => [v, n]), c);
+  if (s.custom.length) bars('g-custom', s.custom.map(([v, n]) => [v.replace(/_/g, ' '), n]), c);
+}
+
+let rz;
+addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (view.game === 'todos' && cache.overview) drawOverview(); else if (cache.game) drawGame(); }, 150); });
+
 function showLogin(msg) {
-  $('login').hidden = false; $('app').hidden = true; $('refresh').hidden = true; $('logout').hidden = true;
+  $('login').hidden = false; $('app').hidden = true; $('refresh').hidden = true; $('logout').hidden = true; $('tabs').hidden = true;
   $('err').textContent = msg || '';
 }
-$('go').onclick = () => { token = $('token').value.trim(); try { localStorage.setItem('recreio_admin', token); } catch (e) {} load().then(loadSettings).catch((e) => showLogin('Erro: ' + e.message)); };
+const fail = (e) => showLogin(String(e.message) === '403' ? 'Token inválido.' : 'Erro: ' + e.message);
+$('go').onclick = () => { token = $('token').value.trim(); try { localStorage.setItem('recreio_admin', token); } catch (e) {} render().catch(fail); };
 $('token').onkeydown = (e) => { if (e.key === 'Enter') $('go').click(); };
-$('refresh').onclick = () => load();
+$('refresh').onclick = () => render().catch(() => {});
 $('logout').onclick = () => { token = ''; try { localStorage.removeItem('recreio_admin'); } catch (e) {} showLogin(); };
-if (token) load().then(loadSettings).catch(() => showLogin()); else showLogin();
-setInterval(() => { if (token && !$('app').hidden) load().catch(() => {}); }, 15000);
+readHash();
+if (token) render().catch(fail); else showLogin();
+setInterval(() => { if (token && !$('app').hidden && tip.style.display !== 'block') render(false).catch(() => {}); }, 30000);
 </script>
 </body>
 </html>
