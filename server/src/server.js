@@ -36,6 +36,7 @@ const { Safety } = require('./safety');
 const { RoomManager } = require('./rooms');
 const { Accounts, sha, nameKey, nameProblem, checkPassword } = require('./accounts');
 const { Analytics } = require('./analytics');
+const { GameAnalytics, GAMES, GAME_IDS, computeGameStats, compareGames, sessionsFromEscola } = require('./game_stats');
 const { TagGame } = require('./tag_game');
 const { CATALOG } = require('./games');
 const { Database } = require('./db');
@@ -71,12 +72,30 @@ function createServer(opts = {}) {
     ...(db.enabled ? { dataDir: '' } : {}),
     onIngest: (list) => dbSafe(db.insertEvents(list)),
   });
+  // métricas dos outros jogos da casa (Aqua Caos, Road Rush...)
+  const games = opts.games || new GameAnalytics({
+    ...(opts.dataDir !== undefined ? { dataDir: opts.dataDir } : {}),
+    ...(db.enabled ? { dataDir: '' } : {}),
+    onSession: (x) => dbSafe(db.upsertGameSession(x)),
+    onPlayer: (x) => dbSafe(db.upsertGamePlayer(x)),
+    onEvent: (x) => dbSafe(db.insertGameEvent(x)),
+  });
+  const statsCache = new Map(); // chave -> {at, value}
+  function cached(key, fn, ttl = 20000) {
+    const c = statsCache.get(key);
+    if (c && Date.now() - c.at < ttl) return c.value;
+    const value = fn();
+    statsCache.set(key, { at: Date.now(), value });
+    return value;
+  }
+  const gameData = (id) => (id === 'escola' ? sessionsFromEscola(analytics.events) : games.dataFor(id));
   // carrega o que está no banco (contas são buscadas sob demanda no login)
   const ready = (async () => {
     if (!db.enabled) return false;
     try {
       await db.init();
       analytics.events = await db.loadEvents();
+      games.load(await db.loadGames());
       safety.reports = await db.loadReports();
       for (const [id, until] of await db.loadMutes()) safety.mutedUntil.set(id, until);
       for (const [id, other] of await db.loadBlocks()) safety.block(id, other, false);
@@ -180,6 +199,35 @@ function createServer(opts = {}) {
       const b = await readJson(req, 65536);
       const n = analytics.ingest(String(b.uid || ''), b.events);
       return json(200, { ok: true, accepted: n });
+    }
+    // Métricas dos outros jogos (aceita também versões web: CORS aberto)
+    if (url === '/api/games/events') {
+      const cors = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type' };
+      if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
+      if (req.method === 'POST') {
+        const b = await readJson(req, 65536);
+        const n = games.ingest(String(b.game || ''), String(b.uid || ''), b.events);
+        res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store', ...cors });
+        return res.end(JSON.stringify({ ok: n > 0, accepted: n }));
+      }
+    }
+    if (url === '/api/admin/games' && req.method === 'GET') {
+      if (!isAdmin(req)) return json(403, { ok: false, error: 'token inválido' });
+      const out = cached('compare', () => {
+        const data = {};
+        for (const g of GAMES) data[g.id] = gameData(g.id);
+        return compareGames(data);
+      });
+      return json(200, out);
+    }
+    if (url.startsWith('/api/admin/games/') && req.method === 'GET') {
+      if (!isAdmin(req)) return json(403, { ok: false, error: 'token inválido' });
+      const id = url.slice('/api/admin/games/'.length);
+      if (!GAME_IDS.has(id)) return json(404, { ok: false, error: 'jogo desconhecido' });
+      const days = Number(new URL(req.url, 'http://x').searchParams.get('days')) || 30;
+      const st = cached(id + ':' + days, () => computeGameStats(gameData(id), Date.now(), days));
+      const info = GAMES.find((g) => g.id === id);
+      return json(200, { ...st, game: info, generatedAt: new Date().toISOString(), live: id === 'escola' ? liveInfo() : null });
     }
     // ---------------------------------------------------------- amigos
     if (url.startsWith('/api/friends')) {
@@ -739,10 +787,10 @@ function createServer(opts = {}) {
       ws.ping();
     }
   }, 25000);
-  const flushTimer = setInterval(() => analytics.flush(), 10000);
-  server.on('close', () => { clearInterval(timer); clearInterval(heartbeat); clearInterval(flushTimer); analytics.flush(); });
+  const flushTimer = setInterval(() => { analytics.flush(); games.flush(); }, 10000);
+  server.on('close', () => { clearInterval(timer); clearInterval(heartbeat); clearInterval(flushTimer); analytics.flush(); games.flush(); });
 
-  return { server, wss, rooms, accounts, safety, analytics, db, ready, friends, online, close: () => { clearInterval(timer); clearInterval(heartbeat); clearInterval(flushTimer); analytics.flush(); wss.close(); server.close(); server.closeAllConnections(); } };
+  return { server, wss, rooms, accounts, safety, analytics, games, db, ready, friends, online, close: () => { clearInterval(timer); clearInterval(heartbeat); clearInterval(flushTimer); analytics.flush(); games.flush(); wss.close(); server.close(); server.closeAllConnections(); } };
 }
 
 if (require.main === module) {
@@ -755,6 +803,7 @@ if (require.main === module) {
   // Railway manda SIGTERM ao reiniciar: grava o que falta antes de sair
   process.on('SIGTERM', async () => {
     app.analytics.flush();
+    app.games.flush();
     await app.db.close().catch(() => {});
     process.exit(0);
   });

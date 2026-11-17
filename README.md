@@ -65,11 +65,11 @@ assets/          texturas e sons gerados (ver tools/)
 tools/           scripts Python que geram as texturas e os sons
 tests/           testes automatizados e cenas de captura
 docs/            arquitetura, roadmap, guia Android, modo online
-server/          servidor online Node.js (Railway): salas, chat seguro, denúncias
+server/          servidor online Node.js (Railway): salas, chat seguro, denúncias e Painel dos Jogos (/admin)
 ```
 
 Mais detalhes em [docs/ARQUITETURA.md](docs/ARQUITETURA.md), [docs/ANDROID.md](docs/ANDROID.md),
-[docs/GOOGLE_PLAY.md](docs/GOOGLE_PLAY.md), [docs/MONETIZACAO.md](docs/MONETIZACAO.md) e [docs/ONLINE.md](docs/ONLINE.md).
+[docs/GOOGLE_PLAY.md](docs/GOOGLE_PLAY.md), [docs/MONETIZACAO.md](docs/MONETIZACAO.md) e [docs/ONLINE.md](docs/ONLINE.md) e [docs/PAINEL_JOGOS.md](docs/PAINEL_JOGOS.md) (métricas de todos os jogos).
 
 ## Assets e licenças
 
