@@ -361,6 +361,8 @@ func _day_transition() -> void:
 	for r in get_tree().get_nodes_in_group("interactable"):
 		if r is RideTrack:
 			(r as RideTrack).eject()
+		elif r is CoasterRide:
+			(r as CoasterRide).eject()
 	if player.mode == PlayerController.Mode.SITTING:
 		player.force_stand()
 	if player.minigame == null and not (discipline and discipline.in_cutscene):

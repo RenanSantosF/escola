@@ -203,42 +203,9 @@ static func coaster_points() -> PackedVector3Array:
 const COASTER_LIFT := Vector2(0.03, 0.2)
 
 
-static func _coaster(b: SchoolBuilder, c: WorldBatcher) -> void:
-	var pts := coaster_points()
-	for i in pts.size() - 1:
-		var a := pts[i]
-		var bb := pts[i + 1]
-		var mid := (a + bb) * 0.5
-		var basis := _seg_basis(a, bb)
-		var len := a.distance_to(bb) + 0.05
-		for sx: float in [-1.0, 1.0]:
-			c.box_xf("metal", Transform3D(basis, mid + basis.x * 0.42 * sx), Vector3(0.1, 0.12, len), Color("e53935"))
-		if i % 2 == 0:
-			c.box_xf("wood", Transform3D(basis, mid - basis.y * 0.08), Vector3(1.0, 0.07, 0.14), Color("5d4037"))
-		if i % 5 == 0:
-			var gy := maxf(_ground(mid.x, mid.z), 0.0)
-			var hh := mid.y - 0.15 - gy
-			# sem pilar no meio da quadrinha de basquete
-			var on_court := absf(mid.x - ParkHill.COURT.x - 1.5) < 7.5 and absf(mid.z - ParkHill.COURT.y) < 6.0
-			if hh > 0.5 and not on_court:
-				c.cylinder("metal", Vector3(mid.x, gy + hh * 0.5, mid.z), 0.12, 0.16, hh, Color("f4f7fa"), 6)
-				if hh > 6.0:
-					c.cylinder("metal", Vector3(mid.x, gy + hh * 0.5, mid.z) + basis.x * 0.9, 0.08, 0.12, hh, Color("f4f7fa"), 6)
-	# estação
-	var st := pts[0]
-	var gy := maxf(_ground(st.x, st.z), 0.0)
-	var plat := Vector3(st.x, gy + 0.5, st.z + 2.2)
-	c.box("wood", plat, Vector3(7.0, 1.0, 2.4), Color("b5794a"))
-	c.collider(plat, Vector3(7.0, 1.0, 2.4))
-	c.box("wood", plat + Vector3(-4.2, -0.25, 0), Vector3(1.4, 0.5, 2.4), Color("a0663a"))
-	c.collider(plat + Vector3(-4.2, -0.25, 0), Vector3(1.4, 0.5, 2.4))
-	for sx: float in [-1.0, 1.0]:
-		c.cylinder("metal", plat + Vector3(sx * 3.2, 1.9, 0.9), 0.1, 0.1, 2.8, Color("2f5fa8"), 8)
-	c.box("roof", plat + Vector3(0, 3.4, -0.4), Vector3(8.0, 0.2, 4.2), Color("ff4d6d"))
-	b.add_label("MONTANHA-RUSSA", plat + Vector3(0, 3.75, 1.75), 0.0, 72, Color("e53935"), Color(1, 1, 1, 0.92), 0.008, 90.0)
-	b.rides.append({"kind": "coaster", "prompt": "Montanha-russa!", "points": pts,
-		"base": plat + Vector3(0, 0.55, 0.2), "laps": 2, "lift": COASTER_LIFT})
-	b.add_zone("Montanha-Russa", Rect2(st.x - 5, st.z - 1, 10, 6), false, "", 7, Color(0.9, 0.25, 0.25))
+static func _coaster(b: SchoolBuilder, _c: WorldBatcher) -> void:
+	# montanha-russa gigante nova: trilho com looping e saca-rolha + trem de 4 carrinhos
+	CoasterTrack.build(b)
 
 
 # ------------------------------------------------------------- camas elásticas

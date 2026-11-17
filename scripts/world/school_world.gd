@@ -216,6 +216,7 @@ func _build_terrain_extras(parent: Node3D) -> void:
 
 
 var rides: Array = []
+var coaster: CoasterRide = null
 
 
 ## Atividades das salas que eram só cenário (XP uma vez por dia em cada uma).
@@ -298,6 +299,12 @@ func _spawn_interactables() -> void:
 		ss.points = sl.points
 		ss.position = sl.start
 		add_child(ss)
+	if not builder.coaster.is_empty():
+		var cr := CoasterRide.new()
+		cr.name = "MontanhaRussa"
+		cr.position = builder.coaster.platform
+		add_child(cr)
+		coaster = cr
 	for r in builder.rides:
 		var rt := RideTrack.new()
 		rt.name = "Atracao_" + str(r.kind)

@@ -228,9 +228,16 @@ func _on_remote_anim(r: Dictionary, before: String, now: String) -> void:
 		if best and best.occupant == null:
 			best.occupy(r.root)
 			r["seat"] = best
+	elif now == "kart":
+		vis.play("sit_down")
+		if not r.has("kart"):
+			var k := KartRace.make_kart(Color("ff8a1f"))
+			k.top_level = true
+			r.root.add_child(k)
+			r["kart"] = k
 	elif now in ["slide", "coaster"]:
 		vis.play("sit_down")  # descendo o tobogã / na montanha-russa
-		if now == "coaster" and not r.has("cart"):
+		if false and now == "coaster" and not r.has("cart"):  # o trem novo é o mesmo para todos
 			# o carrinho anda junto com o colega (quem está de fora vê)
 			var cart := RideTrack.make_cart()
 			cart.top_level = true
@@ -248,6 +255,10 @@ func _on_remote_anim(r: Dictionary, before: String, now: String) -> void:
 		_release_seat(r)
 	elif before in ["slide", "coaster"]:
 		vis.stop_action()
+	if before == "kart" and now != "kart" and r.has("kart"):
+		vis.stop_action()
+		(r.kart as Node3D).queue_free()
+		r.erase("kart")
 	if before == "coaster" and now != "coaster" and r.has("cart"):
 		(r.cart as Node3D).queue_free()
 		r.erase("cart")
@@ -376,6 +387,10 @@ func _process(delta: float) -> void:
 		vis.animator.ride_mode = 2 if r.anim == "bike" else (1 if r.anim == "ride" else 0)
 		if r.has("cart"):
 			_move_cart(r, prev, delta)
+		if r.has("kart"):
+			# o kart do colega fica embaixo dele (o banco é 0,12 m acima do chão do kart)
+			var k: Node3D = r.kart
+			k.global_transform = Transform3D(Basis(Vector3.UP, vis.rotation.y), root.global_position - Vector3(0, 0.19, 0) - Vector3(sin(vis.rotation.y), 0, cos(vis.rotation.y)) * -0.28)
 		_lod(r, cp, fwd, refresh, delta)
 	_watch_connection(delta)
 	if _rope_show and is_instance_valid(_rope_show) and (_rope_show.is_stale() or (player and player.minigame != null and player.minigame.id == "corda")):
@@ -395,6 +410,8 @@ func _process(delta: float) -> void:
 		var mg = player.minigame
 		if mg != null and mg.id == "corda" and mg.running:
 			anim = RopeShow.encode(float(mg.get("_angle")), float(mg.get("_speed")), int(mg.get("jumps")))
+		elif mg != null and mg.id == "kart" and mg.running:
+			anim = "kart"  # os colegas veem o meu kart na pista
 		elif player.has_meta("ride"):
 			anim = str(player.get_meta("ride"))  # "slide" ou "coaster"
 		elif player.riding:

@@ -12,13 +12,13 @@ extends Node
 
 const KINDS := {
 	"aviao": "round", "pontaria": "round", "basquete": "round", "gude": "round", "guerra": "round",
-	"corrida": "round",
+	"corrida": "round", "kart": "round",
 	"amarelinha": "turn", "corda": "turn",
 	"futebol": "team", "cabo": "team", "queimada": "team",
 	"esconde": "hide",
 }
 ## Placar em que MENOR é melhor (tempo da corrida).
-const LOWER_BETTER := ["corrida"]
+const LOWER_BETTER := ["corrida", "kart"]
 const NEAR_FRIENDS := 30.0
 const JOIN_RADIUS := 40.0
 const LEAVE_DIST := 45.0

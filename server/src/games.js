@@ -29,6 +29,7 @@ const CATALOG = {
   gude: { kind: 'round', max: 6, maxMs: 180000 },
   guerra: { kind: 'round', max: 8, maxMs: 120000 },
   corrida: { kind: 'round', max: 4, maxMs: 90000, lower: true },
+  kart: { kind: 'round', max: 8, maxMs: 300000, lower: true, share: true }, // todos veem o progresso de todos
   queimada: { kind: 'team', max: 10, maxMs: 200000, min: 2 },  // só gente (a menos que o painel ligue bots)
   esconde: { kind: 'hide', max: 12, maxMs: 240000, hideMs: 20000, seekMs: 120000, min: 2 },
   amarelinha: { kind: 'turn', max: 8, turnMs: 120000 },
@@ -273,6 +274,7 @@ class GameHub {
     const s = this.sessions.get(gid);
     if (!s || !s.has(from) || s.state !== 'playing' || data === undefined) return null;
     if (JSON.stringify(data).length > RELAY_MAX) return null;
+    if (CATALOG[gid] && CATALOG[gid].share) return { to: s.players.filter((p) => p !== from), session: s };
     if (from === s.host) {
       if (data && typeof data === 'object' && Number.isFinite(data.a) && Number.isFinite(data.b)) {
         s.hostState = { a: data.a | 0, b: data.b | 0, t: Number(data.t) || 0 };

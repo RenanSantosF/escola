@@ -27,6 +27,7 @@ const ACHIEVEMENTS := {
 	"escorrega_10": ["Rei do escorregador", "Desça o escorregador do morro 10 vezes."],
 	"cestinha": ["Cestinha", "Faça 10 cestas numa partida de basquete."],
 	"detetive": ["Detetive", "Ache todos no esconde-esconde em menos de 1 minuto."],
+	"piloto_kart": ["Rei do kart", "Ganhe uma corrida de kart."],
 }
 
 const DAILY_POOL := [

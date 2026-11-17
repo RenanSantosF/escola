@@ -408,9 +408,13 @@ func _start_busy(action: String, target: Node) -> void:
 ## pela porta do portão). Só a saída do fim do dia leva para casa (fade).
 const SCHOOL_LOT := Rect2(-89.55, -124.55, 179.1, 197.6)  # até antes da calçada do portão (z 73,05)
 var _lot_warn_ms := 0
+## Na corrida de kart o jogador está na pista (fora do muro antigo).
+var bounds_off := false
 
 
 func _keep_in_school() -> void:
+	if bounds_off:
+		return
 	var p := global_position
 	if SCHOOL_LOT.has_point(Vector2(p.x, p.z)):
 		return

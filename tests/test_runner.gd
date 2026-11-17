@@ -97,6 +97,7 @@ func _ready() -> void:
 	await _test_recreio_novo()
 	await _test_mesas_dois()
 	await _test_elevador_tobogã()
+	await _test_kart()
 	await _test_interpolacao()
 	_finish()
 
@@ -2451,6 +2452,60 @@ func _test_recreio_novo() -> void:
 	check(mm.active == null and not res.is_empty() and int(res[-1].get("won", 0)) == 1, "esconde: achando todos, GANHA e termina", str(res))
 
 
+func _test_kart() -> void:
+	await _recess()
+	await _clear_discipline()
+	var mm: MinigameManager = main.minigames
+	check(KartTrack.length() > 700.0, "kart: pista grande em volta da escola (%.0f m)" % KartTrack.length())
+	var ymax := 0.0
+	var ymin := 99.0
+	var outside := 0
+	for p in KartTrack.points():
+		ymax = maxf(ymax, p.y)
+		ymin = minf(ymin, p.y)
+		if not SchoolBuilder.LOT.has_point(Vector2(p.x, p.z)):
+			outside += 1
+	check(ymax > 7.0 and ymin < 0.5, "kart: tem subida e descida (viaduto de %.1f m)" % ymax)
+	check(outside > KartTrack.points().size() * 0.6, "kart: dá a volta POR FORA do muro da escola (terreno aumentado)")
+	var res := []
+	var rc := func(r): res.append(r)
+	mm.game_finished.connect(rc)
+	check(mm.start_local("kart", {}), "kart: corrida começa (sozinho: contra 5 pilotos)")
+	var kr = mm.active
+	check(kr.racers.size() == 6, "kart: 6 karts no grid")
+	check(player.bounds_off, "kart: na corrida o jogador pode estar fora do muro")
+	await _wait(3.3)
+	check(kr._countdown <= 0.0, "kart: largou depois do 3-2-1")
+	var s0: float = kr.me.s
+	await _wait(1.5)
+	check(kr.me.s > s0 + 15.0 and kr.me.v > 10.0, "kart: acelera sozinho (%.1f m/s)" % kr.me.v)
+	# turbo
+	var t0: int = kr._turbos
+	kr.on_play()
+	check(kr._turbos == t0 - 1 and kr.me.boost > 0.0, "kart: botão amarelo = TURBO")
+	await _wait(0.6)
+	check(kr.me.v > kr.MAX_V, "kart: com turbo passa da velocidade máxima (%.1f)" % kr.me.v)
+	# derrapagem com miniturbo
+	kr.me.boost = 0.0
+	kr.me.d = -3.5
+	kr.me.h = 0.0
+	kr.on_interact()
+	kr._drift_dir = 1.0
+	await _wait(1.1)
+	kr.on_interact_release()
+	check(kr.me.boost > 0.0, "kart: derrapar e soltar dá miniturbo")
+	# volta: cruzar a chegada conta
+	kr.me.s = KartTrack.length() - 1.0
+	kr.me.lap = kr.LAPS - 1
+	await _wait(0.5)
+	check(kr.me.done and kr._place_of(kr.me) >= 1, "kart: cruzou a chegada na última volta = terminou (%dº)" % kr._place_of(kr.me))
+	await _wait(4.5)
+	mm.game_finished.disconnect(rc)
+	check(mm.active == null and not res.is_empty() and res[-1].id == "kart", "kart: corrida termina com resultado")
+	check(not player.bounds_off and SchoolBuilder.LOT.has_point(Vector2(player.global_position.x, player.global_position.z)), "kart: no fim volta para dentro da escola")
+	check(player.camera_rig.override_active == false, "kart: câmera volta ao normal")
+
+
 func _test_elevador_tobogã() -> void:
 	await _recess()
 	await _clear_discipline()
@@ -2844,19 +2899,57 @@ func _test_salas_uso() -> void:
 		player.force_stand()
 
 
+func _test_montanha_russa(coaster: CoasterRide) -> void:
+	var pts := CoasterTrack.points()
+	var span := AABB(pts[0], Vector3.ZERO)
+	for q in pts:
+		span = span.expand(q)
+	check(span.size.x > 55.0 and span.size.z > 85.0 and span.end.y > 40.0, "montanha-russa: enorme (%.0f x %.0f m, %.0f m de altura)" % [span.size.x, span.size.z, span.end.y])
+	check(CoasterTrack.inversions.size() >= 2, "montanha-russa: gira de cabeça para baixo (looping + saca-rolha: %d)" % CoasterTrack.inversions.size())
+	var vmax := 0.0
+	for k in int(CoasterTrack.ride_time * 10):
+		vmax = maxf(vmax, CoasterTrack.speed_at_time(k * 0.1))
+	check(vmax > 24.0, "montanha-russa: descida bem rápida (%.0f km/h)" % (vmax * 3.6))
+	check(coaster.cars.size() == 4 and CoasterRide.CARS * CoasterRide.SEATS_PER_CAR >= 16, "montanha-russa: trem com 4 carrinhos e 16 lugares")
+	# com o trem andando: entra na FILA e vai na próxima remessa
+	coaster._local_offset += CoasterRide.BOARD + 5.0 - fposmod(coaster._now(), coaster.cycle())
+	check(not coaster.state().board, "montanha-russa: trem saiu (andando)")
+	player.force_stand()
+	player.global_position = coaster.global_position
+	await _frames(2)
+	check(coaster.get_prompt(player).contains("fila"), "montanha-russa: com o trem andando, o botão é 'Entrar na fila'")
+	coaster.interact(player)
+	check(coaster.queued and not coaster.riding, "montanha-russa: está na fila (não vai sozinho)")
+	# o trem volta: quem está na fila embarca
+	coaster._local_offset += coaster.state().left + 0.1
+	await _frames(3)
+	check(coaster.riding and not coaster.queued, "montanha-russa: o trem chegou e quem estava na fila embarcou")
+	check(coaster._cam_btn != null, "montanha-russa: botão de 1ª pessoa aparece")
+	coaster._cam_btn.pressed.emit()
+	check(coaster.first_person, "montanha-russa: 1ª pessoa ligada")
+	# pula para o meio do looping: a criança fica de cabeça para baixo junto
+	var inv: Array = CoasterTrack.inversions[0]
+	var tau := 0.0
+	while CoasterTrack.s_at_time(tau) + 1.0 * CoasterRide.SPACING < (float(inv[0]) + float(inv[1])) * 0.5 and tau < CoasterTrack.ride_time:
+		tau += 0.1
+	coaster._local_offset += CoasterRide.BOARD - fposmod(coaster._now(), coaster.cycle()) + tau
+	await _frames(3)
+	check(player.visual.global_transform.basis.y.y < 0.3, "montanha-russa: no looping fica de cabeça para baixo (up.y=%.2f)" % player.visual.global_transform.basis.y.y)
+	# fim da viagem: desembarca na plataforma
+	coaster._local_offset += coaster.state().left + 0.1
+	await _frames(3)
+	check(not coaster.riding and player.input_enabled and not player.movement_locked, "montanha-russa: desembarca no fim e devolve o controle")
+	check(player.visual.global_transform.basis.y.y > 0.95, "montanha-russa: desceu em pé")
+
+
 func _test_atracoes() -> void:
 	await _recess()
 	if player.mode == PlayerController.Mode.SITTING:
 		player.force_stand()
 	var world = main.world
-	check(world.rides.size() == 2, "atrações: tobogã gigante e montanha-russa existem")
-	var slide: RideTrack = null
-	var coaster: RideTrack = null
-	for r in world.rides:
-		if r.kind == "slide":
-			slide = r
-		else:
-			coaster = r
+	check(world.rides.size() == 1 and world.coaster != null, "atrações: tobogã gigante e montanha-russa existem")
+	var slide: RideTrack = world.rides[0]
+	var coaster: CoasterRide = world.coaster
 	# tobogã: sobe pelo elevador e escorrega até o fim
 	player.global_position = slide.global_position
 	await _frames(2)
@@ -2878,25 +2971,7 @@ func _test_atracoes() -> void:
 		"tobogã gigante: sobe a torre (%.0f m) e desce %.0f m até o Parquinho" % [max_y, len])
 	check(player.input_enabled and not player.movement_locked, "tobogã gigante: devolve o controle no fim")
 	check(len > 180.0 and slide_v > 13.0, "tobogã gigante: longo (%.0f m) e rápido (%.1f m/s)" % [len, slide_v])
-	# montanha-russa: duas voltas e volta para a estação
-	player.global_position = coaster.global_position
-	await _frames(2)
-	coaster.interact(player)
-	var top_v := 0.0
-	t0 = Time.get_ticks_msec()
-	Engine.time_scale = 4.0
-	while coaster._rider != null and Time.get_ticks_msec() - t0 < 40000:
-		top_v = maxf(top_v, coaster._v)
-		await _frames(1)
-	Engine.time_scale = 1.0
-	check(coaster._rider == null and coaster._lap == 2 and player.global_position.distance_to(coaster.global_position) < 2.0,
-		"montanha-russa: dá 2 voltas pelo parque e desembarca na estação")
-	check(top_v > 18.0, "montanha-russa: a descida é rápida (%.1f m/s)" % top_v)
-	var cpts: PackedVector3Array = coaster.points
-	var span := AABB(cpts[0], Vector3.ZERO)
-	for q in cpts:
-		span = span.expand(q)
-	check(span.size.x > 70.0 and span.size.y > 20.0, "montanha-russa: grande (%.0f m de comprido, %.0f m de altura)" % [span.size.x, span.size.y])
+	await _test_montanha_russa(coaster)
 	# cama elástica
 	var tr: Trampoline = null
 	for n in world.get_children():

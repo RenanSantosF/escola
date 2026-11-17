@@ -27,6 +27,8 @@ var _cur_distance := 4.6
 var follow_offset_y := 0.0
 ## Enquadramento fixo usado por minijogos (gude, aviãozinho).
 var override_active := false
+## true: a câmera vai EXATAMENTE para override_xf (kart e montanha-russa já suavizam).
+var override_snap := false
 var override_xf := Transform3D()
 var override_cam: Camera3D
 
@@ -105,7 +107,7 @@ func _process(delta: float) -> void:
 		return
 	if override_active:
 		var k := 1.0 - exp(-5.0 * delta)
-		override_cam.global_transform = override_cam.global_transform.interpolate_with(override_xf, k)
+		override_cam.global_transform = override_xf if override_snap else override_cam.global_transform.interpolate_with(override_xf, k)
 		return
 	if target == null:
 		return
@@ -172,6 +174,7 @@ func _process_showcase(delta: float) -> void:
 
 func set_override(xf: Variant) -> void:
 	if xf == null:
+		override_snap = false
 		if override_active:
 			override_active = false
 			camera.make_current()

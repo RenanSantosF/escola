@@ -19,6 +19,7 @@ const GAMES := {
 	"basquete": {"script": "res://scripts/minigames/basketball.gd", "title": "Basquete", "pos": Vector3(ParkHill.COURT.x - 3.5, 0.05, ParkHill.COURT.y + 4.2), "yaw": PI, "color": Color("ff7a1a"), "icon": "B", "desc": "Arremesse na cesta de 3 distâncias. Segure para mirar e solte na força certa!"},
 	"esconde": {"script": "res://scripts/minigames/hide_and_seek.gd", "title": "Esconde-esconde", "pos": Vector3(-4.0, 0.05, -80.5), "yaw": 0.0, "color": Color("14b8a6"), "icon": "E", "desc": "Conte até 10 e procure 5 colegas escondidos pelo Parque do Morro."},
 	"cabo": {"script": "res://scripts/minigames/tug_of_war.gd", "title": "Cabo de guerra", "pos": Vector3(12.0, 0.05, -84.5), "yaw": 0.0, "color": Color("c0392b"), "icon": "K", "desc": "Seu time contra o outro: toque rápido e no PUXA! para ganhar."},
+	"kart": {"script": "res://scripts/minigames/kart_race.gd", "title": "Corrida de Kart", "pos": Vector3(-86.5, 0.05, -6.0), "yaw": PI * 0.5, "color": Color("e53935"), "icon": "K", "desc": "3 voltas em volta da escola! Derrape nas curvas, pegue turbos e salte nos morrinhos."},
 	"guerra": {"script": "res://scripts/minigames/paper_war.gd", "title": "Guerra de papel", "pos": Vector3(35.5, 0.05, -2.6), "yaw": 0.0, "color": Color("9b59b6"), "icon": "W", "desc": "Segure para mirar, solte para jogar. Desvie dos círculos vermelhos!"},
 }
 ## Quem convida para o quê.
@@ -121,6 +122,7 @@ func _build_sign(st: Node3D, g: Dictionary) -> void:
 
 ## Tutorial de primeira vez: [botão, explicação]
 const TUTORIALS := {
+	"kart": [["Joystick", "Para os lados: VIRAR. O kart acelera sozinho (para trás = frear)."], ["Verde", "SEGURE nas curvas para DERRAPAR. Faíscas azuis/laranja = solte para ganhar MINITURBO!"], ["Amarelo", "TURBO! Pegue mais nas caixinhas \"?\" da pista."], ["", "3 voltas em volta da escola: descida, viaduto, chicane e salto. Chegue em 1º!"]],
 	"futebol": [["Joystick", "Corra pelo campo com o analógico."], ["Amarelo", "Perto da bola, toque para CHUTAR (a mira ajuda)."], ["Verde", "Toque para PASSAR a bola para um colega."], ["", "Faça mais gols que o outro time!"]],
 	"queimada": [["Verde", "Chegue perto da bola e toque para PEGAR."], ["Amarelo", "SEGURE para mirar (aparece a linha) e SOLTE para jogar."], ["Amarelo", "Sem a bola: toque para DESVIAR (pulinho para o lado)."], ["", "Queimado vai para o cemitério e só sai quando a partida acabar!"]],
 	"gude": [["Joystick", "Gire para mirar. A linha mostra onde sua bolinha vai BATER e a seta verde, para onde a outra vai."], ["Amarelo", "SEGURE para dar força e SOLTE para jogar."], ["", "Tire as bolinhas do círculo: elas viram suas! Acertou? Joga de novo."]],
@@ -140,6 +142,7 @@ const HIDE := {
 	"corda": ["run", "emote", "ride"], "pontaria": ["run", "jump", "emote", "ride"], "gude": ["run", "emote", "ride"],
 	"guerra": ["jump", "emote", "ride"], "basquete": ["run", "jump", "emote", "ride"], "esconde": ["emote", "ride"],
 	"cabo": ["run", "jump", "emote", "ride"], "queimada": ["emote", "ride"], "futebol": ["emote", "ride"],
+	"kart": ["run", "emote", "ride"],
 }
 
 var _pending_gid := ""
