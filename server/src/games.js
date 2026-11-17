@@ -18,6 +18,7 @@
 
 const LOBBY_MS = 12000;
 const FIND_DIST = 2.2;
+const FIND_DIST_CROUCH = 1.3; // escondido AGACHADO: precisa chegar mais pertinho
 const RESULTS_MS = 6000;
 const RELAY_MAX = 1800;
 
@@ -286,6 +287,11 @@ class GameHub {
     return p ? p.pos : null;
   }
 
+  _anim(id) {
+    const p = this.room.players && this.room.players.get(id);
+    return p ? String(p.anim || '') : '';
+  }
+
   _tickHide(s, now) {
     const h = s.hide;
     const c = CATALOG[s.gid];
@@ -303,7 +309,8 @@ class GameHub {
         if (id === h.seeker || h.found.includes(id)) continue;
         const b = this._pos(id);
         if (!b) continue;
-        if (Math.abs(a[1] - b[1]) < 2 && Math.hypot(a[0] - b[0], a[2] - b[2]) < FIND_DIST) {
+        const dist = this._anim(id) === 'crouch' ? FIND_DIST_CROUCH : FIND_DIST;
+        if (Math.abs(a[1] - b[1]) < 2 && Math.hypot(a[0] - b[0], a[2] - b[2]) < dist) {
           h.found.push(id);
           s.scores[id] = Math.round((now - (h.ends - c.seekMs)) / 1000);
           this._ev(s.gid, 'found', { id, by: h.seeker });

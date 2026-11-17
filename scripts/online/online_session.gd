@@ -237,6 +237,10 @@ func _on_remote_anim(r: Dictionary, before: String, now: String) -> void:
 			r.root.add_child(cart)
 			cart.global_position = r.root.global_position - Vector3(0, 0.12, 0)
 			r["cart"] = cart
+	elif now == "crouch":
+		vis.play("crouch")
+	elif before == "crouch":
+		vis.stop_action()
 	elif before == "sit":
 		vis.play("stand_up")
 		_release_seat(r)
@@ -395,6 +399,8 @@ func _process(delta: float) -> void:
 			anim = "bike" if player.vehicle == "bike" else "ride"
 		elif player.mode == PlayerController.Mode.SITTING:
 			anim = "sit"
+		elif player.crouching:
+			anim = "crouch"
 		NetworkManager.send_state(player.global_position, player.yaw, anim)
 
 

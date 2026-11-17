@@ -119,6 +119,13 @@ func _physics_process(delta: float) -> void:
 		wish = (forced_dir + side * rel.dot(side) * 0.35).normalized()
 		run_active = true
 	var mag := clampf(wish.length(), 0.0, 1.0)
+	if crouching:
+		# agachado fica parado; mexeu o joystick, levanta
+		if mag > 0.5 and not crouch_locked:
+			set_crouch(false)
+		else:
+			mag = 0.0
+			wish = Vector3.ZERO
 	if mag < 0.1:
 		_stop_timer += delta
 	else:
@@ -390,6 +397,30 @@ func _start_busy(action: String, target: Node) -> void:
 		if to.length() > 0.05:
 			yaw = atan2(to.x, to.z)
 	visual.play(action)
+
+
+# ------------------------------------------------------------- agachar
+
+## Agachado (esconde-esconde): fica pequeno e quietinho; quem procura precisa
+## chegar mais perto para achar. Online os colegas veem agachado também.
+var crouching := false
+var crouch_locked := false
+signal crouch_changed(on: bool)
+
+
+func set_crouch(on: bool) -> void:
+	if on == crouching:
+		return
+	if on and (mode != Mode.FREE or not is_on_floor() or riding):
+		return
+	crouching = on
+	if on:
+		velocity.x = 0.0
+		velocity.z = 0.0
+		visual.play("crouch")
+	else:
+		visual.stop_action()
+	crouch_changed.emit(on)
 
 
 # ------------------------------------------------------------- sentar

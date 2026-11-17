@@ -1231,9 +1231,7 @@ func _playground() -> void:
 	g.box("metal", bp + Vector3(0, 2.5, 0), Vector3(4.9, 0.1, 0.1), Color("27ae60"))
 	for k in 3:
 		var x := -1.4 + k * 1.4
-		g.box("metal", bp + Vector3(x - 0.22, 1.5, 0), Vector3(0.02, 2.0, 0.02), Color("95a5a6"))
-		g.box("metal", bp + Vector3(x + 0.22, 1.5, 0), Vector3(0.02, 2.0, 0.02), Color("95a5a6"))
-		g.box("wood", bp + Vector3(x, 0.47, 0), Vector3(0.55, 0.05, 0.25), [Color("e74c3c"), Color("f1c40f"), Color("3498db")][k])
+		# corrente e tábua são do próprio assento (Seat.swing): balançam de verdade
 		Props.add_seat(bp + Vector3(x, 0, 0), 0.0, Vector3.ZERO, bp.y + 0.49, "Balançar")
 	# Gangorra
 	var gp := Vector3(-82, 0.012, -54)

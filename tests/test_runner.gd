@@ -94,6 +94,7 @@ func _ready() -> void:
 	await _test_duas_turmas()
 	await _test_grade_do_dia()
 	await _test_educacao_infantil()
+	await _test_recreio_novo()
 	await _test_interpolacao()
 	_finish()
 
@@ -2310,6 +2311,84 @@ func _test_grade_do_dia() -> void:
 	sd.schedule = {}
 	npcm.set_turma_rooms(["Sala 5", "Sala 6", "Sala 4"], 0)
 	await _recess()
+
+
+func _test_recreio_novo() -> void:
+	await _recess()
+	await _clear_discipline()
+	var mm: MinigameManager = main.minigames
+	# balanço: a tábua e a criança vão e voltam de verdade
+	var sw: Seat = null
+	for st in main.world.seats:
+		if (st as Seat).swing and (st as Seat).occupant == null:
+			sw = st
+			break
+	check(sw != null, "balanço: existe")
+	if sw:
+		player.force_stand()
+		player.global_position = sw.interact_point()
+		await _frames(2)
+		player.sit_on(sw)
+		var amax := 0.0
+		var vmax := 0.0
+		for i in 360:
+			await get_tree().process_frame
+			amax = maxf(amax, absf(sw.swing_angle()))
+			vmax = maxf(vmax, absf(player.visual.position.z) + absf(player.visual.position.x))
+		check(amax > 0.35 and sw._swing_root.rotation.x != 0.0, "balanço: balança de verdade (%.0f°)" % rad_to_deg(amax))
+		check(vmax > 0.5, "balanço: a criança vai junto com a tábua (%.2f m)" % vmax)
+		player.stand_up()
+		await _wait(1.0)
+		check(player.visual.position.length() < 0.01, "balanço: levantou e voltou ao normal")
+	# esconde-esconde: 2ª rodada você se esconde (agachar + limite)
+	SaveManager.section("stats")["esconde_rodadas"] = 1
+	var hs = await _mg_start("esconde")
+	if hs:
+		check(hs.role == "hide" and hs.seeker != null, "esconde: rodada em que você se esconde (um colega procura)")
+		check(hs.play_label() == "Agachar", "esconde: botão Agachar")
+		hs.on_play()
+		check(player.crouching, "esconde: agachou")
+		check(hs.play_label() == "Levantar", "esconde: agachado, o botão vira Levantar")
+		# fora da área: volta para dentro
+		player.set_crouch(false)
+		player.global_position = Vector3(0, 0.5, -40)
+		await _frames(3)
+		var pp: Vector3 = player.global_position
+		check(hs.GAME_AREA.has_point(Vector2(pp.x, pp.z)), "esconde: não dá para sair da área das bandeirinhas", str(pp))
+		check(is_instance_valid(hs._flags), "esconde: bandeirinhas marcam o limite")
+		# agachado pertinho (1,8 m) ele não acha; em pé acha
+		hs._counting = 0.0
+		var spot := Vector3(0, 0.05, -100)
+		spot.y = ParkHill.height(spot.x, spot.z) + 0.05
+		player.global_position = spot
+		await _frames(2)
+		player.set_crouch(true)
+		hs.seeker.teleport(spot + Vector3(1.8, 0, 0))
+		hs.seeker.stop()
+		await _frames(3)
+		check(not hs._caught, "esconde: agachado, o procurador a 1,8 m não acha")
+		player.set_crouch(false)
+		await _frames(3)
+		check(hs._caught, "esconde: em pé, ele acha")
+		await _wait(2.5)
+	check(mm.active == null, "esconde: rodada termina")
+	SaveManager.section("stats")["esconde_rodadas"] = 0
+	# rodada em que procura: todo escondido é alcançável e dá para ganhar
+	var res := []
+	var rc := func(r): res.append(r)
+	mm.game_finished.connect(rc)
+	hs = await _mg_start("esconde")
+	if hs:
+		await _wait(5.0)
+		var list: Array = hs.hiders.map(func(h): return h.npc)
+		for n in list:
+			if mm.active == null:
+				break
+			player.global_position = (n as NPC).global_position + Vector3(1.2, 0.1, 0)
+			await _wait(0.3)
+		await _wait(0.3)
+	mm.game_finished.disconnect(rc)
+	check(mm.active == null and not res.is_empty() and int(res[-1].get("won", 0)) == 1, "esconde: achando todos, GANHA e termina", str(res))
 
 
 func _test_educacao_infantil() -> void:

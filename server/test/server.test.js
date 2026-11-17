@@ -217,7 +217,11 @@ test('esconde-esconde: um conta, os outros se escondem, chegar perto acha; preci
   assert.equal(s.hide.phase, 'seeking');
   assert.ok(hub.join('esconde', 'd', {}, t + 41500).error, 'procurando: novo jogador espera a próxima');
   const hiders = ['a', 'b', 'c'].filter((x) => x !== seeker);
-  // o procurador chega pertinho do primeiro escondido
+  // o primeiro está AGACHADO: a 1,8 m não acha; a 1 m acha
+  room.players.get(hiders[0]).anim = 'crouch';
+  room.players.get(seeker).pos = [room.players.get(hiders[0]).pos[0] + 1.8, 0, 0];
+  hub.tick(t + 45000);
+  assert.deepEqual(s.hide.found, [], 'agachado: precisa chegar mais perto');
   room.players.get(seeker).pos = [room.players.get(hiders[0]).pos[0] + 1, 0, 0];
   hub.tick(t + 50000);
   assert.deepEqual(s.hide.found, [hiders[0]]);
