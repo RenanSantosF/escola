@@ -1,9 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application>
+        <receiver android:name="com.recessclub.ads.NotifyReceiver" android:exported="false" />
         <!-- registra o plugin no Godot (plugins v2) -->
         <meta-data
             android:name="org.godotengine.plugin.v2.RecessAds"
             android:value="com.recessclub.ads.RecessAds" />
+        <!-- compras (Passe do Recreio) -->
+        <meta-data
+            android:name="org.godotengine.plugin.v2.RecessBilling"
+            android:value="com.recessclub.ads.RecessBilling" />
+        <!-- notificações (amigo online, lembretes) -->
+        <meta-data
+            android:name="org.godotengine.plugin.v2.RecessNotify"
+            android:value="com.recessclub.ads.RecessNotify" />
     </application>
 </manifest>

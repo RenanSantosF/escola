@@ -116,3 +116,12 @@ test('perguntas: o jogo baixa o banco; o painel adiciona e a versão muda', asyn
   assert.equal(game, server, 'o jogo leva a mesma lista do servidor');
   srv.close();
 });
+
+test('amigos: lista de amigos online para a notificação do celular', async () => {
+  const srv = createServer({ adminToken: 'x', dataDir: '' });
+  await new Promise((r) => srv.server.listen(0, r));
+  const base = 'http://127.0.0.1:' + srv.server.address().port;
+  const r = await fetch(base + '/api/friends/online', { headers: { authorization: 'Bearer nao-existe' } });
+  assert.equal(r.status, 401, 'sem conta não vê nada');
+  srv.close();
+});

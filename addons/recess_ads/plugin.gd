@@ -5,6 +5,8 @@ extends EditorPlugin
 
 const APP_ID := "ca-app-pub-4311255826061303~3657630165"
 const ADS_SDK := "com.google.android.gms:play-services-ads:23.6.0"
+const BILLING_SDK := "com.android.billingclient:billing:7.1.1"
+const WORK_SDK := "androidx.work:work-runtime:2.9.1"
 
 var _export: AdsExport
 
@@ -30,7 +32,7 @@ class AdsExport extends EditorExportPlugin:
 		return PackedStringArray(["recess_ads/bin/recess_ads.aar"])
 
 	func _get_android_dependencies(_platform: EditorExportPlatform, _debug: bool) -> PackedStringArray:
-		return PackedStringArray([ADS_SDK])
+		return PackedStringArray([ADS_SDK, BILLING_SDK, WORK_SDK])
 
 	func _get_android_manifest_application_element_contents(_platform: EditorExportPlatform, _debug: bool) -> String:
 		# API 36: em tablet o Android ignora a trava de paisagem; esta opção mantém o jogo deitado

@@ -340,6 +340,69 @@ static func _build() -> void:
 		],
 	}
 
+	_build_dances()
+
+
+## Dancinhas dos emojis animados (passe e loja).
+static func _build_dances() -> void:
+	var la := func(z: float, lo := 0.0) -> Dictionary: return {"LeftUpperArm": Vector3(-10, 0, z), "LeftLowerArm": Vector3(lo, 0, 0)}
+	var ra := func(z: float, lo := 0.0) -> Dictionary: return {"RightUpperArm": Vector3(-10, 0, -z), "RightLowerArm": Vector3(lo, 0, 0)}
+	# Dancinha: balança o quadril e os braços
+	var dk := [[0.0, {}]]
+	for i in 6:
+		var sgn := 1.0 if i % 2 == 0 else -1.0
+		dk.append([0.08 + i * 0.15, _merge(_merge(la.call(110 if sgn > 0 else 60, -60), ra.call(60 if sgn > 0 else 110, -60)),
+			{"hips": Vector3(0.06 * sgn, -0.04, 0), "Spine": Vector3(0, 0, 8 * sgn), "Head": Vector3(0, 0, -10 * sgn), "mouth": 2.0,
+			"LeftUpperLeg": Vector3(-10 if sgn > 0 else 0, 0, 0), "RightUpperLeg": Vector3(0 if sgn > 0 else -10, 0, 0)})])
+	dk.append([1.0, {}])
+	_defs["dance"] = {"duration": 2.4, "keys": dk}
+	# Robô: movimentos travados
+	var rk := [[0.0, {}]]
+	var poses := [[90, 0, -90, 0], [90, -90, 90, 0], [0, -90, 90, -90], [90, -90, 0, -90]]
+	for i in 8:
+		var pz: Array = poses[i % poses.size()]
+		rk.append([0.06 + i * 0.115, {"LeftUpperArm": Vector3(-10, 0, pz[0]), "LeftLowerArm": Vector3(pz[1], 0, 0),
+			"RightUpperArm": Vector3(-10, 0, -float(pz[0]) if i % 2 == 0 else pz[2]), "RightLowerArm": Vector3(pz[3], 0, 0),
+			"Head": Vector3(0, 25 if i % 2 == 0 else -25, 0), "hips": Vector3(0, -0.03 * (i % 2), 0)}])
+	rk.append([1.0, {}])
+	_defs["robot"] = {"duration": 2.6, "keys": rk}
+	# Fio dental: braços para os lados e quadril para o outro
+	var fk := [[0.0, {}]]
+	for i in 8:
+		var s2 := 1.0 if i % 2 == 0 else -1.0
+		fk.append([0.06 + i * 0.11, {"LeftUpperArm": Vector3(20 * s2, 0, 25), "RightUpperArm": Vector3(20 * s2, 0, -25),
+			"LeftLowerArm": Vector3(-10, 0, 0), "RightLowerArm": Vector3(-10, 0, 0), "hips": Vector3(0.08 * -s2, 0, 0),
+			"Spine": Vector3(0, 0, 6 * s2), "mouth": 1.8}])
+	fk.append([1.0, {}])
+	_defs["floss"] = {"duration": 2.2, "keys": fk}
+	# Pirueta com pulo
+	_defs["spin_jump"] = {"duration": 1.4, "keys": [
+		[0.0, {}],
+		[0.2, {"hips": Vector3(0, -0.12, 0), "LeftUpperLeg": Vector3(-40, 0, 0), "RightUpperLeg": Vector3(-40, 0, 0), "LeftLowerLeg": Vector3(70, 0, 0), "RightLowerLeg": Vector3(70, 0, 0)}],
+		[0.45, _merge(_merge(la.call(170), ra.call(170)), {"hips": Vector3(0, 0.45, 0), "Hips": Vector3(0, 180, 0), "mouth": 2.4})],
+		[0.7, _merge(_merge(la.call(170), ra.call(170)), {"hips": Vector3(0, 0.2, 0), "Hips": Vector3(0, 359, 0), "mouth": 2.4})],
+		[0.85, {"hips": Vector3(0, -0.08, 0), "LeftLowerLeg": Vector3(40, 0, 0), "RightLowerLeg": Vector3(40, 0, 0)}],
+		[1.0, {}]]}
+	# Gargalhada: barriga, cabeça para trás
+	var lk := [[0.0, {}]]
+	for i in 6:
+		lk.append([0.1 + i * 0.13, {"Spine": Vector3(-10 if i % 2 == 0 else 4, 0, 0), "Head": Vector3(-24 if i % 2 == 0 else -8, 0, 0), "mouth": 2.6,
+			"LeftUpperArm": Vector3(40, 0, 30), "RightUpperArm": Vector3(40, 0, -30), "LeftLowerArm": Vector3(-80, 0, 0), "RightLowerArm": Vector3(-80, 0, 0)}])
+	lk.append([1.0, {}])
+	_defs["laugh"] = {"duration": 1.8, "keys": lk}
+	# Coração com as mãos
+	_defs["heart_hands"] = {"duration": 1.8, "mask": "upper", "keys": [
+		[0.0, {}],
+		[0.25, {"LeftUpperArm": Vector3(-60, 0, 40), "RightUpperArm": Vector3(-60, 0, -40), "LeftLowerArm": Vector3(-100, 0, 0), "RightLowerArm": Vector3(-100, 0, 0), "Head": Vector3(0, 0, 8), "mouth": 1.8}],
+		[0.75, {"LeftUpperArm": Vector3(-62, 0, 38), "RightUpperArm": Vector3(-62, 0, -38), "LeftLowerArm": Vector3(-104, 0, 0), "RightLowerArm": Vector3(-104, 0, 0), "Head": Vector3(0, 0, -8), "mouth": 1.8}],
+		[1.0, {}]]}
+	# Pose de campeão (flexiona os braços)
+	_defs["flex"] = {"duration": 1.8, "keys": [
+		[0.0, {}],
+		[0.25, _merge(_merge(la.call(90, -110), ra.call(90, -110)), {"Spine": Vector3(-6, 0, 0), "Head": Vector3(-10, 0, 0), "mouth": 1.6, "hips": Vector3(0, -0.05, 0)})],
+		[0.6, _merge(_merge(la.call(95, -125), ra.call(95, -125)), {"Spine": Vector3(-8, 0, 0), "Head": Vector3(-12, 0, 0), "mouth": 2.2, "hips": Vector3(0, -0.05, 0)})],
+		[1.0, {}]]}
+
 
 static func _merge(a: Dictionary, b: Dictionary) -> Dictionary:
 	var r := a.duplicate()

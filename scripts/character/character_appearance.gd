@@ -39,6 +39,8 @@ var height_scale := 1.0
 var build := 1.0  # 0.9 magro .. 1.15 forte
 ## Menina: cílios, laço no cabelo e boca rosada (escolhido ao criar a conta).
 var girl := false
+## Aura (efeito lendário/do passe): "", "estrelas", "coracoes", "fogo", "neve", "arco_iris", "raio".
+var aura := ""
 
 
 func to_dict() -> Dictionary:
@@ -50,7 +52,7 @@ func to_dict() -> Dictionary:
 		"sock_color": sock_color.to_html(false), "shoe_color": shoe_color.to_html(false),
 		"shoe_sole": shoe_sole.to_html(false), "backpack": backpack,
 		"backpack_color": backpack_color.to_html(false), "cap": cap, "cap_color": cap_color.to_html(false),
-		"glasses": glasses, "height_scale": height_scale, "build": build, "girl": girl,
+		"glasses": glasses, "height_scale": height_scale, "build": build, "girl": girl, "aura": aura,
 	}
 
 

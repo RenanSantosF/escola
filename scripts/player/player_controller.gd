@@ -379,6 +379,7 @@ func emote(name: String) -> void:
 	if mode != Mode.FREE or not is_on_floor():
 		return
 	if visual.play(name):
+		EmoteFX.spawn(visual, name)
 		emote_started.emit(name)
 		if name == "celebrate":
 			AudioManager.play_3d("celebrate", global_position + Vector3.UP, -6.0, 0.02)

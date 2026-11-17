@@ -98,6 +98,7 @@ func _ready() -> void:
 	await _test_mesas_dois()
 	await _test_elevador_tobogã()
 	await _test_kart()
+	await _test_passe_loja()
 	await _test_interpolacao()
 	_finish()
 
@@ -2450,6 +2451,56 @@ func _test_recreio_novo() -> void:
 		await _wait(0.3)
 	mm.game_finished.disconnect(rc)
 	check(mm.active == null and not res.is_empty() and int(res[-1].get("won", 0)) == 1, "esconde: achando todos, GANHA e termina", str(res))
+
+
+func _test_passe_loja() -> void:
+	var prog: Progression = main.progression
+	SaveManager.section("pass").clear()
+	check(RecessPass.tier() == 0 and not RecessPass.is_premium(), "passe: começa no nível 0, sem premium")
+	GameManager.add_rewards(RecessPass.TIER_XP * 3, 0)
+	check(RecessPass.tier() == 3, "passe: XP do jogo também sobe o passe (nível %d)" % RecessPass.tier())
+	var c0 := GameManager.coins()
+	check(RecessPass.can_claim("free", 1) and RecessPass.claim("free", 1) != "" and GameManager.coins() == c0 + 30, "passe: pega prêmio grátis (30 moedas)")
+	check(not RecessPass.can_claim("free", 1), "passe: não pega o mesmo prêmio duas vezes")
+	check(not RecessPass.can_claim("prem", 1), "passe: trilha premium bloqueada sem comprar")
+	check(prog.buy("emo_floss") != "", "passe: item exclusivo não se compra com moedas")
+	RecessPass.grant_premium()
+	check(RecessPass.is_premium(), "passe: comprar ativa o premium (30 dias)")
+	check(RecessPass.claim("prem", 1) != "" and Progression.owns("emo_floss"), "passe: premium nível 1 dá o emoji animado Fio dental")
+	check(ShopCatalog.owned_emotes().any(func(e): return e[1] == "floss"), "passe: o emoji aparece no botão de emojis")
+	# emoji animado: a figura aparece em cima da cabeça
+	player.force_stand()
+	await _wait(0.5)
+	player.emote("floss")
+	await _frames(2)
+	check(player.visual.find_children("*", "EmoteFX", false, false).size() >= 1, "emoji animado: figura animada em cima da cabeça")
+	# efeito (aura) aparece no personagem
+	SaveManager.section("pass")["claimed_prem"].append_array([2, 3, 4, 5, 6])
+	RecessPass.data()["xp"] = RecessPass.TIER_XP * 8
+	check(RecessPass.claim("prem", 7) != "" and Progression.owns("aura_fogo"), "passe: nível 7 dá o efeito Chamas")
+	prog.equip("aura_fogo")
+	await _frames(2)
+	check(player.visual.get_node_or_null("Aura") != null, "efeito: partículas em volta do personagem")
+	check(str(player.visual.appearance.to_dict().get("aura", "")) == "fogo", "efeito: vai junto no visual (os colegas online veem)")
+	prog.equip("aura_nenhuma")
+	await _frames(2)
+	check(player.visual.get_node_or_null("Aura") == null, "efeito: tirar o efeito")
+	# preços: emojis animados caros na loja
+	var anim := ShopCatalog.EMOTES.filter(func(e): return e.get("animated", false) and not e.get("pass", false))
+	check(not anim.is_empty() and anim.all(func(e): return int(e.price) >= 800), "loja: emojis animados são caros fora do passe")
+	# vitrine grande
+	main.profile_menu.open_tab("loja")
+	var sc := ItemShowcase.open(main.profile_menu, main.profile_menu, "skin_galaxia")
+	await _frames(3)
+	check(sc._stage != null and sc._stage.size.x > 400.0, "loja: vitrine em tela cheia com o personagem grande (%.0f px)" % sc._stage.size.x)
+	sc._cmp_btn.pressed.emit()
+	check(sc._before, "loja: botão antes/depois")
+	sc.queue_free()
+	main.profile_menu.open_tab("passe")
+	await _frames(2)
+	check(main.profile_menu._content.find_children("*", "ItemIcon", true, false).size() > 10, "passe: tela do passe com os prêmios desenhados")
+	main.profile_menu.close_menu()
+	SaveManager.section("pass").clear()
 
 
 func _test_kart() -> void:

@@ -7,6 +7,7 @@ const CATEGORIES := [
 	["skin", "Skins"], ["pacote", "Pacotes"], ["camiseta", "Camisetas"], ["calca", "Calças"], ["calcado", "Tênis"], ["mochila", "Mochilas"],
 	["bone", "Bonés"], ["penteado", "Penteados"], ["acessorio", "Acessórios"], ["decoracao", "Decoração"],
 	["gude", "Bolinhas de gude"], ["figurinha", "Figurinhas"], ["veiculo", "Skate e bike"], ["emote", "Emojis"],
+	["aura", "Efeitos"],
 ]
 
 ## Raridade: cor do cartão e da faixa.
@@ -145,9 +146,46 @@ const EMOTES := [
 	{"id": "emo_stretch", "cat": "emote", "name": "Espreguiçar", "price": 70, "lvl": 2, "emote": "stretch", "desc": "Que soninho na aula..."},
 	{"id": "emo_scratch", "cat": "emote", "name": "Coçar a cabeça", "price": 70, "lvl": 3, "emote": "scratch_head", "desc": "Hmm, pensando..."},
 	{"id": "emo_look", "cat": "emote", "name": "Olhar em volta", "price": 60, "lvl": 3, "emote": "look_around", "desc": "Cadê todo mundo?"},
+	# ANIMADOS (dancinha + figura animada em cima da cabeça). Caros na loja:
+	# no Passe do Recreio saem bem mais em conta.
+	{"id": "emo_dance", "cat": "emote", "name": "Dancinha", "price": 900, "lvl": 2, "emote": "dance", "rarity": "epico", "animated": true, "desc": "Rebola com notinhas musicais pulando!"},
+	{"id": "emo_laugh", "cat": "emote", "name": "Gargalhada", "price": 800, "lvl": 2, "emote": "laugh", "rarity": "epico", "animated": true, "desc": "Ri até chorar (com carinha animada)."},
+	{"id": "emo_heart", "cat": "emote", "name": "Coração", "price": 850, "lvl": 2, "emote": "heart_hands", "rarity": "epico", "animated": true, "desc": "Coração com as mãos e coraçõezinhos subindo."},
+	{"id": "emo_robot", "cat": "emote", "name": "Dança do robô", "price": 1200, "lvl": 3, "emote": "robot", "rarity": "lendario", "animated": true, "desc": "Bip bop! Com raio elétrico piscando."},
+	# só no passe
+	{"id": "emo_floss", "cat": "emote", "name": "Fio dental", "price": 0, "lvl": 1, "emote": "floss", "rarity": "lendario", "animated": true, "pass": true, "desc": "A dança mais famosa do recreio, com estrela girando."},
+	{"id": "emo_spin", "cat": "emote", "name": "Pirueta arco-íris", "price": 0, "lvl": 1, "emote": "spin_jump", "rarity": "lendario", "animated": true, "pass": true, "desc": "Pulo com giro e arco-íris!"},
+	{"id": "emo_flex", "cat": "emote", "name": "Campeão", "price": 0, "lvl": 1, "emote": "flex", "rarity": "epico", "animated": true, "pass": true, "desc": "Mostra os músculos com uma coroa dourada."},
 ]
 
-static var ITEMS: Array = SKINS + BUNDLES + ITEMS_BASE + EMOTES
+## Efeitos (auras): partículas em volta do personagem. Todos veem online.
+const AURAS := [
+	{"id": "aura_nenhuma", "cat": "aura", "name": "Sem efeito", "price": 0, "lvl": 1, "rarity": "comum", "look": {"aura": ""}},
+	{"id": "aura_estrelas", "cat": "aura", "name": "Poeira de estrelas", "price": 1800, "lvl": 4, "rarity": "lendario", "look": {"aura": "estrelas"}, "desc": "Estrelinhas douradas sobem em volta de você."},
+	{"id": "aura_coracoes", "cat": "aura", "name": "Chuva de corações", "price": 1600, "lvl": 3, "rarity": "lendario", "look": {"aura": "coracoes"}, "desc": "Coraçõezinhos flutuando o tempo todo."},
+	{"id": "aura_neve", "cat": "aura", "name": "Floquinhos de neve", "price": 1500, "lvl": 3, "rarity": "epico", "look": {"aura": "neve"}, "desc": "Neve caindo só em você!"},
+	{"id": "aura_fogo", "cat": "aura", "name": "Chamas de campeão", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "look": {"aura": "fogo"}, "desc": "Faíscas de fogo (exclusivo do passe)."},
+	{"id": "aura_arco", "cat": "aura", "name": "Aura arco-íris", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "look": {"aura": "arco_iris"}, "desc": "Todas as cores ao seu redor (exclusivo do passe)."},
+	{"id": "aura_raio", "cat": "aura", "name": "Energia elétrica", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "look": {"aura": "raio"}, "desc": "Raios azuis faiscando (exclusivo do passe)."},
+]
+
+## Skins exclusivas do Passe do Recreio (não se compram com moedas).
+const PASS_SKINS := [
+	{"id": "skin_dragao", "cat": "skin", "name": "Dragão Dourado", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true,
+		"desc": "Verde-esmeralda com escamas douradas. Só no passe!",
+		"look": {"shirt_color": "1e8f4e", "shirt_trim": "ffcf3f", "shirt_logo": true, "pants_color": "145c33", "long_pants": true, "sock_color": "ffcf3f", "shoe_color": "ffcf3f", "shoe_sole": "145c33", "backpack": true, "backpack_color": "ffcf3f", "cap": false, "aura": "fogo"}},
+	{"id": "skin_neon", "cat": "skin", "name": "Robô Neon", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true,
+		"desc": "Prata com luzes azuis e energia elétrica.",
+		"look": {"shirt_color": "cfd8e3", "shirt_trim": "00e5ff", "shirt_logo": true, "pants_color": "37474f", "long_pants": true, "sock_color": "00e5ff", "shoe_color": "00e5ff", "shoe_sole": "263238", "backpack": true, "backpack_color": "90a4ae", "cap": false, "glasses": true, "aura": "raio"}},
+	{"id": "skin_unicornio", "cat": "skin", "name": "Unicórnio Mágico", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true,
+		"desc": "Branco, rosa e lilás com arco-íris.",
+		"look": {"shirt_color": "fff4fb", "shirt_trim": "ff6fae", "shirt_logo": true, "pants_color": "c39bff", "long_pants": true, "sock_color": "ff6fae", "shoe_color": "ff6fae", "shoe_sole": "ffffff", "backpack": true, "backpack_color": "c39bff", "cap": false, "hair_color": "ff8fcf", "aura": "arco_iris"}},
+	{"id": "skin_pirata", "cat": "skin", "name": "Capitão Pirata", "price": 0, "lvl": 1, "rarity": "epico", "pass": true,
+		"desc": "Listras, faixa vermelha e botas.",
+		"look": {"shirt_color": "f4efe6", "shirt_trim": "c62828", "shirt_logo": false, "pants_color": "263238", "long_pants": true, "sock_color": "263238", "shoe_color": "3e2723", "shoe_sole": "1b1b1b", "backpack": false, "cap": true, "cap_color": "212121"}},
+]
+
+static var ITEMS: Array = SKINS + PASS_SKINS + BUNDLES + ITEMS_BASE + EMOTES + AURAS
 
 
 ## Emojis que o jogador tem: [[nome, emote], ...].
@@ -161,7 +199,7 @@ static func owned_emotes() -> Array:
 	return out
 
 const DEFAULT_OWNED := ["skin_nenhuma", "cam_uniforme", "cal_bermuda", "ten_branco", "moc_vermelha", "moc_nenhuma", "bon_nenhum",
-	"pen_curto", "tin_castanho", "ace_sem_oculos", "emo_wave"]
+	"pen_curto", "tin_castanho", "ace_sem_oculos", "emo_wave", "aura_nenhuma"]
 
 
 ## Itens que também dá para ganhar assistindo vídeos premiados (id -> quantos vídeos).

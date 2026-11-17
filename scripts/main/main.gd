@@ -649,6 +649,8 @@ func _on_play_pressed() -> void:
 
 func _start_game() -> void:
 	get_viewport().disable_3d = false
+	if not _is_test_run():
+		Notifier.ask_permission()
 	AudioManager.play_ui("ui_confirm")
 	var tw := create_tween()
 	tw.tween_property(_menu, "modulate:a", 0.0, 0.35)

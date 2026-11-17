@@ -31,6 +31,8 @@ signal direct(from: String, from_name: String, kind: String, data: Variant)
 ## Amigos: pedido recebido, aviso (aceitou) e convite para a sala de um amigo.
 signal friend_request(from: String, name: String)
 signal friend_notice(text: String)
+## Um amigo acabou de entrar no jogo (ele mesmo ou em outra sala).
+signal friend_online(id: String, name: String, code: String)
 signal friend_invite(from: String, name: String, code: String)
 
 ## Servidor oficial no Railway.
@@ -330,6 +332,8 @@ func _handle(m: Dictionary) -> void:
 			friend_request.emit(str(m.get("from", "")), str(m.get("name", "")))
 		"friend_notice":
 			friend_notice.emit(str(m.get("text", "")))
+		"friend_online":
+			friend_online.emit(str(m.get("id", "")), str(m.get("name", "")), str(m.get("code", "")))
 		"friend_invite":
 			friend_invite.emit(str(m.get("from", "")), str(m.get("name", "")), str(m.get("code", "")))
 

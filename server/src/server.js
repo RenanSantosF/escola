@@ -45,7 +45,8 @@ const { Friends } = require('./friends');
 const { QuestionBank } = require('./questions');
 
 const NEAR_DIST = 18; // metros do canal "Perto de mim"
-const EMOTES = new Set(['wave', 'celebrate', 'clap', 'sad', 'stretch', 'scratch_head', 'look_around', 'raise_hand']);
+const EMOTES = new Set(['wave', 'celebrate', 'clap', 'sad', 'stretch', 'scratch_head', 'look_around', 'raise_hand',
+  'dance', 'robot', 'floss', 'spin_jump', 'laugh', 'heart_hands', 'flex']);
 const fs = require('fs');
 const path = require('path');
 
@@ -252,9 +253,14 @@ function createServer(opts = {}) {
     }
     // ---------------------------------------------------------- amigos
     if (url.startsWith('/api/friends')) {
-      const me = await accountFromToken(req.headers['x-token']);
+      const bearer = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+      const me = await accountFromToken(req.headers['x-token'] || bearer);
       if (!me) return json(401, { ok: false, error: 'Entre na sua conta.' });
       if (url === '/api/friends' && req.method === 'GET') return json(200, { ok: true, list: friendList(me.id) });
+      // amigos jogando agora (o celular avisa "fulano está jogando" com o jogo fechado)
+      if (url === '/api/friends/online' && req.method === 'GET') {
+        return json(200, { ok: true, online: friendList(me.id).filter((f) => f.status === 'friend' && f.online).map((f) => ({ name: f.name, code: f.code })) });
+      }
       if (req.method !== 'POST') return json(404, { ok: false });
       if (limited(req, 'friends', 60, 60000)) return json(429, { ok: false, error: 'Calma! Tente de novo daqui a pouco.' });
       const b = await readJson(req);
@@ -531,7 +537,16 @@ function createServer(opts = {}) {
         return send(ws, { t: 'join_error', text: r.error });
       }
       room = r;
+      const wasOnline = online.has(acc.id);
       online.set(acc.id, player);
+      // avisa os amigos que estão jogando: "fulano entrou!"
+      if (!wasOnline) {
+        for (const f of friends.list(acc.id)) {
+          if (f.status !== 'friend') continue;
+          const other = online.get(f.id);
+          if (other && other.ws) send(other.ws, { t: 'friend_online', id: acc.id, name: acc.name, code: room.code });
+        }
+      }
       send(ws, {
         t: 'welcome', token: acc.token, id: acc.id, name: acc.name, room: room.id, code: room.code, private: room.private,
         freeChat: accounts.canFreeChat(acc), quick: QUICK_PHRASES, players: room.snapshot(acc.id), phase: room.phase,

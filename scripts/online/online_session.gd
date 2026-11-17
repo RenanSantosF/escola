@@ -43,7 +43,8 @@ func setup(p: PlayerController, w: Node3D, ui_parent: Node, hud: HUD) -> void:
 			NetworkManager.send_emote(e))
 	NetworkManager.emote_received.connect(func(id, e):
 		if remotes.has(id):
-			(remotes[id].visual as CharacterVisual).play(e))
+			(remotes[id].visual as CharacterVisual).play(e)
+			EmoteFX.spawn(remotes[id].visual, e))
 	if hud and hud.controls:
 		hud.controls.blockers.append(chat_panel)
 	var nm := NetworkManager

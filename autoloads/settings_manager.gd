@@ -22,6 +22,7 @@ const DEFAULTS := {
 	"online_enabled": false,
 	"server_url": "",
 	"share_stats": true,
+	"notifications": true,
 }
 
 var values: Dictionary = DEFAULTS.duplicate()

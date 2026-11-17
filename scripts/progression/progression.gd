@@ -71,6 +71,8 @@ func setup(p: PlayerController, w: SchoolWorld, m: NPCManager, day: SchoolDay, m
 		inv.owned.append("skin_nenhuma")
 	if not "emo_wave" in inv.owned:
 		inv.owned.append("emo_wave")
+	if not "aura_nenhuma" in inv.owned:
+		inv.owned.append("aura_nenhuma")
 	day.phase_changed.connect(func(ph):
 		if ph == SchoolDay.Phase.ARRIVAL:
 			ensure_daily(day.day))
@@ -123,6 +125,8 @@ func buy(id: String) -> String:
 		return "Disponível no nível %d." % item.lvl
 	if not item.get("consumable", false) and owns(id):
 		return "Você já tem este item."
+	if item.get("pass", false):
+		return "Exclusivo do Passe do Recreio!"
 	var price := ShopCatalog.price_of(item)
 	if not GameManager.spend_coins(price):
 		return "Moedas insuficientes."

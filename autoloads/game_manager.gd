@@ -84,6 +84,8 @@ func add_rewards(xp: int, coin_amount: int) -> void:
 	p["coins"] = maxi(int(p.get("coins", 0)) + coin_amount, 0)
 	var lv := int(p.get("level", 1))
 	var cur := int(p.get("xp", 0)) + xp
+	if xp > 0:
+		RecessPass.add_xp(xp)  # tudo o que dá XP também avança o Passe do Recreio
 	while cur >= xp_for_level(lv):
 		cur -= xp_for_level(lv)
 		lv += 1

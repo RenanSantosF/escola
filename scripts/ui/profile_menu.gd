@@ -6,7 +6,7 @@ extends Control
 
 signal closed
 
-const TABS := [["brincadeiras", "Brincadeiras"], ["loja", "Loja"], ["visual", "Guarda-roupa"], ["colecoes", "Coleções"], ["missoes", "Missões"],
+const TABS := [["brincadeiras", "Brincadeiras"], ["passe", "Passe do Recreio"], ["loja", "Loja"], ["visual", "Guarda-roupa"], ["colecoes", "Coleções"], ["missoes", "Missões"],
 	["conquistas", "Conquistas"], ["amigos", "Amigos"], ["ficha", "Ficha"]]
 
 var progression: Progression
@@ -160,7 +160,10 @@ func _process(delta: float) -> void:
 func _refresh() -> void:
 	for t in _tab_buttons.keys():
 		var on: bool = t == _tab
-		_tab_buttons[t].add_theme_stylebox_override("normal", UITheme.box(UITheme.ORANGE if on else UITheme.YELLOW, 18, UITheme.DARK.lerp(UITheme.YELLOW, 0.5), 0, 6))
+		var base := UITheme.YELLOW if t != "passe" else Color("c9a8ff")
+		_tab_buttons[t].add_theme_stylebox_override("normal", UITheme.box(UITheme.ORANGE if on else base, 18, UITheme.DARK.lerp(UITheme.YELLOW, 0.5), 0, 6))
+	var pend := RecessPass.pending()
+	_tab_buttons["passe"].text = "Passe (%d!)" % pend if pend > 0 else "Passe do Recreio"
 	for c in _content.get_children():
 		c.queue_free()
 	_coins.text = "Moedas: %d  ·  Nível %d" % [GameManager.coins(), GameManager.level()]
@@ -174,6 +177,8 @@ func _refresh() -> void:
 	match _tab:
 		"loja", "visual":
 			_build_items(_tab == "loja")
+		"passe":
+			_build_pass()
 		"brincadeiras":
 			_build_games()
 		"colecoes":
@@ -259,7 +264,8 @@ func _build_items(shop: bool) -> void:
 			_refresh())
 		cats.add_child(b)
 	var grid := GridContainer.new()
-	grid.columns = 3
+	var avail := get_viewport_rect().size.x - 196.0 - 300.0 - 80.0
+	grid.columns = clampi(int(avail / 214.0), 2, 5)
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 12)
 	_content.add_child(grid)
@@ -393,7 +399,7 @@ func _coin_pill(amount: int, size := 24) -> Control:
 func _card(item: Dictionary, owned: bool, shop := true) -> Control:
 	var b := Button.new()
 	UITheme.dark_text(b)
-	b.custom_minimum_size = Vector2(212, 150)
+	b.custom_minimum_size = Vector2(200, 228)
 	b.focus_mode = Control.FOCUS_NONE
 	var locked := GameManager.level() < int(item.lvl)
 	var rar := ShopCatalog.rarity_of(item)
@@ -401,44 +407,44 @@ func _card(item: Dictionary, owned: bool, shop := true) -> Control:
 	var sel: bool = item.id == _selected
 	var bg := Color("fffaf0") if not locked else Color("e3e0d8")
 	for st in ["normal", "hover", "pressed", "focus"]:
-		var sb := UITheme.box(bg, 20, Color.WHITE if sel else rcol, 6 if sel else 3, 6)
+		var sb := UITheme.box(bg, 20, Color.WHITE if sel else rcol, 6 if sel else 4, 6)
 		if sel:
 			sb.shadow_color = Color(1, 0.85, 0.2, 0.7)
 			sb.shadow_size = 10
 		b.add_theme_stylebox_override(st, sb)
-	# faixa de raridade
-	var ribbon := ColorRect.new()
-	ribbon.color = rcol
-	ribbon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ribbon.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	ribbon.offset_bottom = 26
-	ribbon.offset_left = 3
-	ribbon.offset_right = -3
-	ribbon.offset_top = 3
-	b.add_child(ribbon)
-	var rl := _label(ShopCatalog.RARITY[rar][0].to_upper(), 15, Color.WHITE)
-	rl.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	rl.offset_top = 3
-	rl.offset_bottom = 26
+	# ícone desenhado do item (fundo da raridade, brilho nos épicos/lendários)
+	var icon := ItemIcon.new(item)
+	icon.position = Vector2(6, 6)
+	icon.size = Vector2(188, 124)
+	b.add_child(icon)
+	if locked:
+		var lk := ColorRect.new()
+		lk.color = Color(0, 0, 0, 0.35)
+		lk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		lk.position = icon.position
+		lk.size = icon.size
+		b.add_child(lk)
+	var rl := _label(ShopCatalog.RARITY[rar][0].to_upper(), 14, Color.WHITE)
+	rl.position = Vector2(12, 10)
+	rl.add_theme_constant_override("outline_size", 6)
+	rl.add_theme_color_override("font_outline_color", rcol.darkened(0.4))
 	b.add_child(rl)
-	# amostra de cor
-	var sw := Panel.new()
-	sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sw.add_theme_stylebox_override("panel", UITheme.box(ShopCatalog.swatch(item), 22, Color.WHITE, 3, 0))
-	sw.position = Vector2(10, 40)
-	sw.size = Vector2(44, 44)
-	b.add_child(sw)
-	var nm := _label(item.name, 19, UITheme.DARK)
-	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	if item.get("animated", false) or item.get("pass", false):
+		var tg := _tag("PASSE" if item.get("pass", false) else "ANIMADO", Color("9b59ff") if item.get("pass", false) else Color("ff4d6d"))
+		tg.position = Vector2(118, 8)
+		b.add_child(tg)
+	var nm := _label(item.name, 18, UITheme.DARK)
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	nm.position = Vector2(62, 32)
-	nm.size = Vector2(142, 66)
+	nm.position = Vector2(8, 132)
+	nm.size = Vector2(184, 50)
+	nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	b.add_child(nm)
 	# preço / estado
 	var foot := HBoxContainer.new()
 	foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	foot.position = Vector2(10, 106)
-	foot.size = Vector2(194, 36)
+	foot.alignment = BoxContainer.ALIGNMENT_CENTER
+	foot.position = Vector2(8, 186)
+	foot.size = Vector2(184, 34)
 	foot.add_theme_constant_override("separation", 6)
 	b.add_child(foot)
 	var off := ShopCatalog.discount_of(item.id)
@@ -446,6 +452,8 @@ func _card(item: Dictionary, owned: bool, shop := true) -> Control:
 		foot.add_child(_tag("VESTINDO", UITheme.GREEN))
 	elif owned and not item.get("consumable", false):
 		foot.add_child(_tag("É SEU", Color("2f8be0")))
+	elif item.get("pass", false):
+		foot.add_child(_tag("NO PASSE", Color("9b59ff")))
 	elif locked:
 		foot.add_child(_tag("NÍVEL %d" % item.lvl, Color("8a8f99")))
 	elif int(item.price) == 0:
@@ -462,7 +470,10 @@ func _card(item: Dictionary, owned: bool, shop := true) -> Control:
 	b.pressed.connect(func():
 		AudioManager.play_ui("ui_click")
 		_selected = item.id
-		_refresh())
+		_refresh()
+		# vitrine grande: personagem usando o item (antes/depois)
+		var sc := ItemShowcase.open(self, self, item.id)
+		sc.done.connect(func(): _refresh()))
 	return b
 
 
@@ -583,6 +594,156 @@ func _row(text: String, sub: String, col := Color("fff8e7")) -> void:
 	v.add_child(b)
 	p.add_child(v)
 	_content.add_child(p)
+
+
+# ------------------------------------------------------------ passe do recreio
+
+func _build_pass() -> void:
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 12)
+	_content.add_child(head)
+	var tv := VBoxContainer.new()
+	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(tv)
+	var t := UITheme.title_label("Passe do Recreio", 42, Color("c9a8ff"))
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	t.add_theme_constant_override("outline_size", 10)
+	t.add_theme_color_override("font_outline_color", UITheme.DARK)
+	tv.add_child(t)
+	var sub := _label("%s  ·  acaba em %d dia(s)  ·  nível %d de %d" % [RecessPass.season_name(), RecessPass.days_left(), RecessPass.tier(), RecessPass.TIERS], 20, UITheme.DARK)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	tv.add_child(sub)
+	# barra de progresso do nível
+	var bar := ProgressBar.new()
+	bar.min_value = 0.0
+	bar.max_value = 1.0
+	bar.value = RecessPass.tier_progress()
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(0, 22)
+	bar.add_theme_stylebox_override("background", UITheme.box(Color("d9d2ea"), 11))
+	bar.add_theme_stylebox_override("fill", UITheme.box(Color("c9a8ff"), 11))
+	tv.add_child(bar)
+	var xpl := _label("Ganhe XP jogando (aulas, brincadeiras, missões): %d / %d XP para o próximo nível" % [RecessPass.xp() % RecessPass.TIER_XP, RecessPass.TIER_XP], 16, Color("5b6b8c"))
+	xpl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	tv.add_child(xpl)
+	if RecessPass.is_premium():
+		head.add_child(_tag("PREMIUM ATIVO", Color("9b59ff")))
+	else:
+		var buy := UITheme.make_button("Comprar\n%s / mês" % Billing.price_text, func():
+			Billing.buy_pass()
+			await get_tree().create_timer(0.3).timeout
+			if visible:
+				_refresh(), 260)
+		buy.custom_minimum_size = Vector2(260, 72)
+		buy.add_theme_font_size_override("font_size", 22)
+		buy.add_theme_stylebox_override("normal", UITheme.box(Color("9b59ff"), 20, Color("6a2fd6"), 0, 6))
+		buy.add_theme_color_override("font_color", Color.WHITE)
+		head.add_child(buy)
+	if not RecessPass.is_premium():
+		var why := _label("Com o passe: 4 skins exclusivas, 7 emojis ANIMADOS, 6 efeitos e mais de 1.800 moedas!", 20, Color("7b3fe0"))
+		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_content.add_child(why)
+	# trilhas: premium em cima, grátis embaixo (rola para o lado)
+	var sc := ScrollContainer.new()
+	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.custom_minimum_size = Vector2(0, 420)
+	sc.scroll_deadzone = 12
+	_content.add_child(sc)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	sc.add_child(row)
+	var first_open := -1
+	for i in range(1, RecessPass.TIERS + 1):
+		var col := VBoxContainer.new()
+		col.add_theme_constant_override("separation", 6)
+		row.add_child(col)
+		var reached := RecessPass.tier() >= i
+		var num := _label("Nível %d" % i, 20, Color("e67e22") if reached else Color("8a8f99"))
+		col.add_child(num)
+		col.add_child(_pass_cell("prem", i))
+		col.add_child(_pass_cell("free", i))
+		if first_open < 0 and (RecessPass.can_claim("free", i) or RecessPass.can_claim("prem", i) or not reached):
+			first_open = i
+	# rola até o primeiro prêmio a pegar
+	get_tree().process_frame.connect(func():
+		if is_instance_valid(sc):
+			sc.scroll_horizontal = maxi((first_open - 2) * 170, 0), CONNECT_ONE_SHOT)
+	if Billing.can_test() and not RecessPass.is_premium():
+		_content.add_child(_label("(versão de desenvolvimento: \"Comprar\" ativa o passe de teste)", 14, Color("8a8f99")))
+
+
+func _pass_cell(track: String, tier_i: int) -> Control:
+	var r := RecessPass.reward(track, tier_i)
+	var b := Button.new()
+	UITheme.dark_text(b)
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(160, 180)
+	var prem := track == "prem"
+	var bgc := Color("efe4ff") if prem else Color("fffaf0")
+	var border := Color("9b59ff") if prem else Color("c9b98f")
+	if RecessPass.claimed(track, tier_i):
+		bgc = bgc.darkened(0.25)
+	for st in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(st, UITheme.box(bgc, 18, border, 4, 4))
+	if r.is_empty():
+		b.disabled = true
+		return b
+	var icon_item: Dictionary = {}
+	var txt := ""
+	if r.has("item"):
+		icon_item = ShopCatalog.get_item(str(r.item))
+		txt = str(icon_item.get("name", ""))
+	elif r.has("coins"):
+		txt = "%d moedas" % int(r.coins)
+	else:
+		var pk: Dictionary = r.packs
+		txt = "%d pacote(s)" % int(pk.values()[0])
+		icon_item = {"cat": "figurinha" if pk.has("figurinha") else "gude", "id": "", "price": 0}
+	if not icon_item.is_empty():
+		var ic := ItemIcon.new(icon_item)
+		ic.position = Vector2(8, 8)
+		ic.size = Vector2(144, 96)
+		b.add_child(ic)
+	else:
+		var ci := CoinIcon.new()
+		ci.radius = 30
+		ci.position = Vector2(50, 22)
+		b.add_child(ci)
+	var l := _label(txt, 16, UITheme.DARK)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.position = Vector2(6, 106)
+	l.size = Vector2(148, 40)
+	b.add_child(l)
+	var state := ""
+	var scol := UITheme.GREEN
+	if RecessPass.claimed(track, tier_i):
+		state = "PEGO"
+		scol = Color("8a8f99")
+	elif RecessPass.can_claim(track, tier_i):
+		state = "PEGAR!"
+		scol = Color("ff4d6d")
+	elif prem and not RecessPass.is_premium():
+		state = "PREMIUM"
+		scol = Color("9b59ff")
+	else:
+		state = "NÍVEL %d" % tier_i
+		scol = Color("8a8f99")
+	var tg := _tag(state, scol)
+	tg.position = Vector2(30, 148)
+	b.add_child(tg)
+	b.pressed.connect(func():
+		if RecessPass.can_claim(track, tier_i):
+			var got := RecessPass.claim(track, tier_i)
+			if got != "":
+				GameManager.show_toast("Você ganhou: %s!" % got)
+				if r.has("item") and ShopCatalog.get_item(str(r.item)).has("look"):
+					progression.equip(str(r.item))
+			_refresh()
+		elif r.has("item"):
+			ItemShowcase.open(self, self, str(r.item)).done.connect(func(): _refresh())
+		elif prem and not RecessPass.is_premium():
+			GameManager.show_toast("Prêmio da trilha PREMIUM: compre o Passe do Recreio!"))
+	return b
 
 
 func _build_games() -> void:
