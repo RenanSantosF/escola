@@ -95,6 +95,7 @@ func _ready() -> void:
 	await _test_grade_do_dia()
 	await _test_educacao_infantil()
 	await _test_recreio_novo()
+	await _test_mesas_dois()
 	await _test_interpolacao()
 	_finish()
 
@@ -2389,6 +2390,69 @@ func _test_recreio_novo() -> void:
 		await _wait(0.3)
 	mm.game_finished.disconnect(rc)
 	check(mm.active == null and not res.is_empty() and int(res[-1].get("won", 0)) == 1, "esconde: achando todos, GANHA e termina", str(res))
+
+
+func _test_mesas_dois() -> void:
+	await _recess()
+	await _clear_discipline()
+	var table: TableGame = null
+	for n in main.world.get_children():
+		if n is TableGame and n.kind == "xadrez":
+			table = n
+			break
+	# chega pelo lado: o ponto de interação é o banquinho, não a frente da mesa
+	player.force_stand()
+	player.global_position = table.side_pos(1) + Vector3(0.6, 0.05, 0)
+	await _frames(2)
+	check(table.interact_point().distance_to(table.side_pos(1)) < 0.05, "mesa: joga chegando AO LADO (banquinho)")
+	table.interact(player)
+	await _wait(0.5)
+	var hp := player.global_position
+	check(Vector2(hp.x - table.side_pos(1).x, hp.z - table.side_pos(1).z).length() < 0.2, "mesa: o boneco fica no banquinho virado para a mesa")
+	var tgui: TableGames = null
+	for c in main.hud.get_children():
+		if c is TableGames:
+			tgui = c
+	check(tgui != null and tgui.side == 1, "mesa: sabe de qual lado estou")
+	# 2 jogadores no mesmo celular: os dois lados jogam
+	tgui._level = 2
+	tgui._new_round()
+	var board: Control = tgui._board
+	board._play([52, 36])
+	await _wait(0.6)
+	check(board.st.turn == "b" and board.mode == "2p", "xadrez: 2 jogadores, o computador não joga sozinho")
+	check(board._can_touch(), "xadrez: 2 jogadores, as pretas podem tocar")
+	# online: o colega do outro lado manda 'hi' e vira partida um contra o outro
+	NetworkManager.my_id = "eu"
+	NetworkManager.names["amigo"] = "Amigo"
+	tgui._on_direct("amigo", "Amigo", "mesa", {"t": "hi", "table": table.key(), "side": 0})
+	await _frames(2)
+	check(tgui.opp_id == "amigo" and board.mode == "net" and board.mine == "b", "xadrez online: pareou com quem está do outro lado (eu de pretas)")
+	check(board._flip(), "xadrez online: de pretas o tabuleiro vira")
+	tgui._on_direct("amigo", "Amigo", "mesa", {"t": "mv", "table": table.key(), "m": [52, 36]})
+	await _frames(2)
+	check(board.st.b[36] == "P" and board.st.turn == "b", "xadrez online: o lance do colega chega no meu tabuleiro")
+	check(board._can_touch(), "xadrez online: agora é a minha vez")
+	tgui._on_direct("amigo", "Amigo", "mesa", {"t": "bye", "table": table.key()})
+	await _frames(2)
+	check(tgui.opp_id == "" and board.mode != "net", "xadrez online: o colega saiu, volta para o normal")
+	tgui.close()
+	await _frames(2)
+	NetworkManager.my_id = ""
+	# pingue-pongue online: anfitrião simula; quem recebe vê a mesa virada e mais lenta
+	var pg := TableGames.open(main.hud, "pingpong", func(_w): pass)
+	await _frames(2)
+	pg.opp_id = "amigo"
+	pg.side = 1
+	var pong: Control = pg._board
+	pong.reset(1)
+	check(pong.net == 1 and pong.spd < 1.0, "pingue-pongue online: bola mais lenta")
+	pong.net_msg({"t": "st", "b": [0.2, 0.3], "v": [0.1, 0.4], "px": 0.7, "s": [2, 1], "sv": 0.0, "over": false})
+	check(absf(pong.ball.x - 0.8) < 0.01 and absf(pong.ball.y - 0.7) < 0.01 and absf(pong.cx - 0.3) < 0.01 and pong.me == 1 and pong.cpu == 2,
+		"pingue-pongue online: vê a mesa do outro lado (virada) e o placar certo")
+	pg.opp_id = ""
+	pg.close()
+	await _frames(2)
 
 
 func _test_educacao_infantil() -> void:

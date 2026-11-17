@@ -265,7 +265,10 @@ func _spawn_room_activities() -> void:
 		var tg := TableGame.new()
 		tg.kind = gt.kind
 		var zt := _zone_named(gt.room)
-		tg.position = gt.pos + Vector3(0, ((float(zt.y0) + 0.5) if zt.has("y0") else 0.0) + 0.05, 0)
+		var fy := ((float(zt.y0) + 0.5) if zt.has("y0") else 0.0) + 0.05
+		tg.position = gt.pos + Vector3(0, fy, 0)
+		for sp in gt.get("sides", []):
+			tg.sides.append((sp as Vector3) - gt.pos)
 		add_child(tg)
 	for cm in builder.cinemas:
 		var cs := CinemaScreen.new()

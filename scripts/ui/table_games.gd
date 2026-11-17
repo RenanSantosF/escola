@@ -1,8 +1,10 @@
 class_name TableGames
 extends Control
 ## Jogos de mesa da Sala de Jogos e da Sala de Xadrez, numa tela própria:
-##   xadrez (regras completas, contra o computador), pingue-pongue (arraste o
-##   dedo para mexer a raquete), jogo da velha e jogo da memória.
+##   xadrez (regras completas), pingue-pongue (arraste o dedo para mexer a
+##   raquete), jogo da velha e jogo da memória.
+## Contra o computador, 2 jogadores no mesmo celular (xadrez e velha) ou,
+## online, contra o colega sentado do OUTRO lado da mesa (xadrez e pingue-pongue).
 ## Abra com TableGames.open(hud, tipo, ao_fechar). Vitória dá XP uma vez por dia.
 
 signal closed(won: bool)
@@ -19,6 +21,12 @@ var _level := 1
 var _level_btn: Button
 var _won_any := false
 var _phase0 := -1
+## Mesa e lado (0/1) onde o jogador está; online: o adversário do outro lado.
+var table: TableGame
+var side := 0
+var opp_id := ""
+var _hi_t := 0.0
+const LEVEL_NAMES := ["Fácil", "Normal", "2 jogadores"]
 
 
 static func open(hud: Control, k: String, on_close: Callable) -> TableGames:
@@ -74,7 +82,10 @@ func _build() -> void:
 	side.add_child(_status)
 	if kind in ["xadrez", "pingpong", "velha"]:
 		_level_btn = UITheme.make_button("", func():
-			_level = 1 - _level
+			if opp_id != "":
+				return
+			var n := 3 if kind in ["xadrez", "velha"] else 2
+			_level = (_level + 1) % n
 			_paint_level()
 			_new_round(), 300)
 		side.add_child(_level_btn)
@@ -89,7 +100,68 @@ func _build() -> void:
 
 func _paint_level() -> void:
 	if _level_btn:
-		_level_btn.text = "Nível: " + ("Fácil" if _level == 0 else "Normal")
+		if opp_id != "":
+			_level_btn.text = "Contra: %s" % NetworkManager.name_of(opp_id)
+		elif _level == 2:
+			_level_btn.text = "2 jogadores (mesmo celular)"
+		else:
+			_level_btn.text = "Nível: " + LEVEL_NAMES[_level]
+
+
+# ------------------------------------------------------------ online: mesa a dois
+
+## Chamado pela mesa: em qual lado estou. Online, procura o colega do outro lado.
+func attach_table(t: TableGame, s: int) -> void:
+	table = t
+	side = s
+	if kind in ["xadrez", "pingpong"] and NetworkManager.is_online():
+		NetworkManager.direct.connect(_on_direct)
+		_say_hi()
+
+
+func _say_hi() -> void:
+	if table == null or opp_id != "":
+		return
+	var other := table.remote_at(1 - side)
+	if other != "":
+		NetworkManager.send_direct(other, "mesa", {"t": "hi", "table": table.key(), "side": side})
+
+
+func net_send(d: Dictionary) -> void:
+	if opp_id == "" or table == null:
+		return
+	d["table"] = table.key()
+	NetworkManager.send_direct(opp_id, "mesa", d)
+
+
+func _on_direct(from: String, _from_name: String, k: String, data: Variant) -> void:
+	if k != "mesa" or not (data is Dictionary) or table == null or str(data.get("table", "")) != table.key():
+		return
+	match str(data.get("t", "")):
+		"hi", "ok":
+			if opp_id == "" or opp_id == from:
+				var was := opp_id
+				opp_id = from
+				if str(data.t) == "hi":
+					NetworkManager.send_direct(from, "mesa", {"t": "ok", "table": table.key(), "side": side})
+				if was == "":
+					_paint_level()
+					_board.call("reset", _level)
+					GameManager.show_toast("%s sentou do outro lado: valendo!" % NetworkManager.name_of(from))
+		"bye":
+			if from == opp_id:
+				opp_id = ""
+				GameManager.show_toast("%s saiu da mesa." % NetworkManager.name_of(from))
+				_paint_level()
+				_board.call("reset", _level)
+		_:
+			if from == opp_id and _board.has_method("net_msg"):
+				_board.call("net_msg", data)
+
+
+## Online contra alguém: 0 = eu começo (brancas / saque), 1 = o outro.
+func net_role() -> int:
+	return side if opp_id != "" else -1
 
 
 func _layout() -> void:
@@ -114,7 +186,13 @@ func _layout() -> void:
 		side.size = Vector2(300, vs.y * 0.3)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	# ainda sem adversário: de vez em quando vê se alguém sentou do outro lado
+	if table and opp_id == "" and NetworkManager.is_online() and kind in ["xadrez", "pingpong"]:
+		_hi_t -= delta
+		if _hi_t <= 0.0:
+			_hi_t = 1.5
+			_say_hi()
 	# o sinal tocou (aula/fim do recreio): fecha sozinho
 	var sd := get_tree().get_first_node_in_group("school_day")
 	if sd and _phase0 >= 0 and int(sd.phase) != _phase0:
@@ -155,6 +233,8 @@ func finish(won: int, text: String) -> void:
 func close() -> void:
 	if is_queued_for_deletion():
 		return
+	if opp_id != "":
+		net_send({"t": "bye"})
 	set_process(false)
 	closed.emit(_won_any)
 	queue_free()
@@ -172,6 +252,10 @@ class _Chess extends Control:
 	var over := false
 	var thinking := false
 
+	## "w"/"b": minha cor (online); "" = contra o computador; "2p" = os dois no mesmo celular.
+	var mine := "w"
+	var mode := "cpu"
+
 	func reset(lv: int) -> void:
 		level = lv
 		st = ChessRules.new_game()
@@ -180,8 +264,40 @@ class _Chess extends Control:
 		last = []
 		over = false
 		thinking = false
-		ui.set_status("Você joga com as BRANCAS.\nToque numa peça e depois onde ela vai.")
+		var role := ui.net_role()
+		if role >= 0:
+			mode = "net"
+			mine = "w" if role == 0 else "b"
+			ui.set_status("Você joga com as %s contra %s.\n%s" % ["BRANCAS" if mine == "w" else "PRETAS", NetworkManager.name_of(ui.opp_id), "Sua vez!" if mine == "w" else "Espere a jogada dele(a)."])
+		elif lv == 2:
+			mode = "2p"
+			mine = "w"
+			ui.set_status("2 jogadores: as BRANCAS começam.\nCada um joga na sua vez.")
+		else:
+			mode = "cpu"
+			mine = "w"
+			ui.set_status("Você joga com as BRANCAS.\nToque numa peça e depois onde ela vai.")
 		queue_redraw()
+
+	## Pretas online: o tabuleiro vira (as minhas peças ficam embaixo).
+	func _flip() -> bool:
+		return mode == "net" and mine == "b"
+
+	func _view(sq: int) -> int:
+		return 63 - sq if _flip() else sq
+
+	func _can_touch() -> bool:
+		if mode == "2p":
+			return true
+		return st.turn == mine
+
+	func net_msg(d: Dictionary) -> void:
+		if str(d.get("t", "")) == "mv" and mode == "net" and st.turn != mine and not over:
+			var m: Array = d.get("m", [])
+			for lm in ChessRules.legal_moves(st):
+				if lm[0] == int(m[0]) and lm[1] == int(m[1]) and (lm.size() < 3 or m.size() < 3 or str(lm[2]) == str(m[2])):
+					_play(lm, true)
+					return
 
 	func _gui_input(e: InputEvent) -> void:
 		var pos := Vector2.ZERO
@@ -190,17 +306,18 @@ class _Chess extends Control:
 		else:
 			return
 		accept_event()
-		if over or thinking or st.turn != "w":
+		if over or thinking or not _can_touch():
 			return
 		var cs := size.x / 8.0
 		var sq := int(pos.y / cs) * 8 + int(pos.x / cs)
 		if sq < 0 or sq >= 64:
 			return
+		sq = _view(sq)
 		for m in targets:
 			if m[1] == sq:
 				_play(m)
 				return
-		if ChessRules.side_of(st.b[sq]) == "w":
+		if ChessRules.side_of(st.b[sq]) == st.turn:
 			sel = sq
 			targets = ChessRules.legal_moves(st).filter(func(m): return m[0] == sq)
 			AudioManager.play_ui("ui_click", -10.0)
@@ -209,8 +326,10 @@ class _Chess extends Control:
 			targets = []
 		queue_redraw()
 
-	func _play(m: Array) -> void:
+	func _play(m: Array, remote := false) -> void:
 		var capture: bool = st.b[m[1]] != ""
+		if mode == "net" and not remote:
+			ui.net_send({"t": "mv", "m": m})
 		st = ChessRules.apply(st, m)
 		last = m
 		sel = -1
@@ -218,6 +337,12 @@ class _Chess extends Control:
 		AudioManager.play_ui("clack" if not capture else "catch", -6.0)
 		queue_redraw()
 		if _check_end():
+			return
+		if mode == "net":
+			ui.set_status(("Xeque! " if ChessRules.in_check(st, st.turn) else "") + ("Sua vez." if st.turn == mine else "Vez de %s..." % NetworkManager.name_of(ui.opp_id)))
+			return
+		if mode == "2p":
+			ui.set_status(("Xeque! " if ChessRules.in_check(st, st.turn) else "") + ("Vez das BRANCAS." if st.turn == "w" else "Vez das PRETAS."))
 			return
 		if st.turn == "b":
 			thinking = true
@@ -238,10 +363,13 @@ class _Chess extends Control:
 			return false
 		over = true
 		if s == "mate":
-			if st.turn == "b":
+			var loser: String = st.turn
+			if mode == "2p":
+				ui.finish(0, "XEQUE-MATE!\nAs %s venceram!" % ("PRETAS" if loser == "w" else "BRANCAS"))
+			elif loser != mine:
 				ui.finish(1, "XEQUE-MATE!\nVocê venceu!")
 			else:
-				ui.finish(-1, "Xeque-mate...\nO computador venceu. Tente de novo!")
+				ui.finish(-1, "Xeque-mate...\n%s venceu. Tente de novo!" % (NetworkManager.name_of(ui.opp_id) if mode == "net" else "O computador"))
 		else:
 			ui.finish(0, "Empate!")
 		return true
@@ -249,9 +377,10 @@ class _Chess extends Control:
 	func _draw() -> void:
 		var cs := size.x / 8.0
 		var check_k := ChessRules.king_sq(st.b, st.turn) if ChessRules.in_check(st, st.turn) else -1
-		for sq in 64:
-			var r := sq / 8
-			var c := sq % 8
+		for vsq in 64:
+			var sq := _view(vsq)
+			var r := vsq / 8
+			var c := vsq % 8
 			var rect := Rect2(c * cs, r * cs, cs, cs)
 			var col := Color("fff3d6") if (r + c) % 2 == 0 else Color("6fbf9a")
 			if sq == sel:
@@ -266,7 +395,8 @@ class _Chess extends Control:
 				TableGames.draw_piece(self, p.to_lower(), ChessRules.is_white(p), rect)
 		for m in targets:
 			var t: int = m[1]
-			var center := Vector2((t % 8 + 0.5) * cs, (t / 8 + 0.5) * cs)
+			var vt := _view(t)
+			var center := Vector2((vt % 8 + 0.5) * cs, (vt / 8 + 0.5) * cs)
 			if st.b[t] != "":
 				draw_arc(center, cs * 0.44, 0, TAU, 32, Color(0.1, 0.5, 0.2, 0.75), cs * 0.07, true)
 			else:
@@ -344,6 +474,15 @@ class _Pong extends Control:
 	const PAD_Y_CPU := 0.1
 	const BALL_R := 0.028
 	const TO := 7
+	## Online contra o colega da outra ponta: 0 = eu simulo a bola (anfitrião),
+	## 1 = eu recebo (vejo a mesa virada, minha raquete sempre embaixo). A bola
+	## é MAIS LENTA online para o atraso da internet não atrapalhar.
+	var net := -1
+	var spd := 1.0
+	var _send_t := 0.0
+	var _remote_x := 0.5
+	const NET_SPEED := 0.6
+	const NET_HZ := 12.0
 
 	func reset(lv: int) -> void:
 		level = lv
@@ -351,8 +490,47 @@ class _Pong extends Control:
 		cpu = 0
 		over = false
 		server = 0
+		net = ui.net_role()
+		spd = NET_SPEED if net >= 0 else 1.0
 		_serve_setup()
-		ui.set_status("Arraste o dedo na mesa para mexer a raquete.\nQuem fizer %d pontos vence!" % TO)
+		if net >= 0:
+			ui.set_status("Contra %s!\nArraste o dedo para mexer a raquete. %d pontos vence." % [NetworkManager.name_of(ui.opp_id), TO])
+		else:
+			ui.set_status("Arraste o dedo na mesa para mexer a raquete.\nQuem fizer %d pontos vence!" % TO)
+
+	func _opp_name() -> String:
+		return NetworkManager.name_of(ui.opp_id) if net >= 0 else "Computador"
+
+	func net_msg(d: Dictionary) -> void:
+		match str(d.get("t", "")):
+			"pad":
+				if net == 0:
+					_remote_x = clampf(float(d.get("x", 0.5)), PAD_W * 0.5, 1.0 - PAD_W * 0.5)
+			"st":
+				if net != 1:
+					return
+				# a mesa do anfitrião, vista do outro lado (virada 180°)
+				var b: Array = d.get("b", [0.5, 0.5])
+				var v: Array = d.get("v", [0, 0])
+				ball = Vector2(1.0 - float(b[0]), 1.0 - float(b[1]))
+				vel = Vector2(-float(v[0]), -float(v[1]))
+				cx = 1.0 - float(d.get("px", 0.5))
+				var sc: Array = d.get("s", [0, 0])
+				var nme := int(sc[1])
+				var ncpu := int(sc[0])
+				if nme != me or ncpu != cpu:
+					AudioManager.play_ui("point" if nme > me else "bonk", -6.0)
+					me = nme
+					cpu = ncpu
+					ui.set_status("Você %d  x  %d %s" % [me, cpu, _opp_name()])
+				serve_t = float(d.get("sv", 0.0))
+				if bool(d.get("over", false)) and not over:
+					over = true
+					if me > cpu:
+						ui.finish(1, "Você venceu de %d a %d!" % [me, cpu])
+					else:
+						ui.finish(-1, "%s venceu de %d a %d.\nRevanche?" % [_opp_name(), cpu, me])
+					queue_redraw()
 
 	func _serve_setup() -> void:
 		serve_t = 1.0
@@ -371,12 +549,31 @@ class _Pong extends Control:
 			return
 		var asp := size.y / size.x  # a bola anda igual nos dois eixos
 		px = move_toward(px, target_x, delta * 3.2)
+		if net >= 0:
+			_send_t -= delta
+			if _send_t <= 0.0:
+				_send_t = 1.0 / NET_HZ
+				if net == 0:
+					ui.net_send({"t": "st", "b": [snappedf(ball.x, 0.001), snappedf(ball.y, 0.001)], "v": [snappedf(vel.x, 0.001), snappedf(vel.y, 0.001)],
+						"px": snappedf(px, 0.001), "s": [me, cpu], "sv": snappedf(maxf(serve_t, 0.0), 0.01), "over": over})
+				else:
+					ui.net_send({"t": "pad", "x": snappedf(1.0 - px, 0.001)})
+		if net == 1:
+			# quem recebe só prevê a bola entre um pacote e outro
+			if serve_t <= 0.0:
+				ball.x += vel.x * delta
+				ball.y += vel.y * delta / asp
+				if ball.x < BALL_R or ball.x > 1.0 - BALL_R:
+					ball.x = clampf(ball.x, BALL_R, 1.0 - BALL_R)
+					vel.x = -vel.x
+			queue_redraw()
+			return
 		if serve_t > 0.0:
 			serve_t -= delta
 			ball = Vector2(px if server == 0 else cx, PAD_Y_ME - 0.05 if server == 0 else PAD_Y_CPU + 0.05)
 			if serve_t <= 0.0:
 				var dir := -1.0 if server == 0 else 1.0
-				vel = Vector2(randf_range(-0.25, 0.25), dir * 0.62)
+				vel = Vector2(randf_range(-0.25, 0.25), dir * 0.62) * spd
 				AudioManager.play_ui("ball_bounce", -6.0)
 		else:
 			ball.x += vel.x * delta
@@ -388,12 +585,17 @@ class _Pong extends Control:
 			# minha raquete
 			if vel.y > 0.0 and ball.y >= PAD_Y_ME - 0.02 and ball.y <= PAD_Y_ME + 0.03 and absf(ball.x - px) < PAD_W * 0.5 + BALL_R:
 				_hit((ball.x - px) / (PAD_W * 0.5), -1.0)
-			elif vel.y < 0.0 and ball.y <= PAD_Y_CPU + 0.02 and ball.y >= PAD_Y_CPU - 0.03 and absf(ball.x - cx) < PAD_W * 0.5 + BALL_R:
+			elif vel.y < 0.0 and ball.y <= PAD_Y_CPU + 0.02 and ball.y >= PAD_Y_CPU - 0.03 and absf(ball.x - cx) < PAD_W * 0.5 + BALL_R + (0.05 if net == 0 else 0.0):
 				_hit((ball.x - cx) / (PAD_W * 0.5), 1.0)
 			if ball.y > 1.02:
 				_point(1)
 			elif ball.y < -0.02:
 				_point(0)
+		if net == 0:
+			# a raquete de cima é a do colega (vem pela internet)
+			cx = move_toward(cx, _remote_x, delta * 4.0)
+			queue_redraw()
+			return
 		# computador: segue a bola com um errinho e velocidade limitada
 		var aim := ball.x + _cpu_err if vel.y < 0.0 else 0.5
 		var cpu_speed := (0.95 if level == 0 else 1.35) + rally * 0.03
@@ -402,8 +604,8 @@ class _Pong extends Control:
 
 	func _hit(off: float, dir: float) -> void:
 		rally += 1
-		var speed := minf(vel.length() * 1.06, 1.7)
-		vel = Vector2(clampf(off, -1.0, 1.0) * 0.75 + randf_range(-0.05, 0.05), dir * maxf(speed * 0.8, 0.55))
+		var speed := minf(vel.length() * 1.06, 1.7 * spd)
+		vel = Vector2((clampf(off, -1.0, 1.0) * 0.75 + randf_range(-0.05, 0.05)) * spd, dir * maxf(speed * 0.8, 0.55 * spd))
 		if vel.length() < speed:
 			vel = vel.normalized() * speed
 		if dir > 0.0:
@@ -422,14 +624,16 @@ class _Pong extends Control:
 			AudioManager.play_ui("bonk", -8.0)
 		if me >= TO or cpu >= TO:
 			over = true
+			if net == 0:
+				ui.net_send({"t": "st", "b": [ball.x, ball.y], "v": [0, 0], "px": px, "s": [me, cpu], "sv": 0, "over": true})
 			if me > cpu:
 				ui.finish(1, "Você venceu de %d a %d!" % [me, cpu])
 			else:
-				ui.finish(-1, "O computador venceu de %d a %d.\nTente de novo!" % [cpu, me])
+				ui.finish(-1, "%s venceu de %d a %d.\nTente de novo!" % [_opp_name(), cpu, me])
 			queue_redraw()
 			return
 		server = 1 - server if (me + cpu) % 2 == 0 else server
-		ui.set_status("Você %d  x  %d Computador" % [me, cpu])
+		ui.set_status("Você %d  x  %d %s" % [me, cpu, _opp_name()])
 		_serve_setup()
 
 	func _draw() -> void:
@@ -465,8 +669,11 @@ class _Tic extends Control:
 		cells = ["", "", "", "", "", "", "", "", ""]
 		over = false
 		busy = false
-		ui.set_status("Você é o X. Faça três em linha!")
+		turn = "X"
+		ui.set_status("2 jogadores: X começa, depois O." if lv == 2 else "Você é o X. Faça três em linha!")
 		queue_redraw()
+
+	var turn := "X"
 
 	func _gui_input(e: InputEvent) -> void:
 		var pos := Vector2.ZERO
@@ -479,6 +686,15 @@ class _Tic extends Control:
 			return
 		var i := int(pos.y / (size.y / 3.0)) * 3 + int(pos.x / (size.x / 3.0))
 		if i < 0 or i > 8 or cells[i] != "":
+			return
+		if level == 2:
+			# dois jogadores no mesmo celular: um de cada vez
+			cells[i] = turn
+			turn = "O" if turn == "X" else "X"
+			AudioManager.play_ui("ui_click", -6.0)
+			queue_redraw()
+			if not _end():
+				ui.set_status("Vez do %s" % turn)
 			return
 		cells[i] = "X"
 		AudioManager.play_ui("ui_click", -6.0)
@@ -506,7 +722,9 @@ class _Tic extends Control:
 		if w == "":
 			return false
 		over = true
-		if w == "X":
+		if level == 2 and w != "=":
+			ui.finish(0, "Três em linha! O %s venceu!" % w)
+		elif w == "X":
 			ui.finish(1, "Três em linha! Você venceu!")
 		elif w == "O":
 			ui.finish(-1, "O computador fez três em linha.\nTente de novo!")

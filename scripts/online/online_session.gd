@@ -239,7 +239,9 @@ func _on_remote_anim(r: Dictionary, before: String, now: String) -> void:
 			r["cart"] = cart
 	elif now == "crouch":
 		vis.play("crouch")
-	elif before == "crouch":
+	elif now == "mesa":
+		vis.play("interact")
+	elif before == "crouch" or before == "mesa":
 		vis.stop_action()
 	elif before == "sit":
 		vis.play("stand_up")
@@ -401,6 +403,8 @@ func _process(delta: float) -> void:
 			anim = "sit"
 		elif player.crouching:
 			anim = "crouch"
+		elif player.has_meta("mesa"):
+			anim = "mesa"  # sentado/em pé numa mesa de jogo (o colega pode jogar contra)
 		NetworkManager.send_state(player.global_position, player.yaw, anim)
 
 

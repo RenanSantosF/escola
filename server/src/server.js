@@ -460,7 +460,7 @@ function createServer(opts = {}) {
       (viewer) => !safety.isBlocked(viewer.id, p.id) && (!nearOnly || viewer.id === p.id || near(viewer, p)));
   }
 
-  const DIRECT_KINDS = new Set(['party_invite', 'party_accept', 'party_decline', 'party_state', 'party_step', 'party_leave']);
+  const DIRECT_KINDS = new Set(['mesa', 'party_invite', 'party_accept', 'party_decline', 'party_state', 'party_step', 'party_leave']);
 
   /** Limite simples de mensagens por segundo (por tipo). */
   function rate(player, key, perSec) {

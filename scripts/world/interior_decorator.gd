@@ -803,7 +803,9 @@ static func _games(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: Rect
 		for lx: float in [-1.1, 1.1]:
 			b.box("metal", tp + Vector3(lx, 0.36, 0), Vector3(0.08, 0.72, 1.2), Color("2c3e50"))
 		b.collider(tp + Vector3(0, 0.4, 0), Vector3(2.74, 0.8, 1.52))
-		sb.game_tables.append({"room": room.name, "pos": tp + Vector3(0, 0, 1.3), "kind": "pingpong"})
+		# cada jogador numa PONTA da mesa (online: um contra o outro)
+		sb.game_tables.append({"room": room.name, "pos": tp, "kind": "pingpong",
+			"sides": [tp + Vector3(-1.75, 0, 0), tp + Vector3(1.75, 0, 0)]})
 	var x := r.position.x + 2.0
 	var k := 0
 	var cycle := ["xadrez", "velha", "memoria"]
@@ -821,13 +823,15 @@ static func _games(sb: SchoolBuilder, b: WorldBatcher, room: Dictionary, r: Rect
 						b.box("plain", o + Vector3(-0.21 + i * 0.14, 0.725, -0.21 + j * 0.14), Vector3(0.14, 0.006, 0.14), Color("2c2c2c"), 0.0, false)
 			b.collider(o + Vector3(0, 0.37, 0), Vector3(0.8, 0.74, 0.8))
 			# na Sala de Xadrez é tudo xadrez; na de Jogos, cada mesa um jogo
-			sb.game_tables.append({"room": room.name, "pos": o + Vector3(0, 0, 0.65 if z < c.y else -0.65),
-				"kind": "xadrez" if room.name == "Sala de Xadrez" else cycle[k % cycle.size()]})
+			# joga-se SENTADO NO BANQUINHO ao lado da mesa (um de cada lado)
+			sb.game_tables.append({"room": room.name, "pos": o,
+				"kind": "xadrez" if room.name == "Sala de Xadrez" else cycle[k % cycle.size()],
+				"sides": [o + Vector3(-0.75, 0, 0), o + Vector3(0.75, 0, 0)]})
 			k += 1
 			for sd: float in [-1.0, 1.0]:
 				var so := o + Vector3(sd * 0.75, 0, 0)
 				b.box("wood", so + Vector3(0, 0.42, 0), Vector3(0.38, 0.05, 0.38), Color("8e5b3a"))
-				Props.add_seat(so, -PI * 0.5 * sd, Vector3.ZERO, FY + 0.45)
+				b.box("metal", so + Vector3(0, 0.2, 0), Vector3(0.06, 0.4, 0.06), Color("2c3e50"))
 		x += 3.0
 	_enfeite_titulo(sb, b, r, "n" if _door_side(room) == "s" else "s", room.name.to_upper(), Color("2e8b57"))
 	_door_sign(sb, b, room, r, room.name.to_upper())
