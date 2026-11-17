@@ -12,7 +12,7 @@ extends Node
 
 const KINDS := {
 	"aviao": "round", "pontaria": "round", "basquete": "round", "gude": "round", "guerra": "round",
-	"corrida": "round", "kart": "round",
+	"corrida": "round", "kart": "round", "pipa": "round",
 	"amarelinha": "turn", "corda": "turn",
 	"futebol": "team", "cabo": "team", "queimada": "team",
 	"esconde": "hide",

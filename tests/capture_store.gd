@@ -38,24 +38,14 @@ func _ready() -> void:
 	# 2) pátio no recreio
 	await _view(Vector3(2, 0.05, -4), 200.0, 25.0, -16.0, 7.5)
 	await _snap("02_patio")
-	# 3) montanha-russa no alto da subida
-	var coaster: RideTrack = null
-	var slide: RideTrack = null
-	for r in main.world.rides:
-		if r.kind == "coaster":
-			coaster = r
-		else:
-			slide = r
+	# 3) montanha-russa no looping (trem novo, horário igual para todos)
+	var coaster: CoasterRide = main.world.coaster
+	var slide: RideTrack = main.world.rides[0]
 	player.global_position = coaster.global_position
 	await _frames(2)
+	coaster._local_offset += CoasterRide.BOARD - fposmod(coaster._now(), coaster.cycle()) - 0.5
 	coaster.interact(player)
-	coaster._s = coaster._total * 0.24
-	coaster._v = 14.0
-	await _frames(6)
-	player.camera_rig.distance = 6.5
-	player.camera_rig.pitch = -12.0
-	player.camera_rig.yaw = player.yaw + PI + deg_to_rad(35)
-	player.camera_rig.snap_to_target()
+	coaster._local_offset += 1.0 + CoasterTrack.ride_time * 0.28
 	await _frames(20)
 	await _snap("03_montanha_russa")
 	coaster.eject()

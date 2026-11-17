@@ -99,6 +99,7 @@ func _ready() -> void:
 	await _test_elevador_tobogã()
 	await _test_kart()
 	await _test_passe_loja()
+	await _test_pipa()
 	await _test_interpolacao()
 	_finish()
 
@@ -2451,6 +2452,42 @@ func _test_recreio_novo() -> void:
 		await _wait(0.3)
 	mm.game_finished.disconnect(rc)
 	check(mm.active == null and not res.is_empty() and int(res[-1].get("won", 0)) == 1, "esconde: achando todos, GANHA e termina", str(res))
+
+
+func _test_pipa() -> void:
+	await _recess()
+	await _clear_discipline()
+	var mm: MinigameManager = main.minigames
+	var st: Node3D = mm.stations["pipa"]
+	check(st.global_position.y > 4.0, "pipa: estação no alto do Morro (%.1f m)" % st.global_position.y)
+	check(mm.start_local("pipa", {}), "pipa: começa")
+	var k = mm.active
+	await _wait(3.3)
+	k.on_play()
+	await _wait(1.5)
+	var e1: float = k.el
+	k.on_play_release()
+	await _wait(1.5)
+	check(k.el < e1, "pipa: soltando a linha a pipa desce")
+	k.on_play()
+	await _wait(1.0)
+	check(k._kite.global_position.y > player.global_position.y + 6.0, "pipa: puxando, a pipa voa alto (%.1f m)" % (k._kite.global_position.y - player.global_position.y))
+	# estrela bem na pipa: pega
+	k._spawn_t = 0.0
+	await _frames(2)
+	if not k._star_nodes.is_empty():
+		var e: Dictionary = k._star_nodes[0]
+		e.az = k.az
+		e.el = k.el
+		await _frames(3)
+	check(k.stars >= 1, "pipa: pega estrela com a pipa")
+	k.on_play_release()
+	k.el = 0.03
+	await _frames(3)
+	check(k.lives == 2, "pipa: pipa no chão perde uma vida")
+	k.time_left = 0.05
+	await _wait(0.4)
+	check(mm.active == null and player.camera_rig.override_active == false, "pipa: termina e devolve a câmera")
 
 
 func _test_passe_loja() -> void:

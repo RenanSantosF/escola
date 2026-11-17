@@ -6,6 +6,21 @@ cantina, salas de aula, biblioteca, parquinho e muito mais.
 
 > Status: **Fases 1 (Fundação), 2 (Vida escolar) 3 (Diversão), 4 (Personalidade), 5 (Progressão) e 6 (Acabamento) concluídas.** Veja [docs/ROADMAP.md](docs/ROADMAP.md).
 
+## Novidades desta versão
+
+- **Aulas**: grade do dia sorteada pelo servidor (sala de cada turma, matérias e onde é
+  cada aula — informática, laboratórios, sala de vídeo, quadra...), carteira e ajudante
+  sorteados, professor sempre presente, banco de perguntas no servidor (painel `/admin`)
+  e **Educação Infantil** (3–4 anos) com atividades em figuras.
+- **Kartódromo** em volta da escola (terreno ampliado, viaduto sobre o portão), corrida
+  de 3 voltas com turbo, derrapagem e pilotos-bot; online com a turma.
+- **Montanha-russa gigante** (42 m, looping, saca-rolha), trem de 16 lugares com fila e
+  horário igual para todos, câmera em 1ª pessoa.
+- Balanço de verdade, esconde-esconde com agachar e limite, xadrez/pingue-pongue um contra
+  o outro, elevador do tobogã, pipa no alto do Morro, queimada e futebol revisados.
+- **Passe do Recreio** (R$ 11,99/mês), loja remodelada com vitrine grande, emojis animados,
+  efeitos (auras) e notificações. Veja [docs/MONETIZACAO.md](docs/MONETIZACAO.md).
+
 ## Como abrir e jogar
 
 1. Instale o **Godot 4.7.2** (versão padrão, não precisa da versão .NET).

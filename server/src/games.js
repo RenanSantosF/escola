@@ -29,6 +29,7 @@ const CATALOG = {
   gude: { kind: 'round', max: 6, maxMs: 180000 },
   guerra: { kind: 'round', max: 8, maxMs: 120000 },
   corrida: { kind: 'round', max: 4, maxMs: 90000, lower: true },
+  pipa: { kind: 'round', max: 8, maxMs: 120000 },
   kart: { kind: 'round', max: 8, maxMs: 300000, lower: true, share: true }, // todos veem o progresso de todos
   queimada: { kind: 'team', max: 10, maxMs: 200000, min: 2 },  // só gente (a menos que o painel ligue bots)
   esconde: { kind: 'hide', max: 12, maxMs: 240000, hideMs: 20000, seekMs: 120000, min: 2 },
