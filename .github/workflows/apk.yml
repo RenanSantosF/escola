@@ -2,7 +2,8 @@
 # Roda sozinho a cada envio para a branch e também pelo botão "Run workflow"
 # (aba Actions → "APK do jogo"). O APK fica na página "Releases" do repositório:
 #   https://github.com/RenanSantosF/escola/releases/latest
-# APK de teste = anúncios de TESTE do Google (pode clicar à vontade).
+# APK de teste = app separado "Recess Club Teste" (instala ao lado do jogo da Play Store)
+# com anúncios de TESTE do Google (pode clicar à vontade).
 name: APK do jogo
 
 on:
@@ -68,6 +69,14 @@ jobs:
           EOF
           cat "$HOME/.config/godot/editor_settings-4.7.tres"
 
+      - name: App de teste separado (instala ao lado do jogo da Play Store)
+        # O jogo baixado da Play Store é assinado pelo Google: nenhum APK de fora consegue
+        # atualizar por cima dele. Por isso o APK de teste é OUTRO app ("Recess Club Teste"),
+        # que fica do lado do jogo da loja sem apagar nada.
+        run: |
+          sed -i 's/^package\/unique_name="com.recreio.minhavidanaescola"$/package\/unique_name="com.recreio.minhavidanaescola.teste"/; s/^package\/name="Recess Club"$/package\/name="Recess Club Teste"/' export_presets.cfg
+          grep -n 'package/unique_name\|package/name' export_presets.cfg
+
       - name: Importar o projeto
         run: |
           ./godot-bin --headless --path . --import || ./godot-bin --headless --path . --editor --quit || true
@@ -79,9 +88,9 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p build
-          ./godot-bin --headless --path . --install-android-build-template --export-debug "Android" build/recess-club.apk 2>&1 | tail -n 80
+          ./godot-bin --headless --path . --install-android-build-template --export-debug "Android" build/recess-club-teste.apk 2>&1 | tail -n 80
           ls -la build
-          test -s build/recess-club.apk
+          test -s build/recess-club-teste.apk
 
       - name: Nome do arquivo
         id: info
@@ -97,18 +106,21 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: "APK de teste ${{ steps.info.outputs.ver }} (nº ${{ github.run_number }})"
           make_latest: true
-          files: build/recess-club.apk
+          files: build/recess-club-teste.apk
           body: |
             APK para testar no celular (anúncios de **teste** do Google).
             Branch `${{ github.ref_name }}`, commit `${{ steps.info.outputs.short }}`.
 
-            Como instalar: toque em **recess-club.apk** aqui embaixo, abra o arquivo baixado
-            e permita "instalar apps desta fonte" se o Android pedir.
-            As próximas versões instalam por cima desta (o jogo salvo continua).
+            É um app SEPARADO, chamado **Recess Club Teste**: instala do lado do jogo da
+            Play Store, sem apagar nada. Compras (passe, diamantes) não funcionam nele.
+
+            Como instalar: toque em **recess-club-teste.apk** aqui embaixo, abra o arquivo
+            baixado e permita "instalar apps desta fonte" se o Android pedir.
+            As próximas versões de teste instalam por cima desta.
 
       - name: Guardar também como artefato
         uses: actions/upload-artifact@v4
         with:
-          name: recess-club-apk
-          path: build/recess-club.apk
+          name: recess-club-teste-apk
+          path: build/recess-club-teste.apk
           retention-days: 14
