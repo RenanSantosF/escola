@@ -15,7 +15,7 @@ func _ready() -> void:
 	for i in 20:
 		await get_tree().process_frame
 	GameManager.add_rewards(5000, 3000)
-	var pm: ProfileMenu = main.hud.profile_menu if "profile_menu" in main.hud else get_tree().root.find_children("*", "ProfileMenu", true, false)[0]
+	var pm: ProfileMenu = main.profile_menu
 	pm.open_tab("loja")
 	pm._cat = "destaques"
 	pm._refresh()

@@ -113,7 +113,7 @@ static func grant_premium(days := DAYS) -> void:
 	var d := data()
 	var now := int(Time.get_unix_time_from_system())
 	d["premium_until"] = maxi(int(d.get("premium_until", 0)), now) + days * 86400
-	SaveManager.save_game()
+	SaveManager.save_game(false)
 
 
 static func reward(track: String, t: int) -> Dictionary:

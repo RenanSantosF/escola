@@ -1410,6 +1410,13 @@ func _finish() -> void:
 	if place == 1:
 		GameManager.unlock_achievement("piloto_kart")
 	var txt := "Kart: %dº de %d" % [place, n] + ("  ·  %s" % _fmt(float(me.time)) if me.done else "")
+	# pódio: os três primeiros (quem está na pista)
+	var order := racers.duplicate()
+	order.sort_custom(func(a, b): return _place_of(a) < _place_of(b))
+	var podium := []
+	for r in order.slice(0, 3):
+		podium.append("%dº %s" % [_place_of(r), "Você" if r == me else str(r.name)])
+	txt += "\n" + "  ·  ".join(podium)
 	end_game(won, txt, coins, xp, {"score": float(me.time) if me.done else 999.0, "place": place})
 
 
