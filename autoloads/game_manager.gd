@@ -152,6 +152,9 @@ func unlock_achievement(id: String) -> bool:
 		return false
 	a[id] = {"day": int(SaveManager.section("progress").get("days_completed", 0)) + 1}
 	achievement_unlocked.emit(id)
+	# toda conquista dá diamantes (jeito de ganhar diamantes só jogando)
+	add_diamonds(5)
+	show_toast("Conquista! +5 diamantes")
 	return true
 
 
