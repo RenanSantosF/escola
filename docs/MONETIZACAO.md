@@ -36,6 +36,9 @@ classificação **G** em todas as solicitações; sem ID de publicidade.
 - Emojis animados fora do passe custam 800–1.200 moedas (de propósito: valorizar o passe).
 
 ## Configurar na Play Console
+Passo a passo bem detalhado: [CRIAR_ASSINATURA_PASSE.md](CRIAR_ASSINATURA_PASSE.md).
+O plugin é recompilado automaticamente pelo GitHub Actions (`.github/workflows/android-plugin.yml`).
+
 1. Monetizar > Produtos > **Assinaturas** > criar `passe_recreio_mensal`.
 2. Plano base mensal, renovação automática, preço **R$ 11,99** (Brasil).
 3. Política de Famílias: compras só com aprovação do responsável (o Google cuida disso
