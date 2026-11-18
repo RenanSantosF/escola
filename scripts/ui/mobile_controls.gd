@@ -66,6 +66,16 @@ func _ready() -> void:
 	btn_pause.pressed.connect(pause_pressed.emit)
 	btn_emote.pressed.connect(emote_pressed.emit)
 	btn_bag.pressed.connect(bag_pressed.emit)
+	# bolinha vermelha: prêmios do passe / desafios prontos para pegar
+	var badge_timer := Timer.new()
+	badge_timer.wait_time = 2.0
+	badge_timer.autostart = true
+	badge_timer.timeout.connect(func():
+		var n := RecessPass.pending()
+		if n != btn_bag.badge:
+			btn_bag.badge = n
+			btn_bag.queue_redraw())
+	add_child(badge_timer)
 	get_viewport().size_changed.connect(_layout)
 	Settings.changed.connect(_on_setting_changed)
 	GameManager.state_changed.connect(_on_state_changed)
