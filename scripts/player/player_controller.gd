@@ -14,6 +14,8 @@ enum Mode { FREE, SITTING, BUSY }
 
 @export var walk_speed := 2.0
 @export var run_speed := 5.0
+## Multiplicador de velocidade (ex.: com a bola no pé, no futebol, fica mais lento).
+var speed_mult := 1.0
 @export var acceleration := 12.0
 @export var deceleration := 16.0
 @export var air_control := 3.0
@@ -119,12 +121,19 @@ func _physics_process(delta: float) -> void:
 		wish = (forced_dir + side * rel.dot(side) * 0.35).normalized()
 		run_active = true
 	var mag := clampf(wish.length(), 0.0, 1.0)
+	if crouching:
+		# agachado fica parado; mexeu o joystick, levanta
+		if mag > 0.5 and not crouch_locked:
+			set_crouch(false)
+		else:
+			mag = 0.0
+			wish = Vector3.ZERO
 	if mag < 0.1:
 		_stop_timer += delta
 	else:
 		_stop_timer = 0.0
 	var running := (run_active or Input.is_action_pressed("run")) and mag > 0.5
-	var target_speed := mag * (run_speed if running else walk_speed)
+	var target_speed := mag * (run_speed if running else walk_speed) * speed_mult
 	if riding:
 		target_speed = mag * VEHICLE_SPEED.get(vehicle, 7.0)
 		if world and world.get("player_indoor"):
@@ -171,6 +180,7 @@ func _physics_process(delta: float) -> void:
 
 	var pre_vel := velocity
 	move_and_slide()
+	_keep_in_school()
 	_check_bump(pre_vel)
 	_push_ball(delta)
 
@@ -369,6 +379,7 @@ func emote(name: String) -> void:
 	if mode != Mode.FREE or not is_on_floor():
 		return
 	if visual.play(name):
+		EmoteFX.spawn(visual, name)
 		emote_started.emit(name)
 		if name == "celebrate":
 			AudioManager.play_3d("celebrate", global_position + Vector3.UP, -6.0, 0.02)
@@ -390,6 +401,54 @@ func _start_busy(action: String, target: Node) -> void:
 		if to.length() > 0.05:
 			yaw = atan2(to.x, to.z)
 	visual.play(action)
+
+
+# ------------------------------------------------------------- escola
+
+## O aluno não sai da escola: a murada e o portão seguram (nem pulando, nem
+## pela porta do portão). Só a saída do fim do dia leva para casa (fade).
+const SCHOOL_LOT := Rect2(-89.55, -124.55, 179.1, 197.6)  # até antes da calçada do portão (z 73,05)
+var _lot_warn_ms := 0
+## Na corrida de kart o jogador está na pista (fora do muro antigo).
+var bounds_off := false
+
+
+func _keep_in_school() -> void:
+	if bounds_off:
+		return
+	var p := global_position
+	if SCHOOL_LOT.has_point(Vector2(p.x, p.z)):
+		return
+	global_position = Vector3(clampf(p.x, SCHOOL_LOT.position.x, SCHOOL_LOT.end.x), p.y, clampf(p.z, SCHOOL_LOT.position.y, SCHOOL_LOT.end.y))
+	velocity.x = 0.0
+	velocity.z = 0.0
+	if Time.get_ticks_msec() > _lot_warn_ms:
+		_lot_warn_ms = Time.get_ticks_msec() + 3000
+		GameManager.show_toast("Não pode sair da escola! O portão só abre na hora da saída.")
+
+
+# ------------------------------------------------------------- agachar
+
+## Agachado (esconde-esconde): fica pequeno e quietinho; quem procura precisa
+## chegar mais perto para achar. Online os colegas veem agachado também.
+var crouching := false
+var crouch_locked := false
+signal crouch_changed(on: bool)
+
+
+func set_crouch(on: bool) -> void:
+	if on == crouching:
+		return
+	if on and (mode != Mode.FREE or not is_on_floor() or riding):
+		return
+	crouching = on
+	if on:
+		velocity.x = 0.0
+		velocity.z = 0.0
+		visual.play("crouch")
+	else:
+		visual.stop_action()
+	crouch_changed.emit(on)
 
 
 # ------------------------------------------------------------- sentar

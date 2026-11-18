@@ -10,11 +10,46 @@ var room := ""
 var approach := 0.55
 var swing := false
 var _swing_t := 0.0
+## Balanço de verdade: corrente e tábua giram presas na trave (2,5 m acima);
+## quem senta vai e volta junto, cada vez mais alto.
+const SWING_PIVOT := 2.49
+const SWING_MAX := 0.95  # ~55° para cada lado
+var _swing_root: Node3D
+var _amp := 0.0
+var _phase := 0.0
+var _swing_angle := 0.0
 
 
 func _ready() -> void:
 	super._ready()
 	interact_radius = 1.1
+	if swing:
+		_build_swing()
+		set_process(true)
+
+
+func _build_swing() -> void:
+	_swing_root = Node3D.new()
+	_swing_root.name = "Balanco"
+	_swing_root.position = Vector3(0, SWING_PIVOT, 0)
+	add_child(_swing_root)
+	var md := MeshData.new()
+	var cols := [Color("e74c3c"), Color("f1c40f"), Color("3498db")]
+	var col: Color = cols[posmod(int(round(global_position.x / 1.4)), 3)]
+	var chain_len := SWING_PIVOT - seat_top + global_position.y
+	md.cur_color = Color("95a5a6")
+	for sx in [-0.22, 0.22]:
+		md.add_box(Transform3D(Basis(), Vector3(sx, -chain_len * 0.5, 0)), Vector3(0.025, chain_len, 0.025))
+	md.cur_color = col
+	md.add_box(Transform3D(Basis(), Vector3(0, -chain_len - 0.02, 0)), Vector3(0.56, 0.05, 0.26))
+	md.cur_color = col.darkened(0.25)
+	md.add_box(Transform3D(Basis(), Vector3(0, -chain_len + 0.02, 0.12)), Vector3(0.56, 0.03, 0.03))
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.roughness = 0.7
+	var mi := MeshInstance3D.new()
+	mi.mesh = md.build_mesh(mat)
+	_swing_root.add_child(mi)
 
 
 func can_interact(_player: Node) -> bool:
@@ -58,20 +93,38 @@ func occupy(who: Node) -> void:
 
 func release() -> void:
 	if occupant and swing and occupant.get("visual"):
-		occupant.visual.position = Vector3.ZERO
-		occupant.visual.rotation.x = 0.0
+		var v: Node3D = occupant.visual
+		v.position = Vector3.ZERO
+		v.rotation = Vector3(0, v.rotation.y, 0)
 	occupant = null
 
 
+## Ângulo atual do balanço (radianos; testes e câmera).
+func swing_angle() -> float:
+	return _swing_angle
+
+
 func _process(delta: float) -> void:
-	# balanço do parquinho: quem estiver sentado vai e volta
-	if not swing or occupant == null:
+	# balanço do parquinho: vazio mexe um pouquinho com o vento; com alguém,
+	# vai ganhando altura (como se a criança "tomasse impulso") até ~55°
+	if not swing or _swing_root == null:
+		return
+	_swing_t += delta
+	var target := 0.06
+	if occupant != null:
+		target = SWING_MAX if _swing_t > 1.0 else 0.25
+	_amp = move_toward(_amp, target, delta * (0.16 if target > _amp else 0.35))
+	_phase += delta * sqrt(9.8 / SWING_PIVOT)
+	_swing_angle = sin(_phase) * _amp
+	_swing_root.rotation.x = _swing_angle
+	if occupant == null:
 		return
 	var v: Node3D = occupant.get("visual")
 	if v == null:
 		return
-	_swing_t += delta
-	var a := sin(_swing_t * 2.2) * 0.45 * minf(_swing_t * 0.5, 1.0)
-	v.rotation.x = -a
-	var fwd := Vector3(sin(global_rotation.y), 0, cos(global_rotation.y))
-	v.position = Vector3(0, (1.0 - cos(a)) * 2.0, 0) + fwd * sin(a) * 2.0
+	# o boneco gira junto com a tábua, em volta da trave
+	var right := global_basis.x.normalized()
+	var r := Basis(right, _swing_angle)
+	var piv := Vector3(0, SWING_PIVOT, 0)
+	var yaw := float(v.rotation.y)
+	v.transform = Transform3D(r * Basis(Vector3.UP, yaw), piv + r * (-piv))

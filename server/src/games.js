@@ -18,6 +18,7 @@
 
 const LOBBY_MS = 12000;
 const FIND_DIST = 2.2;
+const FIND_DIST_CROUCH = 1.3; // escondido AGACHADO: precisa chegar mais pertinho
 const RESULTS_MS = 6000;
 const RELAY_MAX = 1800;
 
@@ -28,6 +29,8 @@ const CATALOG = {
   gude: { kind: 'round', max: 6, maxMs: 180000 },
   guerra: { kind: 'round', max: 8, maxMs: 120000 },
   corrida: { kind: 'round', max: 4, maxMs: 90000, lower: true },
+  pipa: { kind: 'round', max: 8, maxMs: 120000 },
+  kart: { kind: 'round', max: 8, maxMs: 300000, lower: true, share: true }, // todos veem o progresso de todos
   queimada: { kind: 'team', max: 10, maxMs: 200000, min: 2 },  // só gente (a menos que o painel ligue bots)
   esconde: { kind: 'hide', max: 12, maxMs: 240000, hideMs: 20000, seekMs: 120000, min: 2 },
   amarelinha: { kind: 'turn', max: 8, turnMs: 120000 },
@@ -272,6 +275,7 @@ class GameHub {
     const s = this.sessions.get(gid);
     if (!s || !s.has(from) || s.state !== 'playing' || data === undefined) return null;
     if (JSON.stringify(data).length > RELAY_MAX) return null;
+    if (CATALOG[gid] && CATALOG[gid].share) return { to: s.players.filter((p) => p !== from), session: s };
     if (from === s.host) {
       if (data && typeof data === 'object' && Number.isFinite(data.a) && Number.isFinite(data.b)) {
         s.hostState = { a: data.a | 0, b: data.b | 0, t: Number(data.t) || 0 };
@@ -284,6 +288,11 @@ class GameHub {
   _pos(id) {
     const p = this.room.players && this.room.players.get(id);
     return p ? p.pos : null;
+  }
+
+  _anim(id) {
+    const p = this.room.players && this.room.players.get(id);
+    return p ? String(p.anim || '') : '';
   }
 
   _tickHide(s, now) {
@@ -303,7 +312,8 @@ class GameHub {
         if (id === h.seeker || h.found.includes(id)) continue;
         const b = this._pos(id);
         if (!b) continue;
-        if (Math.abs(a[1] - b[1]) < 2 && Math.hypot(a[0] - b[0], a[2] - b[2]) < FIND_DIST) {
+        const dist = this._anim(id) === 'crouch' ? FIND_DIST_CROUCH : FIND_DIST;
+        if (Math.abs(a[1] - b[1]) < 2 && Math.hypot(a[0] - b[0], a[2] - b[2]) < dist) {
           h.found.push(id);
           s.scores[id] = Math.round((now - (h.ends - c.seekMs)) / 1000);
           this._ev(s.gid, 'found', { id, by: h.seeker });

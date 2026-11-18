@@ -1,0 +1,114 @@
+# Gera o APK de TESTE do jogo no próprio GitHub (ninguém precisa de PC nem do Godot).
+# Roda sozinho a cada envio para a branch e também pelo botão "Run workflow"
+# (aba Actions → "APK do jogo"). O APK fica na página "Releases" do repositório:
+#   https://github.com/RenanSantosF/escola/releases/latest
+# APK de teste = anúncios de TESTE do Google (pode clicar à vontade).
+name: APK do jogo
+
+on:
+  push:
+    paths-ignore:
+      - "server/**"
+      - "docs/**"
+      - "tests/**"
+      - "tools/**"
+      - "android_plugin/**"
+      - "**.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    env:
+      GODOT_VERSION: "4.7.2"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: SDK do Android (plataforma 36)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "platform-tools" > /dev/null
+
+      - name: Baixar o Godot e os modelos de exportação do Android
+        run: |
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -sSfL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot-bin
+          chmod +x godot-bin
+          curl -sSfL -o tpl.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          T="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$T"
+          unzip -q -j tpl.tpz 'templates/android_*' 'templates/version.txt' -d "$T"
+          rm -f tpl.tpz godot.zip
+          ls -la "$T"
+
+      - name: Configurar o Godot (Android SDK, Java e chave de teste)
+        run: |
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/debug_keystore = "$GITHUB_WORKSPACE/build_tools/apk_teste.jks"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          EOF
+          cat "$HOME/.config/godot/editor_settings-4.7.tres"
+
+      - name: Importar o projeto
+        run: |
+          ./godot-bin --headless --path . --import || ./godot-bin --headless --path . --editor --quit || true
+
+      - name: Exportar o APK de teste
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/build_tools/apk_teste.jks
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          mkdir -p build
+          ./godot-bin --headless --path . --install-android-build-template --export-debug "Android" build/recess-club.apk 2>&1 | tail -n 80
+          ls -la build
+          test -s build/recess-club.apk
+
+      - name: Nome do arquivo
+        id: info
+        run: |
+          VER=$(grep -m1 '^version/name=' export_presets.cfg | cut -d'"' -f2)
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+          echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar na página Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: "APK de teste ${{ steps.info.outputs.ver }} (nº ${{ github.run_number }})"
+          make_latest: true
+          files: build/recess-club.apk
+          body: |
+            APK para testar no celular (anúncios de **teste** do Google).
+            Branch `${{ github.ref_name }}`, commit `${{ steps.info.outputs.short }}`.
+
+            Como instalar: toque em **recess-club.apk** aqui embaixo, abra o arquivo baixado
+            e permita "instalar apps desta fonte" se o Android pedir.
+            As próximas versões instalam por cima desta (o jogo salvo continua).
+
+      - name: Guardar também como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: recess-club-apk
+          path: build/recess-club.apk
+          retention-days: 14

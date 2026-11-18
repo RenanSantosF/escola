@@ -19,8 +19,28 @@ const GAMES := {
 	"basquete": {"script": "res://scripts/minigames/basketball.gd", "title": "Basquete", "pos": Vector3(ParkHill.COURT.x - 3.5, 0.05, ParkHill.COURT.y + 4.2), "yaw": PI, "color": Color("ff7a1a"), "icon": "B", "desc": "Arremesse na cesta de 3 distâncias. Segure para mirar e solte na força certa!"},
 	"esconde": {"script": "res://scripts/minigames/hide_and_seek.gd", "title": "Esconde-esconde", "pos": Vector3(-4.0, 0.05, -80.5), "yaw": 0.0, "color": Color("14b8a6"), "icon": "E", "desc": "Conte até 10 e procure 5 colegas escondidos pelo Parque do Morro."},
 	"cabo": {"script": "res://scripts/minigames/tug_of_war.gd", "title": "Cabo de guerra", "pos": Vector3(12.0, 0.05, -84.5), "yaw": 0.0, "color": Color("c0392b"), "icon": "K", "desc": "Seu time contra o outro: toque rápido e no PUXA! para ganhar."},
+	"pipa": {"script": "res://scripts/minigames/kite.gd", "title": "Soltar pipa", "pos": Vector3(-41.5, 6.5, -101.0), "yaw": PI * 0.75, "color": Color("27ae60"), "icon": "P", "desc": "No alto do Morro: segure para puxar a linha, pegue estrelas e cuidado com o vento!"},
+	"kart": {"script": "res://scripts/minigames/kart_race.gd", "title": "Corrida de Kart", "pos": Vector3(-86.5, 0.05, -6.0), "yaw": PI * 0.5, "color": Color("e53935"), "icon": "K", "desc": "3 voltas em volta da escola! Pegue itens nas caixinhas \"?\", pegue VÁCUO atrás dos outros e desvie do óleo."},
 	"guerra": {"script": "res://scripts/minigames/paper_war.gd", "title": "Guerra de papel", "pos": Vector3(35.5, 0.05, -2.6), "yaw": 0.0, "color": Color("9b59b6"), "icon": "W", "desc": "Segure para mirar, solte para jogar. Desvie dos círculos vermelhos!"},
 }
+## Quanto custa cada brincadeira (moedas, que vêm das AULAS). Bem baratinho:
+## uma aula já paga várias partidas. As mais "grandes" custam um tiquinho mais.
+const PRICES := {
+	"kart": 6, "futebol": 5, "queimada": 5, "esconde": 4, "cabo": 4, "pipa": 4, "basquete": 4,
+	"guerra": 3, "corrida": 3, "gude": 3, "pontaria": 3, "aviao": 3, "amarelinha": 2, "corda": 2,
+}
+## Testes automáticos jogam de graça (a cobrança tem teste próprio).
+static var FREE_PLAY := false
+
+
+static func price_of(gid: String) -> int:
+	return 0 if FREE_PLAY else int(PRICES.get(gid, 3))
+
+
+static func can_pay(gid: String) -> bool:
+	return GameManager.coins() >= price_of(gid)
+
+
 ## Quem convida para o quê.
 const INVITES := {
 	"futebol": "futebol", "competitivo": "corrida", "agitado": "queimada", "colecionador": "gude",
@@ -55,8 +75,10 @@ func setup(w: SchoolWorld, m: NPCManager, p: PlayerController, h: HUD, d: School
 		var st := MinigameStation.new()
 		st.game_id = gid
 		st.mgr = self
-		st.prompt = "Jogar: %s" % g.title
+		st.prompt = "Jogar: %s (%d moedas)" % [g.title, int(PRICES.get(gid, 3))]
 		st.position = g.pos
+		if ParkHill.AREA.has_point(Vector2(g.pos.x, g.pos.z)):
+			st.position.y = ParkHill.height(g.pos.x, g.pos.z) + 0.05  # no relevo do parque (alto do Morro)
 		st.rotation.y = g.yaw
 		world.add_child(st)
 		stations[gid] = st
@@ -117,10 +139,26 @@ func _build_sign(st: Node3D, g: Dictionary) -> void:
 		lb.rotation.y = 0.0 if side > 0 else PI
 		lb.visibility_range_end = 26.0 if Settings.quality() == Settings.Quality.LOW else 45.0
 		st.add_child(lb)
+	# preço embaixo da placa (moedinha + valor)
+	for side: float in [1.0, -1.0]:
+		var pl := Label3D.new()
+		pl.text = "%d moedas" % int(PRICES.get(st.get("game_id"), 3))
+		pl.font = UITheme.bold_font()
+		pl.font_size = 44
+		pl.pixel_size = 0.0045
+		pl.outline_size = 12
+		pl.modulate = Color("ffd23f")
+		pl.outline_modulate = Color("5a3a00")
+		pl.position = Vector3(0.9, 1.43, 0.07 * side)
+		pl.rotation.y = 0.0 if side > 0 else PI
+		pl.visibility_range_end = 20.0 if Settings.quality() == Settings.Quality.LOW else 30.0
+		st.add_child(pl)
 
 
 ## Tutorial de primeira vez: [botão, explicação]
 const TUTORIALS := {
+	"pipa": [["Amarelo", "SEGURE para PUXAR a linha: a pipa sobe. Solte: ela desce."], ["Joystick", "Para os lados: leva a pipa para a esquerda ou direita."], ["", "Pegue as estrelas do céu e não deixe a pipa cair. Cuidado com as rajadas de vento!"]],
+	"kart": [["Joystick", "Para os lados: VIRAR. O kart acelera sozinho (para trás = frear, nunca anda de ré)."], ["Verde", "SEGURE nas curvas para DERRAPAR. Faíscas azuis/laranja = solte para ganhar MINITURBO!"], ["Amarelo", "Usa o ITEM das caixinhas \"?\": turbo, turbo triplo, ÓLEO (solta atrás) ou FOGUETE. Quem está atrás ganha itens melhores!"], ["", "VÁCUO: fique logo atrás de outro kart e o vento aparece = mais velocidade para ultrapassar. Desvie das poças de óleo!"]],
 	"futebol": [["Joystick", "Corra pelo campo com o analógico."], ["Amarelo", "Perto da bola, toque para CHUTAR (a mira ajuda)."], ["Verde", "Toque para PASSAR a bola para um colega."], ["", "Faça mais gols que o outro time!"]],
 	"queimada": [["Verde", "Chegue perto da bola e toque para PEGAR."], ["Amarelo", "SEGURE para mirar (aparece a linha) e SOLTE para jogar."], ["Amarelo", "Sem a bola: toque para DESVIAR (pulinho para o lado)."], ["", "Queimado vai para o cemitério e só sai quando a partida acabar!"]],
 	"gude": [["Joystick", "Gire para mirar. A linha mostra onde sua bolinha vai BATER e a seta verde, para onde a outra vai."], ["Amarelo", "SEGURE para dar força e SOLTE para jogar."], ["", "Tire as bolinhas do círculo: elas viram suas! Acertou? Joga de novo."]],
@@ -140,6 +178,7 @@ const HIDE := {
 	"corda": ["run", "emote", "ride"], "pontaria": ["run", "jump", "emote", "ride"], "gude": ["run", "emote", "ride"],
 	"guerra": ["jump", "emote", "ride"], "basquete": ["run", "jump", "emote", "ride"], "esconde": ["emote", "ride"],
 	"cabo": ["run", "jump", "emote", "ride"], "queimada": ["emote", "ride"], "futebol": ["emote", "ride"],
+	"kart": ["run", "emote", "ride"], "pipa": ["run", "jump", "emote", "ride"],
 }
 
 var _pending_gid := ""
@@ -182,6 +221,12 @@ func start(gid: String) -> bool:
 		return false
 	if not can_start() or not GAMES.has(gid):
 		return false
+	# brincar custa moedinhas (que vêm das aulas)
+	if not can_pay(gid):
+		var falta := price_of(gid) - GameManager.coins()
+		GameManager.show_toast("%s custa %d moedas: faltam %d. Ganhe moedas nas AULAS acertando as tarefas!" % [GAMES[gid].title, price_of(gid), falta])
+		AudioManager.play_ui("ui_error", -4.0)
+		return false
 	# primeira vez: explica antes de começar
 	if not TutorialOverlay.seen(gid) and not _is_test() and TUTORIALS.has(gid):
 		_pending_gid = gid
@@ -214,7 +259,14 @@ func start_local(gid: String, net: Dictionary) -> bool:
 	g.finished.connect(_on_finished)
 	active = g
 	_show_stations(false)
+	# paga a brincadeira (online: se faltar, paga o que tem e não atrapalha a turma)
+	var cost := mini(price_of(gid), GameManager.coins())
+	if cost > 0:
+		GameManager.spend_coins(cost)
+		SaveManager.save_game()
 	g.begin()
+	if cost > 0:
+		g.popup(player.global_position + Vector3(0, 2.6, 0), "-%d moedas" % cost, Color("ffd23f"), 56)
 	game_started.emit(gid)
 	return true
 
@@ -284,6 +336,8 @@ func _send_invite() -> void:
 	cands.sort_custom(func(a, b): return Friendship.points(a.data.id) > Friendship.points(b.data.id))
 	var n: NPC = cands[randi() % mini(3, cands.size())]
 	var gid: String = INVITES.get(n.personality, "corda")
+	if not can_pay(gid):
+		return  # sem moedas para essa brincadeira: o colega não convida agora
 	_inviter = n
 	npcs._leave_activity(n)
 	n.activity = "inviting"
@@ -299,7 +353,7 @@ func _invite_arrived(n: NPC, gid: String) -> void:
 	n.visual.play("wave")
 	player.input_enabled = false
 	hud.controls.visible = false
-	var lines := ["Ei, %s!" % "você", "Bora jogar %s comigo?" % GAMES[gid].title.to_lower()]
+	var lines := ["Ei, %s!" % "você", "Bora jogar %s comigo? (%d moedas)" % [GAMES[gid].title.to_lower(), price_of(gid)] if price_of(gid) > 0 else "Bora jogar %s comigo?" % GAMES[gid].title.to_lower()]
 	day.dialogue.open(n.display_name, lines, ["Bora!", "Agora não"])
 	var cb := func(choice: int):
 		player.input_enabled = true

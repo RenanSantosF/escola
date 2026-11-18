@@ -12,13 +12,13 @@ extends Node
 
 const KINDS := {
 	"aviao": "round", "pontaria": "round", "basquete": "round", "gude": "round", "guerra": "round",
-	"corrida": "round",
+	"corrida": "round", "kart": "round", "pipa": "round",
 	"amarelinha": "turn", "corda": "turn",
 	"futebol": "team", "cabo": "team", "queimada": "team",
 	"esconde": "hide",
 }
 ## Placar em que MENOR é melhor (tempo da corrida).
-const LOWER_BETTER := ["corrida"]
+const LOWER_BETTER := ["corrida", "kart"]
 const NEAR_FRIENDS := 30.0
 const JOIN_RADIUS := 40.0
 const LEAVE_DIST := 45.0
@@ -407,9 +407,10 @@ func _show_results(gid: String, ev: Dictionary) -> void:
 		if mgr.can_start() and mgr.is_recess():
 			mgr.start(gid)
 	_show_panel("Placar · " + str(mgr.GAMES.get(gid, {}).get("title", gid)), lines, [["Jogar de novo", again], ["Fechar", func(): _panel.visible = false]])
-	var p := _panel
+	var wp: WeakRef = weakref(_panel)
 	get_tree().create_timer(6.0).timeout.connect(func():
-		if is_instance_valid(p) and my_gid == "":
+		var p := wp.get_ref() as Control
+		if p and my_gid == "":
 			p.visible = false)
 
 

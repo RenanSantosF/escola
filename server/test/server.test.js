@@ -82,11 +82,13 @@ test('salas: quem minimiza o app e volta encontra a mesma sala (vazia espera 5 m
   const rm = new RoomManager();
   const p = { id: 'solo' };
   const room = rm.create(p);
+  const firstDesk = room.desks.get('solo');
+  assert.ok(firstDesk >= 0 && firstDesk < 12, 'carteira sorteada na Turma A');
   rm.leave(p);
   assert.ok(rm.get(room.code), 'a sala continua lá');
   const p2 = { id: 'solo' };
   assert.equal(rm.joinCode(p2, room.code).code, room.code);
-  assert.equal(room.desks.get('solo'), 0, 'mesma carteira');
+  assert.equal(room.desks.get('solo'), firstDesk, 'mesma carteira');
   rm.leave(p2);
   rm.prune(Date.now() + EMPTY_KEEP_MS + 1000);
   assert.ok(!rm.get(room.code), 'depois de muito tempo vazia, some');
@@ -215,7 +217,11 @@ test('esconde-esconde: um conta, os outros se escondem, chegar perto acha; preci
   assert.equal(s.hide.phase, 'seeking');
   assert.ok(hub.join('esconde', 'd', {}, t + 41500).error, 'procurando: novo jogador espera a próxima');
   const hiders = ['a', 'b', 'c'].filter((x) => x !== seeker);
-  // o procurador chega pertinho do primeiro escondido
+  // o primeiro está AGACHADO: a 1,8 m não acha; a 1 m acha
+  room.players.get(hiders[0]).anim = 'crouch';
+  room.players.get(seeker).pos = [room.players.get(hiders[0]).pos[0] + 1.8, 0, 0];
+  hub.tick(t + 45000);
+  assert.deepEqual(s.hide.found, [], 'agachado: precisa chegar mais perto');
   room.players.get(seeker).pos = [room.players.get(hiders[0]).pos[0] + 1, 0, 0];
   hub.tick(t + 50000);
   assert.deepEqual(s.hide.found, [hiders[0]]);
@@ -355,7 +361,8 @@ test('servidor: criar sala e amigo entra pelo código; desconhecido cai na sala 
   const wa = a.inbox.find((m) => m.t === 'welcome');
   assert.ok(!wa.private && /^\d{4}$/.test(wa.code));
   assert.equal(wa.clock.phase, 'arrival');
-  assert.equal(wa.desk, 0);
+  assert.ok(wa.desk >= 0 && wa.desk < 12, 'carteira sorteada na Turma A');
+  assert.equal(wa.clock.schedule.rooms.length, 3, 'o servidor manda a grade do dia');
   const b = await connect(port);
   b.ws.send(JSON.stringify({ t: 'hello', age: 9, mode: 'code', code: '0001' }));
   await wait(60);
@@ -364,7 +371,7 @@ test('servidor: criar sala e amigo entra pelo código; desconhecido cai na sala 
   await wait(60);
   const wb = b.inbox.find((m) => m.t === 'welcome');
   assert.equal(wb.code, wa.code);
-  assert.equal(wb.desk, 1);
+  assert.ok(wb.desk >= 0 && wb.desk < 12 && wb.desk !== wa.desk);
   assert.ok(a.inbox.some((m) => m.t === 'desks' && Object.keys(m.map).length === 2));
   const c = await connect(port);
   c.ws.send(JSON.stringify({ t: 'hello', age: 9, mode: 'quick' }));
@@ -610,7 +617,27 @@ test('contas: nome único digitado com checagem ao vivo, senha e login', async (
   srv.close();
 });
 
-test('salas: até 36 jogadores em três turmas de 12 (Sala 5, Sala 6, Sala 4)', () => {
+test('grade do dia: 3 salas diferentes, 2 matérias por turma, sala especial sem conflito', () => {
+  const schedule = require('../src/schedule');
+  const decks = [];
+  const seen = new Set();
+  for (let d = 0; d < 30; d++) {
+    const g = schedule.make(Math.random, decks);
+    assert.equal(new Set(g.rooms).size, 3);
+    for (const r of g.rooms) assert.ok(schedule.CLASSROOMS.includes(r));
+    for (let c = 0; c < 2; c++) {
+      const sp = g.classes.map((t) => t[c].room).filter((r) => r !== '');
+      assert.equal(new Set(sp).size, sp.length, 'duas turmas não dividem a sala especial');
+    }
+    for (const t of g.classes) {
+      assert.notEqual(t[0].subj, t[1].subj);
+      t.forEach((x) => seen.add(x.subj));
+    }
+  }
+  assert.equal(seen.size, schedule.SUBJECTS.length, 'todas as matérias aparecem (inclusive Informática e Ed. Física)');
+});
+
+test('salas: até 36 jogadores em três turmas de 12', () => {
   const rm = new RoomManager();
   const first = { id: 'p0' };
   const room = rm.create(first);
@@ -622,10 +649,11 @@ test('salas: até 36 jogadores em três turmas de 12 (Sala 5, Sala 6, Sala 4)', 
   const other = rm.quick({ id: 'novo' });
   assert.notEqual(other.code, room.code, 'entrada rápida abre outra escola quando lota');
   // saiu alguém da Turma A: quem chega ocupa a vaga dela (a turma A enche primeiro)
+  const freed = room.desks.get('p3');
   rm.leave(room.players.get('p3'));
   room.deskHold.clear();
   rm.joinCode({ id: 'p99' }, room.code);
-  assert.equal(room.desks.get('p99'), 3);
+  assert.equal(room.desks.get('p99'), freed, 'só sobrou essa vaga');
 });
 
 test('servidor: com a escola cheia, colega longe chega menos vezes (perto: sempre)', async () => {

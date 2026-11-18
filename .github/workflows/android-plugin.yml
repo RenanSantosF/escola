@@ -1,0 +1,60 @@
+# Compila o plugin Android (anúncios + compra do Passe + notificações) no
+# próprio GitHub e salva o resultado em addons/recess_ads/bin/recess_ads.aar.
+# Roda sozinho quando o código em android_plugin/ muda (ou pelo botão
+# "Run workflow" na aba Actions). Ninguém precisa instalar o SDK do Android.
+name: Plugin Android
+
+on:
+  push:
+    paths:
+      - "android_plugin/**"
+      - ".github/workflows/android-plugin.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: SDK do Android (plataforma 36)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+      - name: Compilar
+        working-directory: android_plugin
+        run: gradle assembleRelease --no-daemon
+      - name: Copiar o plugin para o jogo
+        run: |
+          AAR=$(ls android_plugin/build/outputs/aar/*release.aar | head -n 1)
+          cp "$AAR" addons/recess_ads/bin/recess_ads.aar
+      - name: Salvar na branch
+        run: |
+          if git diff --quiet -- addons/recess_ads/bin/recess_ads.aar; then
+            echo "Plugin já estava atualizado."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add addons/recess_ads/bin/recess_ads.aar
+          git commit -m "Plugin Android recompilado (anúncios, Passe do Recreio e notificações)"
+          # alguém pode ter enviado commits enquanto compilava: junta antes de enviar
+          for i in 1 2 3; do
+            git pull --rebase origin "${GITHUB_REF_NAME}" || { sleep 5; continue; }
+            # o código do plugin mudou depois desta compilação? então não salva este
+            # arquivo velho: a execução disparada pelo commit novo compila de novo
+            if ! git diff --quiet "${GITHUB_SHA}" HEAD -- android_plugin; then
+              echo "android_plugin mudou desde ${GITHUB_SHA}: deixando para a próxima execução."
+              exit 0
+            fi
+            git push && exit 0
+            sleep 5
+          done
+          exit 1

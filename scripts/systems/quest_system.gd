@@ -524,7 +524,7 @@ func _on_picked(item: Node) -> void:
 
 
 func _ask_quiz(subject: String) -> void:
-	var gen := ClassroomTasks.new(randi(), Learning.level())
+	var gen := ClassroomTasks.new(randi(), maxi(Learning.level(), 1))
 	var t := gen.make("quiz", subject)
 	var opts: Array = t.options
 	player.input_enabled = false

@@ -100,13 +100,22 @@ class _Draw extends Control:
 		var poly := func(pts: Array, c: Color) -> void:
 			var arr := PackedVector2Array()
 			for p in pts:
-				arr.append(xf.call(p))
-			draw_colored_polygon(arr, c)
+				var q: Vector2 = xf.call(p)
+				# pontos repetidos (peça ainda "fechada" no começo da animação) quebram o desenho
+				if arr.is_empty() or (q.distance_to(arr[arr.size() - 1]) > 0.5 and q.distance_to(arr[0]) > 0.5):
+					arr.append(q)
+			if arr.size() < 3:
+				return
+			var area := 0.0
+			for i in arr.size():
+				area += arr[i].cross(arr[(i + 1) % arr.size()])
+			if absf(area) > 1.0:
+				draw_colored_polygon(arr, c)
 		# F: haste sobe, barras entram da esquerda
 		var fh := FTSplashMath.ease_out(_seg(t, 0.12, 0.5))
 		poly.call([Vector2(0, 124 - 124 * fh), Vector2(30, 124 - 124 * fh), Vector2(30, 124), Vector2(0, 124)], col)
 		var fb := FTSplashMath.ease_out(_seg(t, 0.3, 0.65))
-		poly.call([Vector2(30, 0), Vector2(30 + 66 * fb, 0), Vector2(30 + 66 * fb - 8, 30), Vector2(30, 30)], col)
+		poly.call([Vector2(30, 0), Vector2(30 + 66 * fb, 0), Vector2(maxf(30 + 66 * fb - 8, 30), 30), Vector2(30, 30)], col)
 		var fm := FTSplashMath.ease_out(_seg(t, 0.38, 0.72))
 		poly.call([Vector2(30, 50), Vector2(30 + 38 * fm, 50), Vector2(30 + 38 * fm, 76), Vector2(30, 76)], col)
 		# riscos laranja e vermelho: entram de cima, um depois do outro

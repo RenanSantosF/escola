@@ -300,7 +300,7 @@ func set_meter(value: float) -> void:
 func _update_wallet() -> void:
 	var p: Dictionary = SaveManager.section("player")
 	var lv := int(p.get("level", 1))
-	_wallet.text = "Nível %d   ·   %d moedas" % [lv, int(p.get("coins", 0))]
+	_wallet.text = "Nível %d   ·   %d moedas   ·   %d diamantes" % [lv, int(p.get("coins", 0)), int(p.get("diamonds", 0))]
 
 
 func show_banner(title: String, subtitle := "", hold := 2.2) -> void:
@@ -797,17 +797,21 @@ func show_result(game: String, head: String, summary: String, stars: int, xp: in
 	tw2.tween_property(p, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw2.tween_property(p, "modulate:a", 1.0, 0.2)
 	_result_t = 7.0
+	var wp: WeakRef = weakref(p)  # o cartão pode já ter sido fechado (não captura o nó direto)
 	get_tree().create_timer(7.0).timeout.connect(func():
-		if is_instance_valid(p) and _result_t < 100.0:  # vendo o vídeo: não fecha sozinho
-			var tw3 := p.create_tween()
-			tw3.tween_property(p, "modulate:a", 0.0, 0.4)
-			tw3.tween_callback(p.queue_free))
+		var pp := wp.get_ref() as Control
+		if pp and _result_t < 100.0:  # vendo o vídeo: não fecha sozinho
+			var tw3 := pp.create_tween()
+			tw3.tween_property(pp, "modulate:a", 0.0, 0.4)
+			tw3.tween_callback(pp.queue_free))
 
 
 class _ResultStar extends Control:
 	var on := true
 
 	func _draw() -> void:
+		if size.x < 4.0:
+			return
 		var c := size * 0.5
 		var r := size.x * 0.48
 		var pts := PackedVector2Array()

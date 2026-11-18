@@ -6,6 +6,26 @@ cantina, salas de aula, biblioteca, parquinho e muito mais.
 
 > Status: **Fases 1 (Fundação), 2 (Vida escolar) 3 (Diversão), 4 (Personalidade), 5 (Progressão) e 6 (Acabamento) concluídas.** Veja [docs/ROADMAP.md](docs/ROADMAP.md).
 
+## Novidades desta versão
+
+- **Aulas**: grade do dia sorteada pelo servidor (sala de cada turma, matérias e onde é
+  cada aula — informática, laboratórios, sala de vídeo, quadra...), carteira e ajudante
+  sorteados, professor sempre presente, banco de perguntas no servidor (painel `/admin`)
+  e **Educação Infantil** (3–4 anos) com atividades em figuras.
+- **Kartódromo** em volta da escola (terreno ampliado, viaduto sobre o portão), corrida
+  de 3 voltas com turbo, derrapagem e pilotos-bot; online com a turma.
+- **Montanha-russa gigante** (42 m, looping, saca-rolha), trem de 16 lugares com fila e
+  horário igual para todos, câmera em 1ª pessoa.
+- Balanço de verdade, esconde-esconde com agachar e limite, xadrez/pingue-pongue um contra
+  o outro, elevador do tobogã, pipa no alto do Morro, queimada e futebol revisados.
+- **Passe do Recreio** (R$ 11,99/mês) com 30 níveis e **desafios da semana** (é jogando que
+  se libera), loja remodelada (Destaques, Seleção do dia, vitrine grande, vitrine 3D de karts),
+  **diamantes** e moedas com dinheiro de verdade, pacote de boas-vindas, skins com **estampas**,
+  pinturas de kart, emojis animados, efeitos (auras), **presente do dia** e notificações.
+  Veja [docs/MONETIZACAO.md](docs/MONETIZACAO.md) e o passo a passo da Play Console em
+  [docs/CRIAR_ASSINATURA_PASSE.md](docs/CRIAR_ASSINATURA_PASSE.md).
+- O plugin Android é compilado sozinho pelo GitHub Actions (`.github/workflows/android-plugin.yml`).
+
 ## Como abrir e jogar
 
 1. Instale o **Godot 4.7.2** (versão padrão, não precisa da versão .NET).

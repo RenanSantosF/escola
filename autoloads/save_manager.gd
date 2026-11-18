@@ -28,7 +28,7 @@ static func default_data() -> Dictionary:
 			"name": "Você",
 			"level": 1,
 			"xp": 0,
-			"coins": 50,
+			"coins": 0,  # as primeiras moedas vêm da primeira aula
 			"appearance": {},
 		},
 		"progress": {
@@ -53,8 +53,12 @@ func load_game() -> void:
 	loaded.emit()
 
 
-func save_game() -> bool:
-	data["saved_at"] = int(Time.get_unix_time_from_system() * 1000.0)
+## touch = false: grava sem marcar o save como "mais novo" (ex.: renovação do passe
+## ao abrir o jogo, antes de sincronizar com a nuvem, não pode passar na frente
+## do progresso salvo na conta).
+func save_game(touch := true) -> bool:
+	if touch or not data.has("saved_at"):
+		data["saved_at"] = int(Time.get_unix_time_from_system() * 1000.0)
 	var json := JSON.stringify(data, "\t")
 	var f := FileAccess.open(TEMP_PATH, FileAccess.WRITE)
 	if f == null:

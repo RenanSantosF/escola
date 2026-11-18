@@ -48,6 +48,7 @@ func _ready() -> void:
 	v.add_child(q)
 	v.add_child(_check("Limitar a 30 FPS (economiza bateria)", "fps_limit_30"))
 	v.add_child(_check("Mostrar FPS", "show_fps"))
+	v.add_child(_check("Notificações (amigo online e lembretes)", "notifications"))
 
 	v.add_child(_section("Áudio"))
 	v.add_child(_slider("Música", "music_volume", 0.0, 1.0))

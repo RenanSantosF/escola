@@ -16,6 +16,8 @@ enum Icon { RUN, INTERACT, JUMP, PLAY, PAUSE, EMOTE, MAP, BAG, RIDE, WALK, MENU 
 var is_down := false
 var toggled_on := false
 var highlight := false
+## Número na bolinha vermelha (0 = sem bolinha). Ex.: prêmios do passe esperando.
+var badge := 0
 var _scale := 1.0
 var _font: Font
 
@@ -61,6 +63,16 @@ func _draw() -> void:
 	draw_arc(c, r - 1.5, 0, TAU, 48, Color(1, 1, 1, 0.9), 2.5, true)
 	if highlight and not active:
 		draw_arc(c, r + 4.0, 0, TAU, 48, Color(1, 1, 1, 0.6 + 0.3 * sin(Time.get_ticks_msec() * 0.008)), 3.0, true)
+	if badge > 0:
+		var bc := c + Vector2(r * 0.72, -r * 0.72)
+		draw_circle(bc, r * 0.34, Color("ff3b4d"))
+		draw_arc(bc, r * 0.34, 0, TAU, 24, Color.WHITE, 2.0, true)
+		if _font == null:
+			_font = UITheme.bold_font()
+		var t := str(mini(badge, 9)) + ("+" if badge > 9 else "")
+		var fs := int(r * 0.42)
+		var w := _font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		draw_string(_font, bc + Vector2(-w * 0.5, fs * 0.35), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
 	var ic := Color("1f2a44")
 	var s := r * 0.42
 	match icon:

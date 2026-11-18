@@ -84,6 +84,8 @@ func add_rewards(xp: int, coin_amount: int) -> void:
 	p["coins"] = maxi(int(p.get("coins", 0)) + coin_amount, 0)
 	var lv := int(p.get("level", 1))
 	var cur := int(p.get("xp", 0)) + xp
+	if xp > 0:
+		RecessPass.add_xp(xp)  # tudo o que dá XP também avança o Passe do Recreio
 	while cur >= xp_for_level(lv):
 		cur -= xp_for_level(lv)
 		lv += 1
@@ -97,6 +99,34 @@ func add_rewards(xp: int, coin_amount: int) -> void:
 		AudioManager.play_ui("coin", -5.0)
 	p["level"] = lv
 	rewards_changed.emit(cur, int(p.coins), lv)
+
+
+## DIAMANTES: moeda especial (vem do Passe, de conquistas e da loja da Play Store).
+signal diamonds_changed(amount: int)
+
+
+func diamonds() -> int:
+	return int(SaveManager.section("player").get("diamonds", 0))
+
+
+func add_diamonds(amount: int, save := true) -> void:
+	var p: Dictionary = SaveManager.section("player")
+	p["diamonds"] = maxi(int(p.get("diamonds", 0)) + amount, 0)
+	diamonds_changed.emit(int(p.diamonds))
+	if amount > 0:
+		AudioManager.play_ui("coin", -3.0)
+	if save:
+		SaveManager.save_game()
+
+
+func spend_diamonds(amount: int) -> bool:
+	var p: Dictionary = SaveManager.section("player")
+	if int(p.get("diamonds", 0)) < amount:
+		return false
+	p["diamonds"] = int(p.diamonds) - amount
+	diamonds_changed.emit(int(p.diamonds))
+	SaveManager.save_game()
+	return true
 
 
 func spend_coins(amount: int) -> bool:
@@ -123,6 +153,9 @@ func unlock_achievement(id: String) -> bool:
 		return false
 	a[id] = {"day": int(SaveManager.section("progress").get("days_completed", 0)) + 1}
 	achievement_unlocked.emit(id)
+	# toda conquista dá diamantes (jeito de ganhar diamantes só jogando)
+	add_diamonds(5)
+	show_toast("Conquista! +5 diamantes")
 	return true
 
 

@@ -216,6 +216,7 @@ func _build_terrain_extras(parent: Node3D) -> void:
 
 
 var rides: Array = []
+var coaster: CoasterRide = null
 
 
 ## Atividades das salas que eram só cenário (XP uma vez por dia em cada uma).
@@ -265,7 +266,10 @@ func _spawn_room_activities() -> void:
 		var tg := TableGame.new()
 		tg.kind = gt.kind
 		var zt := _zone_named(gt.room)
-		tg.position = gt.pos + Vector3(0, ((float(zt.y0) + 0.5) if zt.has("y0") else 0.0) + 0.05, 0)
+		var fy := ((float(zt.y0) + 0.5) if zt.has("y0") else 0.0) + 0.05
+		tg.position = gt.pos + Vector3(0, fy, 0)
+		for sp in gt.get("sides", []):
+			tg.sides.append((sp as Vector3) - gt.pos)
 		add_child(tg)
 	for cm in builder.cinemas:
 		var cs := CinemaScreen.new()
@@ -295,6 +299,12 @@ func _spawn_interactables() -> void:
 		ss.points = sl.points
 		ss.position = sl.start
 		add_child(ss)
+	if not builder.coaster.is_empty():
+		var cr := CoasterRide.new()
+		cr.name = "MontanhaRussa"
+		cr.position = builder.coaster.platform
+		add_child(cr)
+		coaster = cr
 	for r in builder.rides:
 		var rt := RideTrack.new()
 		rt.name = "Atracao_" + str(r.kind)
@@ -304,6 +314,8 @@ func _spawn_interactables() -> void:
 		rt.laps = int(r.get("laps", 1))
 		rt.lift = r.get("lift", Vector2(-1, -1))
 		rt.lift_top = r.get("lift_top", Vector3.ZERO)
+		rt.elevator = r.get("elevator", Vector3.INF)
+		rt.elevator_top = r.get("elevator_top", 0.0)
 		rt.position = r.base
 		add_child(rt)
 		rides.append(rt)

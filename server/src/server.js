@@ -42,9 +42,11 @@ const { CATALOG } = require('./games');
 const { Database } = require('./db');
 const gameSettings = require('./settings');
 const { Friends } = require('./friends');
+const { QuestionBank } = require('./questions');
 
 const NEAR_DIST = 18; // metros do canal "Perto de mim"
-const EMOTES = new Set(['wave', 'celebrate', 'clap', 'sad', 'stretch', 'scratch_head', 'look_around', 'raise_hand']);
+const EMOTES = new Set(['wave', 'celebrate', 'clap', 'sad', 'stretch', 'scratch_head', 'look_around', 'raise_hand',
+  'dance', 'robot', 'floss', 'spin_jump', 'laugh', 'heart_hands', 'flex', 'backflip', 'air_guitar']);
 const fs = require('fs');
 const path = require('path');
 
@@ -64,6 +66,7 @@ function createServer(opts = {}) {
     onBlock: (id, other) => dbSafe(db.saveBlock(id, other)),
   });
   const friends = opts.friends || new Friends();
+  const questions = opts.questions || new QuestionBank();
   const online = new Map(); // id da conta -> jogador conectado (para amigos: "está na sala 1234")
   // CLOCK_SCALE/CLOCK_START só para testes locais (o dia inteiro em segundos, ou já no recreio)
   const rooms = new RoomManager({ clock: { scale: opts.clockScale ?? (Number(process.env.CLOCK_SCALE) || 1), startPhase: opts.clockStart ?? process.env.CLOCK_START } });
@@ -100,6 +103,7 @@ function createServer(opts = {}) {
       for (const [id, until] of await db.loadMutes()) safety.mutedUntil.set(id, until);
       for (const [id, other] of await db.loadBlocks()) safety.block(id, other, false);
       friends.load(await db.loadFriends());
+      questions.load(await db.loadQuestions().catch(() => []));
       gameSettings.apply(await db.loadSettings().catch(() => null));
       console.log('Banco de dados conectado: ' + analytics.events.length + ' eventos carregados');
       return true;
@@ -183,6 +187,24 @@ function createServer(opts = {}) {
       return res.end(html);
     }
     // versão mínima do app: o jogo pergunta ao abrir
+    // Perguntas das aulas (banco de dados). ?v=versão que o jogo já tem
+    if (url === '/api/questions' && req.method === 'GET') {
+      const p = questions.payload();
+      const have = Number(new URL(req.url, 'http://x').searchParams.get('v')) || 0;
+      if (have === p.version) return json(200, { same: true, version: p.version });
+      return json(200, p);
+    }
+    if (url === '/api/admin/questions' && req.method === 'GET') {
+      if (!isAdmin(req)) return json(403, { ok: false });
+      return json(200, { ok: true, counts: questions.counts(), total: questions.all().length, extra: [...questions.extra.values()].slice(-300) });
+    }
+    if (url === '/api/admin/questions' && req.method === 'POST') {
+      if (!isAdmin(req)) return json(403, { ok: false });
+      const r = questions.add(await readJson(req, 8192));
+      if (r.error) return json(400, { ok: false, error: r.error });
+      const id = await db.saveQuestion(r.q).catch(() => null);
+      return json(200, { ok: true, saved: id !== null, total: questions.all().length });
+    }
     if (url === '/api/version' && req.method === 'GET') {
       return json(200, { ok: true, min: gameSettings.settings.minVersion, store: gameSettings.STORE_URL });
     }
@@ -231,9 +253,14 @@ function createServer(opts = {}) {
     }
     // ---------------------------------------------------------- amigos
     if (url.startsWith('/api/friends')) {
-      const me = await accountFromToken(req.headers['x-token']);
+      const bearer = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+      const me = await accountFromToken(req.headers['x-token'] || bearer);
       if (!me) return json(401, { ok: false, error: 'Entre na sua conta.' });
       if (url === '/api/friends' && req.method === 'GET') return json(200, { ok: true, list: friendList(me.id) });
+      // amigos jogando agora (o celular avisa "fulano está jogando" com o jogo fechado)
+      if (url === '/api/friends/online' && req.method === 'GET') {
+        return json(200, { ok: true, online: friendList(me.id).filter((f) => f.status === 'friend' && f.online).map((f) => ({ name: f.name, code: f.code })) });
+      }
       if (req.method !== 'POST') return json(404, { ok: false });
       if (limited(req, 'friends', 60, 60000)) return json(429, { ok: false, error: 'Calma! Tente de novo daqui a pouco.' });
       const b = await readJson(req);
@@ -439,7 +466,7 @@ function createServer(opts = {}) {
       (viewer) => !safety.isBlocked(viewer.id, p.id) && (!nearOnly || viewer.id === p.id || near(viewer, p)));
   }
 
-  const DIRECT_KINDS = new Set(['party_invite', 'party_accept', 'party_decline', 'party_state', 'party_step', 'party_leave']);
+  const DIRECT_KINDS = new Set(['mesa', 'party_invite', 'party_accept', 'party_decline', 'party_state', 'party_step', 'party_leave']);
 
   /** Limite simples de mensagens por segundo (por tipo). */
   function rate(player, key, perSec) {
@@ -498,7 +525,7 @@ function createServer(opts = {}) {
       }
       if (ws.readyState !== 1) return;
       const acc = accounts.getOrCreate(token, { age: m.age, level: m.level, look: m.look });
-      if (Number.isFinite(m.age)) acc.age = Math.max(5, Math.min(18, m.age | 0));
+      if (Number.isFinite(m.age)) acc.age = Math.max(3, Math.min(18, m.age | 0));
       dbSafe(db.saveAccount(acc));
       player = { id: acc.id, name: acc.name, level: acc.level, look: acc.look, pos: [0, 0, 70], yaw: 0, anim: 'idle', ws, acc, dirty: true };
       let r;
@@ -510,7 +537,16 @@ function createServer(opts = {}) {
         return send(ws, { t: 'join_error', text: r.error });
       }
       room = r;
+      const wasOnline = online.has(acc.id);
       online.set(acc.id, player);
+      // avisa os amigos que estão jogando: "fulano entrou!"
+      if (!wasOnline) {
+        for (const f of friends.list(acc.id)) {
+          if (f.status !== 'friend') continue;
+          const other = online.get(f.id);
+          if (other && other.ws) send(other.ws, { t: 'friend_online', id: acc.id, name: acc.name, code: room.code });
+        }
+      }
       send(ws, {
         t: 'welcome', token: acc.token, id: acc.id, name: acc.name, room: room.id, code: room.code, private: room.private,
         freeChat: accounts.canFreeChat(acc), quick: QUICK_PHRASES, players: room.snapshot(acc.id), phase: room.phase,

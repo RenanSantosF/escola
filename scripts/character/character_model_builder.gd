@@ -177,8 +177,10 @@ func _make_mesh() -> ArrayMesh:
 	# Bermuda/calça: quadril arredondado com cós
 	_capsule("Hips", pants, Vector3(0, -0.025, 0), 0.16, 0.29, Vector3(1.06 * bw, 1, 0.84), Vector3.ZERO, 18)
 	# Camiseta: tronco em gota (barriguinha de criança)
+	var torso0 := md.v.size()
 	_capsule("Spine", shirt, Vector3(0, 0.06, 0), 0.172, 0.38, Vector3(1.07 * bw, 1, 0.86), Vector3.ZERO, 18)
 	_capsule("Chest", shirt, Vector3(0, 0.1, 0), 0.172, 0.36, Vector3(1.08 * bw, 1, 0.82), Vector3.ZERO, 18)
+	_pattern(torso0, md.v.size(), shirt, trim, a.shirt_pattern)
 	# barra da camiseta e gola
 	_cyl("Spine", shirt.darkened(0.12), Vector3(0, -0.085, 0), 0.172 * bw, 0.176 * bw, 0.022, Vector3.ZERO, 18)
 	_cyl("Chest", trim, Vector3(0, 0.262, 0.0), 0.078, 0.1, 0.04, Vector3.ZERO, 16)
@@ -242,6 +244,41 @@ func _make_mesh() -> ArrayMesh:
 
 	_shade_depth()
 	return md.build_mesh(get_material())
+
+
+## Estampa da camiseta (listras, xadrez, faixa, raio, degradê): pinta os
+## vértices do tronco entre a cor da camiseta e a do detalhe.
+func _pattern(i0: int, i1: int, base: Color, accent: Color, kind: String) -> void:
+	if kind == "":
+		return
+	var ymin := INF
+	var ymax := -INF
+	for i in range(i0, i1):
+		ymin = minf(ymin, md.v[i].y)
+		ymax = maxf(ymax, md.v[i].y)
+	var span := maxf(ymax - ymin, 0.01)
+	for i in range(i0, i1):
+		var p := md.v[i]
+		var h := (p.y - ymin) / span
+		var ang := atan2(p.x, p.z)  # 0 = frente
+		var k := 0.0
+		match kind:
+			"listras":
+				k = 1.0 if int(floor(h * 9.0)) % 2 == 0 else 0.0
+			"xadrez":
+				k = 1.0 if (int(floor(h * 7.0)) + int(floor((ang + PI) / TAU * 10.0))) % 2 == 0 else 0.0
+			"faixa":
+				k = 1.0 if absf(h - 0.55 - p.x * 2.2) < 0.12 else 0.0
+			"raio":
+				var zz := absf(fposmod(h * 3.0, 1.0) - 0.5)
+				k = 1.0 if absf(p.x * 6.0 - (zz - 0.25) * 1.6) < 0.18 and p.z > 0.0 else 0.0
+			"degrade":
+				k = smoothstep(0.15, 0.95, h)
+			"estrela":
+				k = 1.0 if p.z > 0.0 and Vector2(p.x * 8.0, (h - 0.6) * 4.0).length() < 0.55 else 0.0
+		var a := md.c[i].a
+		var col := base.lerp(accent, k)
+		md.c[i] = Color(col.r, col.g, col.b, a)
 
 
 ## Profundidade "pintada" nas cores: um pouco mais escuro perto dos pés e

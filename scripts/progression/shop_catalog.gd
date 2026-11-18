@@ -7,6 +7,7 @@ const CATEGORIES := [
 	["skin", "Skins"], ["pacote", "Pacotes"], ["camiseta", "Camisetas"], ["calca", "Calças"], ["calcado", "Tênis"], ["mochila", "Mochilas"],
 	["bone", "Bonés"], ["penteado", "Penteados"], ["acessorio", "Acessórios"], ["decoracao", "Decoração"],
 	["gude", "Bolinhas de gude"], ["figurinha", "Figurinhas"], ["veiculo", "Skate e bike"], ["emote", "Emojis"],
+	["aura", "Efeitos"], ["kart", "Karts"],
 ]
 
 ## Raridade: cor do cartão e da faixa.
@@ -145,9 +146,100 @@ const EMOTES := [
 	{"id": "emo_stretch", "cat": "emote", "name": "Espreguiçar", "price": 70, "lvl": 2, "emote": "stretch", "desc": "Que soninho na aula..."},
 	{"id": "emo_scratch", "cat": "emote", "name": "Coçar a cabeça", "price": 70, "lvl": 3, "emote": "scratch_head", "desc": "Hmm, pensando..."},
 	{"id": "emo_look", "cat": "emote", "name": "Olhar em volta", "price": 60, "lvl": 3, "emote": "look_around", "desc": "Cadê todo mundo?"},
+	# ANIMADOS (dancinha + figura animada em cima da cabeça). Caros na loja:
+	# no Passe do Recreio saem bem mais em conta.
+	{"id": "emo_dance", "cat": "emote", "name": "Dancinha", "price": 900, "lvl": 2, "emote": "dance", "rarity": "epico", "animated": true, "desc": "Rebola com notinhas musicais pulando!"},
+	{"id": "emo_laugh", "cat": "emote", "name": "Gargalhada", "price": 800, "lvl": 2, "emote": "laugh", "rarity": "epico", "animated": true, "desc": "Ri até chorar (com carinha animada)."},
+	{"id": "emo_heart", "cat": "emote", "name": "Coração", "price": 850, "lvl": 2, "emote": "heart_hands", "rarity": "epico", "animated": true, "desc": "Coração com as mãos e coraçõezinhos subindo."},
+	{"id": "emo_robot", "cat": "emote", "name": "Dança do robô", "price": 1200, "lvl": 3, "emote": "robot", "rarity": "lendario", "animated": true, "desc": "Bip bop! Com raio elétrico piscando."},
+	# só no passe
+	{"id": "emo_floss", "cat": "emote", "name": "Fio dental", "price": 0, "lvl": 1, "emote": "floss", "rarity": "lendario", "animated": true, "pass": true, "desc": "A dança mais famosa do recreio, com estrela girando."},
+	{"id": "emo_spin", "cat": "emote", "name": "Pirueta arco-íris", "price": 0, "lvl": 1, "emote": "spin_jump", "rarity": "lendario", "animated": true, "pass": true, "desc": "Pulo com giro e arco-íris!"},
+	{"id": "emo_flex", "cat": "emote", "name": "Campeão", "price": 0, "lvl": 1, "emote": "flex", "rarity": "epico", "animated": true, "pass": true, "desc": "Mostra os músculos com uma coroa dourada."},
 ]
 
-static var ITEMS: Array = SKINS + BUNDLES + ITEMS_BASE + EMOTES
+## Efeitos (auras): partículas em volta do personagem. Todos veem online.
+const AURAS := [
+	{"id": "aura_nenhuma", "cat": "aura", "name": "Sem efeito", "price": 0, "lvl": 1, "rarity": "comum", "look": {"aura": ""}},
+	{"id": "aura_estrelas", "cat": "aura", "name": "Poeira de estrelas", "price": 1800, "lvl": 4, "rarity": "lendario", "look": {"aura": "estrelas"}, "desc": "Estrelinhas douradas sobem em volta de você."},
+	{"id": "aura_coracoes", "cat": "aura", "name": "Chuva de corações", "price": 1600, "lvl": 3, "rarity": "lendario", "look": {"aura": "coracoes"}, "desc": "Coraçõezinhos flutuando o tempo todo."},
+	{"id": "aura_neve", "cat": "aura", "name": "Floquinhos de neve", "price": 1500, "lvl": 3, "rarity": "epico", "look": {"aura": "neve"}, "desc": "Neve caindo só em você!"},
+	{"id": "aura_fogo", "cat": "aura", "name": "Chamas de campeão", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "look": {"aura": "fogo"}, "desc": "Faíscas de fogo (exclusivo do passe)."},
+	{"id": "aura_arco", "cat": "aura", "name": "Aura arco-íris", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "look": {"aura": "arco_iris"}, "desc": "Todas as cores ao seu redor (exclusivo do passe)."},
+	{"id": "aura_raio", "cat": "aura", "name": "Energia elétrica", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "look": {"aura": "raio"}, "desc": "Raios azuis faiscando (exclusivo do passe)."},
+]
+
+## Skins exclusivas do Passe do Recreio (não se compram com moedas).
+const PASS_SKINS := [
+	{"id": "skin_dragao", "cat": "skin", "name": "Dragão Dourado", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true,
+		"desc": "Verde-esmeralda com escamas douradas. Só no passe!",
+		"look": {"shirt_color": "1e8f4e", "shirt_trim": "ffcf3f", "shirt_logo": true, "pants_color": "145c33", "long_pants": true, "sock_color": "ffcf3f", "shoe_color": "ffcf3f", "shoe_sole": "145c33", "backpack": true, "backpack_color": "ffcf3f", "cap": false, "aura": "fogo"}},
+	{"id": "skin_neon", "cat": "skin", "name": "Robô Neon", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true,
+		"desc": "Prata com luzes azuis e energia elétrica.",
+		"look": {"shirt_color": "cfd8e3", "shirt_trim": "00e5ff", "shirt_logo": true, "pants_color": "37474f", "long_pants": true, "sock_color": "00e5ff", "shoe_color": "00e5ff", "shoe_sole": "263238", "backpack": true, "backpack_color": "90a4ae", "cap": false, "glasses": true, "aura": "raio"}},
+	{"id": "skin_unicornio", "cat": "skin", "name": "Unicórnio Mágico", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true,
+		"desc": "Branco, rosa e lilás com arco-íris.",
+		"look": {"shirt_color": "fff4fb", "shirt_trim": "ff6fae", "shirt_logo": true, "pants_color": "c39bff", "long_pants": true, "sock_color": "ff6fae", "shoe_color": "ff6fae", "shoe_sole": "ffffff", "backpack": true, "backpack_color": "c39bff", "cap": false, "hair_color": "ff8fcf", "aura": "arco_iris"}},
+	{"id": "skin_pirata", "cat": "skin", "name": "Capitão Pirata", "price": 0, "lvl": 1, "rarity": "epico", "pass": true,
+		"desc": "Listras, faixa vermelha e botas.",
+		"look": {"shirt_color": "f4efe6", "shirt_trim": "c62828", "shirt_logo": false, "pants_color": "263238", "long_pants": true, "sock_color": "263238", "shoe_color": "3e2723", "shoe_sole": "1b1b1b", "backpack": false, "cap": true, "cap_color": "212121"}},
+]
+
+## Itens especiais pagos com DIAMANTES (campo "diamonds" = preço em diamantes).
+const DIAMOND_ITEMS := [
+	{"id": "skin_cavaleiro", "cat": "skin", "name": "Cavaleiro Dourado", "price": 0, "diamonds": 250, "lvl": 1, "rarity": "lendario",
+		"desc": "Armadura prateada com faixa dourada e brilho de ouro. Vem também no Pacote de Boas-vindas!",
+		"look": {"shirt_color": "c9d1db", "shirt_trim": "ffcf3f", "shirt_logo": true, "shirt_pattern": "faixa", "pants_color": "7b8794", "long_pants": true, "sock_color": "ffcf3f", "shoe_color": "ffcf3f", "shoe_sole": "5d6670", "backpack": true, "backpack_color": "b0bac5", "cap": false, "aura": "dourada"}},
+	{"id": "skin_princesa", "cat": "skin", "name": "Princesa Estelar", "price": 0, "diamonds": 280, "lvl": 1, "rarity": "lendario",
+		"desc": "Lilás com estrela no peito, cabelo rosa e estrelinhas em volta.",
+		"look": {"shirt_color": "b98cff", "shirt_trim": "ffcf3f", "shirt_logo": false, "shirt_pattern": "estrela", "pants_color": "8e5bd1", "long_pants": true, "sock_color": "ffffff", "shoe_color": "ff8fcf", "shoe_sole": "ffffff", "backpack": true, "backpack_color": "ff8fcf", "cap": false, "hair_color": "ff8fcf", "aura": "estrelas"}},
+	{"id": "skin_craque_neon", "cat": "skin", "name": "Craque Neon", "price": 0, "diamonds": 200, "lvl": 1, "rarity": "lendario",
+		"desc": "Camisa listrada preta e verde-neon com raios elétricos.",
+		"look": {"shirt_color": "1c1c24", "shirt_trim": "39ff88", "shirt_logo": true, "shirt_pattern": "listras", "pants_color": "1c1c24", "long_pants": false, "sock_color": "39ff88", "shoe_color": "39ff88", "shoe_sole": "1c1c24", "backpack": false, "cap": false, "aura": "raio"}},
+	{"id": "skin_bombeiro", "cat": "skin", "name": "Bombeiro Herói", "price": 0, "diamonds": 160, "lvl": 1, "rarity": "epico",
+		"desc": "Vermelho com faixa refletiva amarela. Pronto para salvar o dia!",
+		"look": {"shirt_color": "d32f2f", "shirt_trim": "ffd23f", "shirt_logo": false, "shirt_pattern": "faixa", "pants_color": "263238", "long_pants": true, "sock_color": "263238", "shoe_color": "212121", "shoe_sole": "ffd23f", "backpack": true, "backpack_color": "b71c1c", "cap": true, "cap_color": "d32f2f"}},
+	{"id": "skin_chef", "cat": "skin", "name": "Chef Confeiteiro", "price": 0, "diamonds": 140, "lvl": 1, "rarity": "epico",
+		"desc": "Dólmã branco xadrez e boné de cozinheiro. Hummm, bolo!",
+		"look": {"shirt_color": "fbfbfb", "shirt_trim": "e0e0e0", "shirt_logo": false, "shirt_pattern": "xadrez", "pants_color": "37474f", "long_pants": true, "shoe_color": "fbfbfb", "shoe_sole": "9e9e9e", "backpack": false, "cap": true, "cap_color": "fbfbfb", "aura": "coracoes"}},
+	{"id": "aura_dourada", "cat": "aura", "name": "Brilho de ouro", "price": 0, "diamonds": 150, "lvl": 1, "rarity": "lendario", "look": {"aura": "dourada"}, "desc": "Faíscas douradas o tempo todo. Todo mundo vai ver!"},
+	{"id": "aura_bolhas", "cat": "aura", "name": "Bolhas de sabão", "price": 0, "diamonds": 120, "lvl": 1, "rarity": "epico", "look": {"aura": "bolhas"}, "desc": "Bolhinhas subindo em volta de você."},
+	{"id": "aura_notas", "cat": "aura", "name": "Música no ar", "price": 0, "diamonds": 130, "lvl": 1, "rarity": "epico", "look": {"aura": "notas"}, "desc": "Notinhas musicais dançando ao seu redor."},
+	{"id": "emo_backflip", "cat": "emote", "name": "Mortal para trás", "price": 0, "diamonds": 90, "lvl": 1, "emote": "backflip", "rarity": "lendario", "animated": true, "desc": "Um mortal de verdade com estrela girando!"},
+	{"id": "emo_guitar", "cat": "emote", "name": "Guitarra imaginária", "price": 0, "diamonds": 80, "lvl": 1, "emote": "air_guitar", "rarity": "epico", "animated": true, "desc": "Solo de guitarra com notas musicais."},
+]
+
+## Mais roupas e skins com estampa (moedas).
+const MORE_ITEMS := [
+	{"id": "cam_listrada", "cat": "camiseta", "name": "Camiseta listrada", "price": 120, "lvl": 2, "rarity": "raro", "look": {"shirt_color": "f4f4f0", "shirt_trim": "2f80ed", "shirt_logo": false, "shirt_pattern": "listras"}},
+	{"id": "cam_xadrez", "cat": "camiseta", "name": "Camisa xadrez", "price": 130, "lvl": 2, "rarity": "raro", "look": {"shirt_color": "e04a3a", "shirt_trim": "1d1d1d", "shirt_logo": false, "shirt_pattern": "xadrez"}},
+	{"id": "cam_degrade", "cat": "camiseta", "name": "Camiseta pôr do sol", "price": 160, "lvl": 3, "rarity": "raro", "look": {"shirt_color": "ff8a1f", "shirt_trim": "8e44ad", "shirt_logo": false, "shirt_pattern": "degrade"}},
+	{"id": "cam_raio", "cat": "camiseta", "name": "Camiseta do raio", "price": 180, "lvl": 3, "rarity": "raro", "look": {"shirt_color": "2f80ed", "shirt_trim": "ffd23f", "shirt_logo": false, "shirt_pattern": "raio"}},
+	{"id": "cam_estrela", "cat": "camiseta", "name": "Camiseta estrela", "price": 200, "lvl": 4, "rarity": "raro", "look": {"shirt_color": "1c1c24", "shirt_trim": "ffd23f", "shirt_logo": false, "shirt_pattern": "estrela"}},
+	{"id": "cam_time_faixa", "cat": "camiseta", "name": "Camisa de time com faixa", "price": 240, "lvl": 5, "rarity": "epico", "look": {"shirt_color": "f4f4f0", "shirt_trim": "1f9e4a", "shirt_logo": true, "shirt_pattern": "faixa"}},
+	{"id": "skin_surfista", "cat": "skin", "name": "Surfista", "price": 650, "lvl": 4, "rarity": "epico", "desc": "Camiseta degradê do mar, bermuda e boné virado.",
+		"look": {"shirt_color": "3ec1d3", "shirt_trim": "1f5fd6", "shirt_logo": false, "shirt_pattern": "degrade", "pants_color": "ff8a1f", "long_pants": false, "sock_color": "ffffff", "shoe_color": "ffd23f", "backpack": false, "cap": true, "cap_color": "ffd23f"}},
+	{"id": "skin_rock", "cat": "skin", "name": "Estrela do Rock", "price": 700, "lvl": 4, "rarity": "epico", "desc": "Preto com raio vermelho. Rock no recreio!",
+		"look": {"shirt_color": "1c1c24", "shirt_trim": "e0263a", "shirt_logo": false, "shirt_pattern": "raio", "pants_color": "2b2b2b", "long_pants": true, "shoe_color": "1c1c24", "shoe_sole": "e0263a", "backpack": false, "cap": false, "glasses": true}},
+	{"id": "skin_tigre", "cat": "skin", "name": "Tigre", "price": 800, "lvl": 5, "rarity": "epico", "desc": "Laranja com listras pretas. Rawr!",
+		"look": {"shirt_color": "ff8a1f", "shirt_trim": "1d1d1d", "shirt_logo": false, "shirt_pattern": "listras", "pants_color": "ff8a1f", "long_pants": true, "sock_color": "1d1d1d", "shoe_color": "1d1d1d", "backpack": false, "cap": false}},
+	{"id": "kart_padrao", "cat": "kart", "name": "Kart da Escola", "price": 0, "lvl": 1, "rarity": "comum", "kart": {"color": "", "accent": "ffffff", "style": ""}, "desc": "O kart de todo mundo: na corrida ele ganha a cor do seu lugar no grid."},
+	# Karts com DESIGN só no Passe do Recreio (todos andam igual: é só beleza!)
+	{"id": "kart_turbo", "cat": "kart", "name": "Kart Turbo V8", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "kart": {"color": "e0263a", "accent": "ffd23f", "style": "listras", "body": "turbo"}, "desc": "Aerofólio gigante e carburadores cromados. Exclusivo do passe!"},
+	{"id": "kart_neon", "cat": "kart", "name": "Kart Neon", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "kart": {"color": "263238", "accent": "00e5ff", "style": "listras", "body": "neon"}, "desc": "Luz neon embaixo do kart e aerofólio iluminado. Exclusivo do passe!"},
+	{"id": "kart_foguete", "cat": "kart", "name": "Kart Foguete", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "kart": {"color": "eceff1", "accent": "e53935", "style": "", "body": "foguete"}, "desc": "Bico de foguete, aletas e turbina com fogo. Exclusivo do passe!"},
+	{"id": "kart_arco", "cat": "kart", "name": "Kart Arco-íris", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "kart": {"color": "ffffff", "accent": "ff6fae", "style": "arco", "body": "esportivo"}, "desc": "Exclusivo do passe!"},
+	{"id": "kart_campeao", "cat": "kart", "name": "Kart Campeão", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "kart": {"color": "1d1d1d", "accent": "ffcf3f", "style": "xadrez", "body": "campeao"}, "desc": "Bico comprido, asa dupla e detalhes de ouro. Exclusivo do passe!"},
+	{"id": "kart_esportivo", "cat": "kart", "name": "Kart Esportivo", "price": 0, "lvl": 1, "rarity": "epico", "pass": true, "kart": {"color": "2f80ed", "accent": "ffffff", "style": "listras", "body": "esportivo"}, "desc": "Prêmio do último nível do passe (grátis)!"},
+	# karts antigos (quem já tinha continua com eles; não aparecem mais na loja)
+	{"id": "kart_azul", "cat": "kart", "name": "Kart Azul Turbo", "price": 0, "lvl": 1, "rarity": "raro", "legacy": true, "kart": {"color": "2f80ed", "accent": "ffffff", "style": "listras"}},
+	{"id": "kart_verde", "cat": "kart", "name": "Kart Verde Limão", "price": 0, "lvl": 1, "rarity": "raro", "legacy": true, "kart": {"color": "9be15d", "accent": "1d1d1d", "style": "xadrez"}},
+	{"id": "kart_chamas", "cat": "kart", "name": "Kart Chamas", "price": 0, "lvl": 1, "rarity": "epico", "legacy": true, "kart": {"color": "1d1d1d", "accent": "ff7a1a", "style": "chamas"}},
+	{"id": "kart_dourado", "cat": "kart", "name": "Kart Dourado", "price": 0, "lvl": 1, "rarity": "lendario", "legacy": true, "kart": {"color": "ffcf3f", "accent": "ffffff", "style": "listras"}},
+	{"id": "kart_galaxia", "cat": "kart", "name": "Kart Galáxia", "price": 0, "lvl": 1, "rarity": "lendario", "legacy": true, "kart": {"color": "3b1f7a", "accent": "ffcf3f", "style": "estrelas"}},
+]
+
+static var ITEMS: Array = SKINS + PASS_SKINS + DIAMOND_ITEMS + MORE_ITEMS + BUNDLES + ITEMS_BASE + EMOTES + AURAS
 
 
 ## Emojis que o jogador tem: [[nome, emote], ...].
@@ -155,13 +247,14 @@ static func owned_emotes() -> Array:
 	var inv: Dictionary = SaveManager.section("inventory")
 	var owned: Array = inv.get("owned", [])
 	var out: Array = []
-	for e in EMOTES:
-		if e.id == "emo_wave" or e.id in owned:
+	# todos os itens com emoji (inclusive os de diamante, como o mortal e a guitarra)
+	for e in ITEMS:
+		if e.has("emote") and (e.id == "emo_wave" or e.id in owned):
 			out.append([e.name, e.emote])
 	return out
 
 const DEFAULT_OWNED := ["skin_nenhuma", "cam_uniforme", "cal_bermuda", "ten_branco", "moc_vermelha", "moc_nenhuma", "bon_nenhum",
-	"pen_curto", "tin_castanho", "ace_sem_oculos", "emo_wave"]
+	"pen_curto", "tin_castanho", "ace_sem_oculos", "emo_wave", "aura_nenhuma", "kart_padrao"]
 
 
 ## Itens que também dá para ganhar assistindo vídeos premiados (id -> quantos vídeos).
@@ -178,7 +271,8 @@ static func ad_cost(id: String) -> int:
 
 
 static func by_cat(cat: String) -> Array:
-	return ITEMS.filter(func(i): return i.cat == cat)
+	# itens antigos ("legacy") só aparecem para quem já tem
+	return ITEMS.filter(func(i): return i.cat == cat and (not i.get("legacy", false) or Progression.owns(i.id)))
 
 
 static func get_item(id: String) -> Dictionary:
@@ -186,6 +280,11 @@ static func get_item(id: String) -> Dictionary:
 		if i.id == id:
 			return i
 	return {}
+
+
+## Preço em diamantes (0 = não é item de diamante).
+static func diamonds_of(item: Dictionary) -> int:
+	return int(item.get("diamonds", 0))
 
 
 static func rarity_of(item: Dictionary) -> String:

@@ -33,6 +33,8 @@ var rides: Array = []  # tobogã gigante e montanha-russa (FunRides)
 var trampolines: Array = []  # camas elásticas
 var lakes: Array = []  # lagos {center, radius}
 var cinemas: Array = []
+var kart_start: Dictionary = {}
+var coaster: Dictionary = {}  ## montanha-russa {station, platform, queue}  ## largada do kartódromo {pos, dir}
 var game_tables: Array = []  ## mesas de jogos: {room, pos, kind}  # telas de cinema {room, pos, rot, rect}
 var doors: Array = []  # todas as portas: {pos (y local do andar), axis, into, w, chunk}
 var chunk_offsets := {}  # chunk -> altura (prédios de vários andares)
@@ -113,6 +115,8 @@ func build_all(step: Callable) -> void:
 	BuildingC.build(self)
 	ParkHill.build(self)
 	FunRides.build(self)
+	KartTrack.build(self)
+	_outer_wall()
 	_fountain_plaza()
 	_dressing_extra()
 	_general_zones()
@@ -591,6 +595,21 @@ func _wall_perimeter() -> void:
 		c.cast_shadows = true
 
 
+## Muro novo, por fora do kartódromo (o muro antigo continua sendo o limite
+## de quem anda a pé).
+func _outer_wall() -> void:
+	var w := chunk("murada_kart")
+	var H := 2.6
+	var T := 0.3
+	var O := KartTrack.OUTER
+	_murada_segment(w, "v", O.position.x, O.position.y, O.end.y, H, T)
+	_murada_segment(w, "v", O.end.x, O.position.y, O.end.y, H, T)
+	_murada_segment(w, "h", O.position.y, O.position.x, O.end.x, H, T)
+	_murada_segment(w, "h", O.end.y, O.position.x, LOT.position.x, H, T)
+	_murada_segment(w, "h", O.end.y, LOT.end.x, O.end.x, H, T)
+	w.cast_shadows = true
+
+
 func _murada_segment(b: WorldBatcher, axis: String, coord: float, a0: float, a1: float, H: float, T: float) -> void:
 	var len := a1 - a0
 	var mid := (a0 + a1) * 0.5
@@ -647,20 +666,21 @@ func _outside() -> void:
 		Props.house(o, Vector3(x + w * 0.5, 0, z1 + 22.0), PI, w - 0.6, 8.0, hcols[i % hcols.size()], ROOF_RED.darkened(rng.randf() * 0.2))
 		x += w
 		i += 1
-	# casas e árvores nas laterais e fundos (silhuetas)
+	# casas e árvores nas laterais e fundos (silhuetas), por fora do kartódromo
+	var OUT := KartTrack.OUTER
 	for side in [-1, 1]:
-		var zz := -70.0
+		var zz := -90.0
 		while zz < 70.0:
-			Props.house(o, Vector3(side * 101.0, 0, zz), PI * 0.5 * side, 9.0, 8.0, hcols[posmod(i + int(zz), hcols.size())], ROOF_RED.darkened(0.1))
+			Props.house(o, Vector3(side * (OUT.end.x + 11.0), 0, zz), PI * 0.5 * side, 9.0, 8.0, hcols[posmod(i + int(zz), hcols.size())], ROOF_RED.darkened(0.1))
 			zz += 13.0
 			i += 1
-	var xx := -85.0
-	while xx < 90.0:
-		Props.house(o, Vector3(xx, 0, LOT.position.y - 11.0), 0.0, 9.0, 8.0, hcols[i % hcols.size()], ROOF_RED)
+	var xx := -105.0
+	while xx < 110.0:
+		Props.house(o, Vector3(xx, 0, OUT.position.y - 11.0), 0.0, 9.0, 8.0, hcols[i % hcols.size()], ROOF_RED)
 		xx += 12.0
 		i += 1
 	for k in 30:
-		var p := Vector3(rng.randf_range(-120, 120), 0, LOT.position.y - rng.randf_range(20, 40))
+		var p := Vector3(rng.randf_range(-130, 130), 0, OUT.position.y - rng.randf_range(20, 40))
 		trees.append({"type": ["copa", "pinheiro", "palmeira"][k % 3], "pos": p, "scale": rng.randf_range(1.0, 1.5), "rot": rng.randf() * TAU, "color": Color.WHITE})
 	# Postes na calçada
 	for k in 10:
@@ -915,8 +935,8 @@ func _front_yard() -> void:
 	fr.seed = 99
 	for sx: float in [-1.0, 1.0]:
 		Props.planter(f, Vector3(sx * 9.0, 0.012, 57), Vector2(5.0, 2.4), fr)
-		for k in 5:
-			_tree("palmeira", Vector3(sx * 5.5, 0.0, 63 + k * 2.6), 0.8 + 0.05 * k, Color.WHITE, f)
+		for k in 4:  # (o viaduto do kartódromo passa por cima do portão)
+			_tree("palmeira", Vector3(sx * 5.5, 0.0, 62 + k * 2.4), 0.8 + 0.05 * k, Color.WHITE, f)
 		Props.bench(f, Vector3(sx * 12.5, 0.012, 54.5), PI * 0.5 * -sx)
 		Props.lamp_post(f, Vector3(sx * 6.0, 0.012, 50.5))
 		Props.lamp_post(f, Vector3(sx * 4.6, 0.012, 70))
@@ -924,7 +944,7 @@ func _front_yard() -> void:
 		var x := -80.0 + k * 11.0
 		if absf(x) < 18.0:
 			continue
-		_tree("ipe", Vector3(x, 0, rng.randf_range(62, 70)), rng.randf_range(0.9, 1.2), [Color("f2c230"), Color("e86aa6"), Color("f2c230")][k % 3], f)
+		_tree("ipe", Vector3(x, 0, rng.randf_range(58, 66)), rng.randf_range(0.9, 1.2), [Color("f2c230"), Color("e86aa6"), Color("f2c230")][k % 3], f)
 	for k in 8:
 		_tree("arbusto", Vector3(rng.randf_range(-28, -16), 0, rng.randf_range(50, 72)), rng.randf_range(0.8, 1.3), Color.WHITE)
 	# placa de boas-vindas
@@ -947,7 +967,7 @@ func _parking() -> void:
 	for i in slots.size():
 		Props.parked_car(p, Vector3(35.5 + slots[i] * 5.0, 0.012, 56), PI, car_cols[i % car_cols.size()])
 	for k in 6:
-		_tree("copa", Vector3(34 + k * 9.5, 0, 70.5), rng.randf_range(0.8, 1.0), Color.WHITE, p)
+		_tree("copa", Vector3(34 + k * 9.5, 0, 66.5), rng.randf_range(0.8, 1.0), Color.WHITE, p)
 	add_zone("Estacionamento", r, false, "", 2, Color(0.6, 0.6, 0.62))
 
 
@@ -1231,9 +1251,7 @@ func _playground() -> void:
 	g.box("metal", bp + Vector3(0, 2.5, 0), Vector3(4.9, 0.1, 0.1), Color("27ae60"))
 	for k in 3:
 		var x := -1.4 + k * 1.4
-		g.box("metal", bp + Vector3(x - 0.22, 1.5, 0), Vector3(0.02, 2.0, 0.02), Color("95a5a6"))
-		g.box("metal", bp + Vector3(x + 0.22, 1.5, 0), Vector3(0.02, 2.0, 0.02), Color("95a5a6"))
-		g.box("wood", bp + Vector3(x, 0.47, 0), Vector3(0.55, 0.05, 0.25), [Color("e74c3c"), Color("f1c40f"), Color("3498db")][k])
+		# corrente e tábua são do próprio assento (Seat.swing): balançam de verdade
 		Props.add_seat(bp + Vector3(x, 0, 0), 0.0, Vector3.ZERO, bp.y + 0.49, "Balançar")
 	# Gangorra
 	var gp := Vector3(-82, 0.012, -54)

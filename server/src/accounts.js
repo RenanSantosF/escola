@@ -99,7 +99,7 @@ class Accounts {
       token: crypto.randomBytes(18).toString('hex'),
       id: crypto.randomBytes(6).toString('hex'),
       name: Accounts.validName(info.name) ? info.name : Accounts.randomName(),
-      age: Math.max(5, Math.min(18, info.age | 0 || 9)),
+      age: Math.max(3, Math.min(18, info.age | 0 || 9)),
       level: Math.max(1, info.level | 0 || 1),
       look: info.look || {},
       freeChat: null, // null = padrão (digitação filtrada); false = só frases prontas

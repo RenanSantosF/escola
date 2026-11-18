@@ -103,6 +103,18 @@ create table if not exists blocks (
   blocked_id text not null,
   primary key (account_id, blocked_id)
 );
+create table if not exists questions (
+  id bigserial primary key,
+  subject text not null,
+  min_level smallint not null default 1,
+  max_level smallint not null default 9,
+  question text not null unique,
+  correct text not null,
+  wrong jsonb not null,
+  explain text not null default '',
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
 `;
 
 const hashToken = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
@@ -344,6 +356,22 @@ class Database {
     if (!this.ready) return false;
     await this.pool.query("insert into settings (key, value) values ('game', $1) on conflict (key) do update set value = excluded.value", [JSON.stringify(value)]);
     return true;
+  }
+
+  // ---------------------------------------------------------- perguntas das aulas
+  async loadQuestions() {
+    if (!this.ready) return [];
+    const r = await this.pool.query('select id, subject, min_level, max_level, question, correct, wrong, explain, active from questions order by id');
+    return r.rows.map((q) => ({ id: Number(q.id), s: q.subject, a: q.min_level, b: q.max_level, q: q.question, c: q.correct, w: q.wrong, e: q.explain, active: q.active }));
+  }
+
+  async saveQuestion(q) {
+    if (!this.ready) return null;
+    const r = await this.pool.query(`insert into questions (subject, min_level, max_level, question, correct, wrong, explain, active)
+      values ($1,$2,$3,$4,$5,$6,$7,$8) on conflict (question) do update set subject = excluded.subject, min_level = excluded.min_level,
+      max_level = excluded.max_level, correct = excluded.correct, wrong = excluded.wrong, explain = excluded.explain, active = excluded.active
+      returning id`, [q.s, q.a, q.b, q.q, q.c, JSON.stringify(q.w), q.e || '', q.active !== false]);
+    return Number(r.rows[0].id);
   }
 
   async counts() {

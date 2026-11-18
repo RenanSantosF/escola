@@ -17,6 +17,9 @@ const ARRIVAL_LIMIT := 90.0
 const RETURN_LIMIT := 75.0  # 8 minutos de recreio
 const LESSON_SIZE := [7, 5]
 const MIN_CORRECT := [4, 3]
+## Moedas por tarefa da aula (acertou / tentou). As aulas pagam a loja E as brincadeiras.
+const COIN_RIGHT := 8
+const COIN_TRY := 2
 const PHASE_NAMES := ["Chegada", "Aula", "Recreio", "Volta para a sala", "Aula", "Saída"]
 
 var world: SchoolWorld
@@ -66,9 +69,16 @@ var _class_done := false
 ## Sentou na carteira de outra pessoa: segundos desde que sentou (-1 = não).
 var _wrong_seat_t := -1.0
 var _wrong_seat_warned := 0
-## A 2ª aula do dia é na sala da matéria (aproveita a escola inteira).
-## Os testes antigos desligam (aula sempre na Sala 5).
+## As aulas podem ser na sala da matéria (aproveita a escola inteira).
+## Os testes antigos desligam (aula sempre na sala da turma).
 static var SPECIAL_ROOMS := true
+## Grade do dia sorteada (salas das turmas, matérias, onde é cada aula).
+## Os testes antigos desligam (Sala 5, regra antiga).
+static var RANDOM_SCHEDULE := true
+## Grade de hoje: online vem do servidor; sozinho, sorteada (Schedule.make).
+var schedule: Dictionary = {}
+var _sched_rng := RandomNumberGenerator.new()
+## Regra antiga (sem grade): a 2ª aula na sala da matéria.
 const SUBJECT_ROOMS := {
 	"Ciências": "Laboratório de Ciências", "Física": "Laboratório de Física", "Química": "Laboratório de Química",
 	"Música": "Sala de Música", "Artes": "Sala de Artes", "Inglês": "Sala de Idiomas",
@@ -147,13 +157,44 @@ func start_day() -> void:
 		player.camera_rig.snap_to_target()
 	npcs.begin_arrival()
 	_set_phase(Phase.ARRIVAL)
-	hud.show_banner("Dia %d" % day, "Bom dia! Vá para a %s." % NPCManager.CLASS_ROOM)
-	_set_objective("Vá para a %s e sente na sua carteira" % NPCManager.CLASS_ROOM, npcs.player_desk)
+	hud.show_banner("Dia %d" % day, "Bom dia! Vá para a %s." % room_for_class(0))
+	_go_objective(0)
 	_waiting_seat = true
+
+
+## Objetivo "vá para a aula n": a carteira (sala da turma) ou a sala da matéria.
+func _go_objective(n: int) -> void:
+	var r := room_for_class(n)
+	if r == NPCManager.CLASS_ROOM:
+		_set_objective("Vá para a %s e sente na sua carteira" % r, npcs.player_desk)
+	else:
+		var subj: String = _subjects[n] if n < _subjects.size() else ""
+		_set_objective("Aula de %s no(a) %s" % [subj, r], room_point(r))
+
+
+## Minha turma (0 = A, 1 = B, 2 = C): online vem da carteira do servidor.
+func my_turma() -> int:
+	if synced and NetworkManager.my_desk >= 0:
+		return clampi(NetworkManager.my_desk / NPCManager.DESKS_PER_TURMA, 0, Schedule.TURMAS - 1)
+	return 0
+
+
+func _make_schedule() -> Dictionary:
+	if synced and Schedule.valid(NetworkManager.clock.get("schedule")):
+		return NetworkManager.clock.schedule
+	if synced:
+		return {}  # servidor antigo sem grade: usa as matérias compartilhadas (iguais para a turma)
+	if not RANDOM_SCHEDULE:
+		return {}
+	_sched_rng.randomize()
+	return Schedule.make(_sched_rng)
 
 
 ## Matérias do dia: online são as mesmas para a turma toda (dia da escola + turma).
 func _day_subjects() -> Array:
+	if Schedule.valid(schedule):
+		var t := my_turma()
+		return (schedule.classes[t] as Array).map(func(c): return str(c.get("subj", "Matemática")))
 	if synced and _server_day > 0:
 		return Learning.subjects_shared(_server_day, maxi(NPCManager.TURMA_ROOMS.find(NPCManager.CLASS_ROOM), 0))
 	return Learning.subjects_for_day(day)
@@ -161,7 +202,14 @@ func _day_subjects() -> Array:
 
 func _init_day() -> void:
 	day = int(SaveManager.section("progress").get("days_completed", 0)) + 1
-	_gen = ClassroomTasks.new(day * 7919 + randi() % 1000, Learning.level())
+	_gen = ClassroomTasks.new(randi() + int(Time.get_ticks_usec() % 100000), Learning.level())
+	schedule = _make_schedule()
+	if Schedule.valid(schedule):
+		npcs.set_turma_rooms(schedule.rooms, my_turma())
+		if npcs.class_info().has("board_label"):
+			var bl: int = npcs.class_info().board_label
+			if bl >= 0 and bl < world._labels.size():
+				_board_label = world._labels[bl][0]
 	_subjects = _day_subjects()
 	day_correct = 0
 	day_total = 0
@@ -234,8 +282,8 @@ func _join_synced(p: int) -> void:
 			_place(GATE + Vector3(0, 0, -1.5), PI)
 			npcs.begin_arrival()
 			_set_phase(Phase.ARRIVAL)
-			hud.show_banner("Dia %d" % day, "Bom dia! Vá para a %s." % NPCManager.CLASS_ROOM)
-			_set_objective("Vá para a %s e sente na sua carteira" % NPCManager.CLASS_ROOM, npcs.player_desk)
+			hud.show_banner("Dia %d" % day, "Bom dia! Vá para a %s." % room_for_class(0))
+			_go_objective(0)
 			_waiting_seat = true
 		Phase.CLASS_1, Phase.CLASS_2:
 			# chegou com a aula começada: aparece na porta da sala, sem bronca
@@ -279,8 +327,8 @@ func _goto_phase(p: int) -> void:
 			_drop_lesson()
 			npcs.begin_arrival()
 			_set_phase(Phase.ARRIVAL)
-			hud.show_banner("Dia %d" % day, "Bom dia! Vá para a %s." % NPCManager.CLASS_ROOM)
-			_set_objective("Vá para a %s e sente na sua carteira" % NPCManager.CLASS_ROOM, npcs.player_desk)
+			hud.show_banner("Dia %d" % day, "Bom dia! Vá para a %s." % room_for_class(0))
+			_go_objective(0)
 			_waiting_seat = not _player_at_desk()
 		Phase.CLASS_1, Phase.CLASS_2:
 			ring_bell()
@@ -318,6 +366,8 @@ func _day_transition() -> void:
 	for r in get_tree().get_nodes_in_group("interactable"):
 		if r is RideTrack:
 			(r as RideTrack).eject()
+		elif r is CoasterRide:
+			(r as CoasterRide).eject()
 	if player.mode == PlayerController.Mode.SITTING:
 		player.force_stand()
 	if player.minigame == null and not (discipline and discipline.in_cutscene):
@@ -354,8 +404,15 @@ func helper_id() -> String:
 	var ids: Array = NetworkManager.desks.keys()
 	if ids.size() <= 1:
 		return NetworkManager.my_id
-	ids.sort_custom(func(a, b): return int(NetworkManager.desks[a]) < int(NetworkManager.desks[b]))
-	return str(ids[(maxi(_server_day, 1) * 2 + _class_no) % ids.size()])
+	# só a minha turma (o ajudante é de cada sala)
+	var mine := ids.filter(func(i): return int(NetworkManager.desks[i]) / NPCManager.DESKS_PER_TURMA == my_turma())
+	if mine.is_empty():
+		mine = ids
+	mine.sort()
+	# sorteado pela semente do dia (igual em todos os celulares; não é sempre o 1º)
+	var seed := int(NetworkManager.clock.get("seed", _server_day))
+	var h := absi(hash("%d:%d:%d" % [seed, _server_day, _class_no]))
+	return str(mine[h % mine.size()])
 
 
 func _on_desk_changed(seat: Seat) -> void:
@@ -388,13 +445,19 @@ func _set_phase(p: int) -> void:
 
 func _begin_class(n: int) -> void:
 	_class_no = n
+	class_room = room_for_class(n)
+	_update_turma_class_rooms(n)
 	_set_phase(Phase.CLASS_1 if n == 0 else Phase.CLASS_2)
 	npcs.begin_class()
 	_gen.level = Learning.level()
 	var subj: String = _subjects[n] if n < _subjects.size() else ""
 	lesson = _gen.make_lesson(LESSON_SIZE[n], true, Learning.content_subject(subj))
 	_class_done = false
-	class_room = room_for_class(n)
+	if not synced and randf() < 0.5:
+		# nem toda aula tem "ajudante" (buscar coisas)
+		for i in lesson.size():
+			if lesson[i].type == "find":
+				lesson[i] = _gen.make("quiz", Learning.content_subject(subj))
 	if _special_room():
 		# na sala da matéria não tem "buscar coisa na sala de aula"
 		for i in lesson.size():
@@ -420,7 +483,8 @@ func _begin_class(n: int) -> void:
 	_set_objective("Faça as tarefas da aula", null)
 	if _special_room():
 		var rp := room_point(class_room)
-		npcs.teacher.teleport(rp + Vector3(0, 0, -1.5), 0.0)
+		var cs := npcs.class_spot(class_room)
+		npcs.teacher.teleport(cs.origin, cs.basis.get_euler().y)
 		npcs.teacher.activity = "teach"
 		if not _player_in_class():
 			_set_objective("Aula de %s no(a) %s" % [subj, class_room], rp)
@@ -455,9 +519,10 @@ func _on_answered(ok: bool) -> void:
 		GameManager.add_stat("acertos")
 		npcs.teacher.visual.play("clap")
 		npcs.teacher.say(["Muito bem!", "Isso mesmo!", "Excelente!", "Parabéns!"].pick_random(), 2.0)
-		GameManager.add_rewards(10, 6)  # moedas vêm das aulas
+		GameManager.add_rewards(10, COIN_RIGHT)  # moedas vêm das aulas
 	else:
 		npcs.teacher.say(["Quase! Vamos tentar a próxima.", "Tudo bem, errar faz parte!", "Presta atenção na próxima!"].pick_random(), 2.4)
+		GameManager.add_rewards(2, COIN_TRY)  # quem tentou também ganha um pouquinho
 	Learning.record(ok)
 	task_finished.emit(ok)
 	hud.controls.visible = true
@@ -512,12 +577,15 @@ func _start_recess() -> void:
 		player.stand_up()
 	npcs.begin_recess()
 	_set_objective("Aproveite o recreio!", null)
+	# presente do dia: oferecido no recreio quando a criança estiver livre (ver _process)
+	_gift_offered = " ".join(OS.get_cmdline_args()).contains("res://tests/")
 
 
 func _start_return() -> void:
 	ring_bell()
 	_set_phase(Phase.RETURN)
 	hud.show_banner("Fim do recreio", "Hora de voltar para a sala!")
+	npcs.turma_class_room.clear()
 	npcs.begin_return()
 	var next_room := room_for_class(1)
 	if next_room != NPCManager.CLASS_ROOM:
@@ -531,7 +599,7 @@ func _end_day() -> void:
 	ring_bell()
 	_set_phase(Phase.DAY_END)
 	npcs.begin_day_end()
-	var coins := day_correct * 5 + 10
+	var coins := day_correct * 6 + 15
 	var xp := day_correct * 10 + 20
 	var lvl_before := GameManager.level()
 	GameManager.add_rewards(xp, coins)
@@ -583,6 +651,22 @@ func ring_bell() -> void:
 # =================================================================== jogador
 
 func room_for_class(n: int) -> String:
+	return room_for_turma(my_turma(), n)
+
+
+## Onde é a aula n de uma turma (a sala da turma ou a sala da matéria).
+func room_for_turma(t: int, n: int) -> String:
+	var home: String = NPCManager.TURMA_ROOMS[clampi(t, 0, NPCManager.TURMA_ROOMS.size() - 1)]
+	if t == my_turma():
+		home = NPCManager.CLASS_ROOM
+	if Schedule.valid(schedule):
+		if not SPECIAL_ROOMS:
+			return home
+		var cl: Array = schedule.classes[clampi(t, 0, Schedule.TURMAS - 1)]
+		var r := str((cl[clampi(n, 0, cl.size() - 1)] as Dictionary).get("room", ""))
+		return r if r != "" and not _room_zone(r).is_empty() else home
+	if t != my_turma():
+		return home
 	if n == 0 or not SPECIAL_ROOMS or _subjects.size() < 2:
 		return NPCManager.CLASS_ROOM
 	var r: String = SUBJECT_ROOMS.get(_subjects[1], NPCManager.CLASS_ROOM)
@@ -598,11 +682,16 @@ func _room_zone(room_name: String) -> Dictionary:
 
 ## Ponto no meio da sala (na altura do andar dela).
 func room_point(room_name: String) -> Vector3:
-	var z := _room_zone(room_name)
-	if z.is_empty():
-		return npcs.player_desk.global_position if npcs.player_desk else Vector3.ZERO
-	var c: Vector2 = (z.rect as Rect2).get_center()
-	return Vector3(c.x, float(z.get("y0", -0.5)) + 0.55, c.y)
+	return npcs.room_point(room_name)
+
+
+## Diz ao NPCManager onde está a aula de cada turma (os professores vão para lá).
+func _update_turma_class_rooms(n: int) -> void:
+	npcs.turma_class_room.clear()
+	for t in NPCManager.TURMA_ROOMS.size():
+		var r := room_for_turma(t, n)
+		if r != NPCManager.TURMA_ROOMS[t]:
+			npcs.turma_class_room[NPCManager.TURMA_ROOMS[t]] = r
 
 
 func _special_room() -> bool:
@@ -649,7 +738,10 @@ func _on_player_sat(seat: Seat) -> void:
 		_waiting_seat = false
 		match phase:
 			Phase.ARRIVAL:
-				if not synced:
+				if room_for_class(0) != NPCManager.CLASS_ROOM:
+					_waiting_seat = true
+					_go_objective(0)
+				elif not synced:
 					get_tree().create_timer(1.2).timeout.connect(func(): _begin_class(0))
 			Phase.RETURN:
 				if not synced:
@@ -748,7 +840,7 @@ func _finish_find(ok: bool) -> void:
 	if ok:
 		day_correct += 1
 		GameManager.add_stat("acertos")
-		GameManager.add_rewards(15, 8)
+		GameManager.add_rewards(15, COIN_RIGHT + 2)
 		AudioManager.play_ui("ui_confirm")
 		npcs.teacher.visual.play("clap")
 	task_finished.emit(ok)
@@ -808,10 +900,17 @@ func _on_dialogue_finished(_choice: int) -> void:
 
 # =================================================================== laço
 
+var _gift_offered := true
+
+
 func _process(delta: float) -> void:
 	if not GameManager.is_playing():
 		return
 	_phase_time += delta
+	# presente do dia: no recreio, assim que estiver livre (fora de brincadeira e de conversa)
+	if phase == Phase.RECESS and not _gift_offered and _phase_time > 2.5 and player.minigame == null and not dialogue.is_open():
+		_gift_offered = true
+		DailyGiftPanel.show_if_available(hud)
 	if phase == Phase.DAY_END:
 		_check_exit()
 	_update_wrong_seat(delta)
@@ -877,6 +976,21 @@ func _process(delta: float) -> void:
 				if _nag_timer <= 0.0:
 					_nag_timer = 7.0
 					npcs.teacher.say("Volte para o seu lugar, por favor!", 2.5)
+	if (phase == Phase.ARRIVAL or phase == Phase.RETURN) and _waiting_seat:
+		var nr := room_for_class(0 if phase == Phase.ARRIVAL else 1)
+		if nr != NPCManager.CLASS_ROOM and str(world.zone_at(player.global_position).get("name", "")) == nr:
+			# chegou na sala da matéria antes do sinal
+			_waiting_seat = false
+			_set_objective("Aguarde a professora...", null)
+			if not synced:
+				var n := 0 if phase == Phase.ARRIVAL else 1
+				get_tree().create_timer(1.2).timeout.connect(func():
+					if phase == (Phase.ARRIVAL if n == 0 else Phase.RETURN):
+						_begin_class(n))
+	_teacher_watch_t -= delta
+	if _teacher_watch_t <= 0.0:
+		_teacher_watch_t = 1.0
+		_watch_teacher()
 	_update_deadline()
 	_update_clock()
 	_update_marker(delta)
@@ -884,10 +998,29 @@ func _process(delta: float) -> void:
 	_update_desk_glow(delta)
 
 
+var _teacher_watch_t := 1.0
+
+
+## Toda aula tem professor(a): se ela sumiu, ficou presa ou ficou na sala
+## errada (troca de sala, reconexão, fim do recreio), volta para a frente da turma.
+func _watch_teacher() -> void:
+	var t: NPC = npcs.teacher
+	if t == null or not (phase in [Phase.ARRIVAL, Phase.CLASS_1, Phase.RETURN, Phase.CLASS_2]):
+		return
+	var room := class_room if phase in [Phase.CLASS_1, Phase.CLASS_2] else room_for_class(0 if phase == Phase.ARRIVAL else 1)
+	var spot := npcs.class_spot(room)
+	var far := t.global_position.distance_to(spot.origin) > 7.0
+	if not t.active or (far and (not t.moving or _phase_time > 25.0)):
+		t.set_active(true)
+		t.teleport(spot.origin, spot.basis.get_euler().y)
+	if phase in [Phase.CLASS_1, Phase.CLASS_2] and t.activity != "teach" and not t.talking_to_player:
+		t.activity = "teach"
+
+
 ## Prazo para sentar: contagem na tela; acabou o tempo, a aula começa sem
 ## o aluno (e quem ficar fora da sala é procurado por matar aula).
 func _update_deadline() -> void:
-	var next_room := room_for_class(1) if phase == Phase.RETURN else NPCManager.CLASS_ROOM
+	var next_room := room_for_class(1) if phase == Phase.RETURN else room_for_class(0)
 	var there := _player_at_desk() if next_room == NPCManager.CLASS_ROOM else str(world.zone_at(player.global_position).get("name", "")) == next_room
 	if not (phase == Phase.ARRIVAL or phase == Phase.RETURN) or not _waiting_seat or there:
 		_deadline_shown = -1
@@ -925,18 +1058,27 @@ func _set_objective(text: String, target: Variant) -> void:
 
 
 ## O servidor me pôs na outra turma (Sala 6): a aula, o objetivo e a seta mudam junto.
+var _last_turma_room := ""
+
+
 func _on_turma_changed(room: String) -> void:
-	var old := ""
-	for r in NPCManager.TURMA_ROOMS:
-		if r != room:
-			old = r
-	if class_room == old:
+	var old := _last_turma_room
+	_last_turma_room = room
+	if old == "" or old == room:
+		old = ""
+		for r in Schedule.CLASSROOMS:
+			if r != room and r in _objective_text:
+				old = r
+	if old != "" and class_room == old:
 		class_room = room
 	if old != "" and old in _objective_text:
-		_set_objective(_objective_text.replace(old, room), _marker_target)
+		_set_objective(_objective_text.replace(old, room), npcs.player_desk if _marker_target is Seat else _marker_target)
 	if phase in [Phase.ARRIVAL, Phase.CLASS_1, Phase.RECESS]:
 		_subjects = _day_subjects()
-	GameManager.show_toast("Sua turma estuda na %s" % room)
+	var bl: int = npcs.class_info().get("board_label", -1)
+	if bl >= 0 and bl < world._labels.size():
+		_board_label = world._labels[bl][0]
+	GameManager.show_toast("Hoje sua turma estuda na %s" % room)
 
 
 func _update_marker(delta: float) -> void:

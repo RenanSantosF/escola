@@ -92,3 +92,36 @@ test('jogos: rotas HTTP (envio com CORS e painel protegido)', async () => {
   assert.equal((await fetch(base + '/api/admin/games/nada', { headers: { 'x-admin-token': 'segredo' } })).status, 404);
   srv.close();
 });
+
+test('perguntas: o jogo baixa o banco; o painel adiciona e a versão muda', async () => {
+  const srv = createServer({ adminToken: 'segredo', dataDir: '' });
+  await new Promise((r) => srv.server.listen(0, r));
+  const base = 'http://127.0.0.1:' + srv.server.address().port;
+  const a = await (await fetch(base + '/api/questions')).json();
+  assert.ok(a.count >= 250, 'muitas perguntas: ' + a.count);
+  assert.ok(a.questions.some((q) => q.s === 'Informática') && a.questions.some((q) => q.s === 'Educação Física'));
+  const same = await (await fetch(base + '/api/questions?v=' + a.version)).json();
+  assert.equal(same.same, true, 'já atualizado: não manda tudo de novo');
+  const bad = await fetch(base + '/api/admin/questions', { method: 'POST', headers: { 'x-admin-token': 'segredo' }, body: JSON.stringify({ s: 'Matemática', q: 'Quanto é 2+2?', c: '4', w: ['4', '5', '6'] }) });
+  assert.equal(bad.status, 400);
+  const ok = await fetch(base + '/api/admin/questions', { method: 'POST', headers: { 'x-admin-token': 'segredo' }, body: JSON.stringify({ s: 'Matemática', a: 1, b: 3, q: 'Quanto é 2+2?', c: '4', w: ['3', '5', '6'] }) });
+  assert.equal(ok.status, 200);
+  const b = await (await fetch(base + '/api/questions?v=' + a.version)).json();
+  assert.equal(b.count, a.count + 1);
+  assert.notEqual(b.version, a.version);
+  const fs = require('fs');
+  const path = require('path');
+  const game = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'data', 'questions.json'), 'utf8');
+  const server = fs.readFileSync(path.join(__dirname, '..', 'data', 'questions.json'), 'utf8');
+  assert.equal(game, server, 'o jogo leva a mesma lista do servidor');
+  srv.close();
+});
+
+test('amigos: lista de amigos online para a notificação do celular', async () => {
+  const srv = createServer({ adminToken: 'x', dataDir: '' });
+  await new Promise((r) => srv.server.listen(0, r));
+  const base = 'http://127.0.0.1:' + srv.server.address().port;
+  const r = await fetch(base + '/api/friends/online', { headers: { authorization: 'Bearer nao-existe' } });
+  assert.equal(r.status, 401, 'sem conta não vê nada');
+  srv.close();
+});

@@ -15,6 +15,8 @@ func _ready() -> void:
 	Settings.set_value("quality", Settings.Quality.MEDIUM, false)  # não depende do que ficou salvo
 	NPCManager.STUDENT_BOTS = true  # os testes antigos contam com alunos-bot andando
 	SchoolDay.SPECIAL_ROOMS = false  # e com as duas aulas na Sala 5
+	SchoolDay.RANDOM_SCHEDULE = false  # e com a grade antiga (turmas nas Salas 5, 6 e 4)
+	MinigameManager.FREE_PLAY = true  # brincadeiras de graça (a cobrança tem teste próprio)
 	SaveManager.reset()
 	_test_save_system()
 	_test_settings()
@@ -91,6 +93,17 @@ func _ready() -> void:
 	await _test_dicas()
 	await _test_tela_amigos()
 	await _test_duas_turmas()
+	await _test_grade_do_dia()
+	await _test_educacao_infantil()
+	await _test_recreio_novo()
+	await _test_mesas_dois()
+	await _test_elevador_tobogã()
+	await _test_kart()
+	await _test_passe_loja()
+	await _test_brincadeira_paga()
+	await _test_pipa()
+	await _test_diamantes()
+	await _test_presente_dia()
 	await _test_interpolacao()
 	_finish()
 
@@ -851,9 +864,23 @@ func _test_minigames() -> void:
 		fb._release(Vector3.ZERO, 0.0)
 		fb._take(player)
 		await _frames(2)
-		fb._shoot_player(1.0)
+		fb._shoot_player(0.75)
 		await _wait(1.6)
 	check(fb.score_a >= 2, "futebol: chute forte no canto vira gol às vezes (%d gols em %d)" % [fb.score_a, tries])
+	# com a bola no pé fica mais lento; curva fechada correndo, a bola escapa
+	fb._countdown = 0.0
+	fb._goal_pause = 0.0
+	player.global_position = Vector3(36, 0.05, -49)
+	fb._release(Vector3.ZERO, 0.0)
+	fb._take(player)
+	fb._hold_immune = 0.0
+	await _frames(3)
+	check(player.speed_mult < 0.9, "futebol: com a bola, o jogador fica mais lento")
+	fb.ball.global_position = player.global_position + Vector3(-2.6, 0.1, 0)
+	await _frames(2)
+	check(fb.holder != player, "futebol: a bola longe do pé (curva fechada) escapa")
+	await _frames(2)
+	check(fb.holder != player or player.speed_mult < 0.9, "futebol: sem a bola volta a velocidade normal")
 	fb._goal_pause = 0.0
 	fb.time_left = 0.05
 	await _wait(0.3)
@@ -921,8 +948,36 @@ func _test_minigames() -> void:
 	dg._hit_cd = 0.0
 	dg._on_ball_hit(player)
 	await _wait(3.0)
-	check(dg._out.has(player) and player.movement_locked and dg._out.has(v1), "queimada: queimado NÃO volta (fica até a partida acabar)")
+	var gp: Vector3 = player.global_position
+	check(dg._out.has(player) and dg._out.has(v1) and dg.GRAVE_A.grow(0.2).has_point(Vector2(gp.x, gp.z)), "queimada: queimado vai para o cemitério (atrás do outro time) e fica lá")
 	check(mm.active == dg, "queimada: com gente viva nos dois times a partida continua")
+	# do cemitério: pega a bola que chegou lá, queima alguém e VOLTA
+	dg.ball.throw_from(gp + Vector3(0.4, 0.3, 0), Vector3.ZERO, -1)
+	dg.ball.live = false
+	await _frames(2)
+	check(dg._can_grab(player), "queimada: no cemitério dá para pegar a bola que chega lá")
+	dg._grab(player)
+	dg._last_thrower = player
+	dg._grave_throw = true
+	dg._holder = null
+	dg.ball.live = true
+	dg.ball.live_team = 0
+	dg._hit_cd = 0.0
+	var victim: Node3D = dg.humans_b[1] if dg.humans_b.size() > 1 else v1
+	dg._out.erase(victim)
+	dg._on_ball_hit(victim)
+	check(not dg._out.has(player) and dg.HALF_A.grow(0.3).has_point(Vector2(player.global_position.x, player.global_position.z)), "queimada: queimou do cemitério e voltou para o jogo")
+	# pegar a bola no ar: não queima e a bola fica com quem pegou
+	dg._holder = null
+	dg.ball.throw_from(player.global_position + Vector3(1.2, 1.1, 0), Vector3(-8, 0, 0), 1)
+	check(dg._can_catch(player) and dg.interact_label() == "PEGAR!", "queimada: bola vindo -> botão PEGAR!")
+	dg.on_interact()
+	check(dg._holder == player and not dg._out.has(player), "queimada: pegou no ar, não queimou e ficou com a bola")
+	dg._holder = null
+	dg.ball.throw_from(Vector3(-40, 0.4, -50), Vector3.ZERO, -1)
+	dg._out[player] = INF
+	dg._out.erase(v1)
+	var qball: KickBall = dg.ball
 	# queimou o último do time azul: acaba
 	dg.ball.live = true
 	dg.ball.live_team = 1
@@ -931,6 +986,7 @@ func _test_minigames() -> void:
 	await _wait(1.5)
 	check(mm.active == null and results[-1].id == "queimada" and int(results[-1].get("won", 0)) == -1, "queimada: time sem ninguém vivo perde e a partida acaba")
 	check(not player.movement_locked, "queimada: no fim o jogador volta a andar")
+	check(qball.collision_layer == 8, "queimada: no fim a bola volta a ter colisão")
 
 	# Painel do servidor ligou bots (completar até 3 por time): eu sozinho + bots
 	await _recess()
@@ -2123,7 +2179,11 @@ func _test_salas_alcancaveis() -> void:
 	var sd: SchoolDay = main.school_day
 	var nav: NavGraph = main.npcs.nav
 	var rooms: Array = SchoolDay.SUBJECT_ROOMS.values()
-	rooms.append("Sala 5")
+	for lst in Schedule.SUBJECT_ROOMS.values():
+		for r in lst:
+			if r != "" and not r in rooms:
+				rooms.append(r)
+	rooms.append_array(Schedule.CLASSROOMS)
 	var bad: Array = []
 	for rn in rooms:
 		var tgt := sd.room_point(rn)
@@ -2147,7 +2207,20 @@ func _walk_through(from: Vector3, to: Vector3, secs: float) -> Vector3:
 	return player.global_position
 
 
+## Garante o jogo sozinho (sem relógio de servidor de testes anteriores).
+func _force_offline() -> void:
+	var sd: SchoolDay = main.school_day
+	if sd.synced or NetworkManager.is_online() or not NetworkManager.clock.is_empty():
+		print("DBG offline: synced=", sd.synced, " online=", NetworkManager.is_online(), " want=", NetworkManager._want_online, " clock=", NetworkManager.clock.get("phase", ""), " id=", NetworkManager.my_id)
+	NetworkManager._want_online = false
+	NetworkManager.disconnect_from_server()
+	NetworkManager.clock = {}
+	NetworkManager.my_id = ""
+	sd.unsync()
+
+
 func _test_portas() -> void:
+	_force_offline()
 	await _clear_discipline()
 	var info: Dictionary = main.world.builder.classrooms["Sala 5"]
 	var outp: Vector3 = info.door_out + (info.door_out - info.door_in).normalized() * 1.5
@@ -2230,6 +2303,596 @@ func _test_duas_turmas() -> void:
 	check(NPCManager.CLASS_ROOM == "Sala 5" and npcm.teacher == marcia and not npcm.room_teachers["Sala 6"].active and not npcm.room_teachers["Sala 4"].active, "turmas: voltou para a Turma A (Sala 5) e os outros professores somem sem alunos")
 	npcm.apply_desks({}, "")
 	NetworkManager.my_id = ""
+
+
+func _test_grade_do_dia() -> void:
+	var sd: SchoolDay = main.school_day
+	var npcm: NPCManager = main.npcs
+	await _clear_discipline()
+	SchoolDay.RANDOM_SCHEDULE = true
+	SchoolDay.SPECIAL_ROOMS = true
+	# grade fixa de teste: Turma A na Sala 9, 1ª aula de Informática na sala de informática
+	var g := {"rooms": ["Sala 9", "Sala 2", "Sala 13"], "classes": [
+		[{"subj": "Informática", "room": "Sala de Informática"}, {"subj": "Português", "room": ""}],
+		[{"subj": "Educação Física", "room": "Quadra Poliesportiva"}, {"subj": "Música", "room": "Sala de Música"}],
+		[{"subj": "História", "room": "Sala de Vídeo"}, {"subj": "Matemática", "room": ""}]]}
+	sd.schedule = g
+	npcm.set_turma_rooms(g.rooms, 0)
+	sd._subjects = sd._day_subjects()
+	check(NPCManager.CLASS_ROOM == "Sala 9" and npcm.player_desk.room == "Sala 9", "grade: a turma muda de sala (Sala 9) e a carteira vai junto", NPCManager.CLASS_ROOM)
+	check(sd._subjects == ["Informática", "Português"], "grade: matérias vêm da grade (tem Informática)", str(sd._subjects))
+	check(sd.room_for_class(0) == "Sala de Informática" and sd.room_for_class(1) == "Sala 9", "grade: 1ª aula na sala de informática, 2ª na sala da turma")
+	check(npcm.teacher == npcm.turma_teacher_list[0], "grade: a professora da Turma A vai com a turma")
+	# carteira sorteada (não é sempre a mesma)
+	var desks := {}
+	for i in 12:
+		npcm._pick_player_desk()
+		desks[npcm.player_desk] = true
+	check(desks.size() >= 3, "grade: a carteira é sorteada entre as 12 (%d diferentes)" % desks.size())
+	sd._begin_class(0)
+	await _wait(0.5)
+	var rp := sd.room_point("Sala de Informática")
+	check(npcm.teacher.active and npcm.teacher.global_position.distance_to(rp) < 6.0, "grade: a professora está na sala de informática")
+	# a professora sumiu: o vigia traz de volta
+	npcm.teacher.teleport(Vector3(0, -50, 0))
+	npcm.teacher.set_active(false)
+	sd._watch_teacher()
+	check(npcm.teacher.active and npcm.teacher.global_position.distance_to(rp) < 6.0, "grade: toda aula tem professor(a) (volta se sumir)")
+	_place(rp, 0)
+	await _wait(2.5)
+	check(sd._task_active or sd.classroom_ui.visible, "grade: na sala de informática a tarefa aparece")
+	var subj_ok := true
+	for t in sd.lesson:
+		if not (str(t.subject) in ["Informática", "Ajude a professora"]):
+			subj_ok = false
+	check(subj_ok, "grade: as perguntas são da matéria da aula (Informática)", str(sd.lesson.map(func(t): return t.subject)))
+	sd.classroom_ui.hide_panel()
+	sd._task_active = false
+	# sorteio local: 3 salas diferentes e todas as matérias aparecem
+	var rng := RandomNumberGenerator.new()
+	var seen := {}
+	var ok3 := true
+	for i in 30:
+		var m := Schedule.make(rng)
+		if Array(m.rooms).size() != 3 or m.rooms[0] == m.rooms[1] or m.rooms[1] == m.rooms[2] or m.rooms[0] == m.rooms[2]:
+			ok3 = false
+		for t in m.classes:
+			for c in t:
+				seen[c.subj] = true
+	check(ok3 and seen.size() == Schedule.SUBJECT_ROOMS.size(), "grade: sorteio com 3 salas diferentes e todas as matérias (%d)" % seen.size())
+	# perguntas: sem repetir a mesma sequência e banco grande
+	check(QuestionDB.count() >= 250, "perguntas: banco com %d perguntas extras" % QuestionDB.count())
+	var gen := ClassroomTasks.new(0, 4)
+	var l1 := gen.make_lesson(7, false, "Ciências").map(func(t): return ClassroomTasks.task_key(t))
+	var l2 := gen.make_lesson(7, false, "Ciências").map(func(t): return ClassroomTasks.task_key(t))
+	var same := 0
+	for k in l1:
+		if k in l2:
+			same += 1
+	check(same <= 1, "perguntas: duas aulas seguidas não repetem as mesmas perguntas (%d iguais)" % same)
+	# volta ao padrão dos testes antigos
+	SchoolDay.RANDOM_SCHEDULE = false
+	SchoolDay.SPECIAL_ROOMS = false
+	sd.schedule = {}
+	npcm.set_turma_rooms(["Sala 5", "Sala 6", "Sala 4"], 0)
+	await _recess()
+
+
+func _test_recreio_novo() -> void:
+	await _recess()
+	await _clear_discipline()
+	var mm: MinigameManager = main.minigames
+	# balanço: a tábua e a criança vão e voltam de verdade
+	var sw: Seat = null
+	for st in main.world.seats:
+		if (st as Seat).swing:
+			sw = st
+			break
+	if sw and sw.occupant is NPC:
+		(sw.occupant as NPC).force_unseat()
+		sw.release()
+	check(sw != null, "balanço: existe")
+	if sw:
+		player.force_stand()
+		player.global_position = sw.interact_point()
+		await _frames(2)
+		player.sit_on(sw)
+		var amax := 0.0
+		var vmax := 0.0
+		for i in 360:
+			await get_tree().process_frame
+			amax = maxf(amax, absf(sw.swing_angle()))
+			vmax = maxf(vmax, absf(player.visual.position.z) + absf(player.visual.position.x))
+		check(amax > 0.35 and sw._swing_root.rotation.x != 0.0, "balanço: balança de verdade (%.0f°)" % rad_to_deg(amax))
+		check(vmax > 0.5, "balanço: a criança vai junto com a tábua (%.2f m)" % vmax)
+		player.stand_up()
+		await _wait(1.0)
+		check(player.visual.position.length() < 0.01, "balanço: levantou e voltou ao normal")
+	# não sai da escola: nem pelo portão, nem pulando a murada
+	player.force_stand()
+	player.global_position = Vector3(0, 0.1, 72.0)
+	await _frames(2)
+	player.forced_dir = Vector3(0, 0, 1)
+	await _wait(2.0)
+	player.forced_dir = Vector3.ZERO
+	check(player.global_position.z <= 73.1, "escola: não dá para sair pelo portão (z=%.1f)" % player.global_position.z)
+	player.global_position = Vector3(95, 3.0, 0)
+	await _frames(3)
+	check(player.global_position.x < 90.0, "escola: não dá para pular a murada")
+	# esconde-esconde: 2ª rodada você se esconde (agachar + limite)
+	SaveManager.section("stats")["esconde_rodadas"] = 1
+	var hs = await _mg_start("esconde")
+	if hs:
+		check(hs.role == "hide" and hs.seeker != null, "esconde: rodada em que você se esconde (um colega procura)")
+		check(hs.play_label() == "Agachar", "esconde: botão Agachar")
+		await _wait(0.5)
+		hs.on_play()
+		check(player.crouching, "esconde: agachou")
+		check(hs.play_label() == "Levantar", "esconde: agachado, o botão vira Levantar")
+		# fora da área: volta para dentro
+		player.set_crouch(false)
+		player.global_position = Vector3(0, 0.5, -40)
+		await _frames(3)
+		var pp: Vector3 = player.global_position
+		check(hs.GAME_AREA.has_point(Vector2(pp.x, pp.z)), "esconde: não dá para sair da área das bandeirinhas", str(pp))
+		check(is_instance_valid(hs._flags), "esconde: bandeirinhas marcam o limite")
+		# agachado pertinho (1,8 m) ele não acha; em pé acha
+		hs._counting = 0.0
+		var spot := Vector3(0, 0.05, -100)
+		spot.y = ParkHill.height(spot.x, spot.z) + 0.05
+		player.global_position = spot
+		await _frames(2)
+		player.set_crouch(true)
+		hs.seeker.teleport(spot + Vector3(1.8, 0, 0))
+		hs.seeker.stop()
+		await _frames(3)
+		check(not hs._caught, "esconde: agachado, o procurador a 1,8 m não acha")
+		player.set_crouch(false)
+		await _frames(3)
+		check(hs._caught, "esconde: em pé, ele acha")
+		await _wait(2.5)
+	check(mm.active == null, "esconde: rodada termina")
+	SaveManager.section("stats")["esconde_rodadas"] = 0
+	# rodada em que procura: todo escondido é alcançável e dá para ganhar
+	var res := []
+	var rc := func(r): res.append(r)
+	mm.game_finished.connect(rc)
+	hs = await _mg_start("esconde")
+	if hs:
+		await _wait(5.0)
+		var list: Array = hs.hiders.map(func(h): return h.npc)
+		for n in list:
+			if mm.active == null:
+				break
+			player.global_position = (n as NPC).global_position + Vector3(1.2, 0.1, 0)
+			await _wait(0.3)
+		await _wait(0.3)
+	mm.game_finished.disconnect(rc)
+	check(mm.active == null and not res.is_empty() and int(res[-1].get("won", 0)) == 1, "esconde: achando todos, GANHA e termina", str(res))
+
+
+func _test_diamantes() -> void:
+	var prog: Progression = main.progression
+	SaveManager.section("player")["diamonds"] = 0
+	check(prog.buy("skin_princesa") == "Diamantes insuficientes.", "diamantes: sem diamantes não compra item de diamante")
+	# compra de teste (fora do Android): pacote de diamantes entregue
+	Billing.buy("diamantes_150")
+	check(GameManager.diamonds() == 165, "diamantes: pacote de 150 + 15 de bônus (%d)" % GameManager.diamonds())
+	var c0 := GameManager.coins()
+	var br := prog.buy("skin_bombeiro")
+	check(br == "" and Progression.owns("skin_bombeiro") and GameManager.coins() == c0, "diamantes: compra skin lendária com diamantes (sem gastar moedas)")
+	check(StoreOffers.exchange(0) or GameManager.diamonds() < 10, "diamantes: troca por moedas")
+	Billing.buy("pacote_inicial")
+	check(StoreOffers.starter_bought() and Progression.owns("skin_cavaleiro"), "loja: pacote de boas-vindas dá a skin e marca comprado")
+	var d1 := GameManager.diamonds()
+	Billing.buy("pacote_inicial")
+	check(GameManager.diamonds() == d1, "loja: pacote de boas-vindas só uma vez")
+	# estampas na camiseta
+	prog.grant("cam_listrada")
+	prog.equip("cam_listrada")
+	await _frames(2)
+	check(player.visual.appearance.shirt_pattern == "listras", "estampa: camiseta listrada")
+	prog.equip("cam_uniforme")
+	await _frames(2)
+	check(player.visual.appearance.shirt_pattern == "", "estampa: trocar de camiseta tira a estampa")
+	# pintura do kart
+	prog.grant("kart_turbo")
+	prog.equip("kart_turbo")
+	check(player.visual.appearance.kart == "kart_turbo", "kart: kart do passe equipado vai para o visual")
+	# passe: diamantes e desafios
+	SaveManager.section("pass").clear()
+	RecessPass.grant_premium()
+	RecessPass.data()["xp"] = RecessPass.TIER_XP * 3
+	var dd := GameManager.diamonds()
+	check(RecessPass.claim("prem", 3) == "+20 diamantes" and GameManager.diamonds() == dd + 20, "passe: nível 3 premium dá 20 diamantes")
+	var ch := RecessPass.challenges()
+	check(ch.size() == 6, "passe: 6 desafios da semana")
+	var e: Dictionary = ch[0]
+	var xp0 := RecessPass.xp()
+	SaveManager.section("stats")[str(e.key)] = int(e.base) + int(e.target) + 5 if not str(e.key).begins_with("mg") else {"played": int(e.base) + int(e.target), "won": int(e.base) + int(e.target)}
+	if str(e.key) == "dias":
+		SaveManager.section("progress")["days_completed"] = int(e.base) + int(e.target)
+	check(RecessPass.claim_challenge(0) and RecessPass.xp() == xp0 + int(e.xp), "passe: desafio completo dá XP do passe")
+	check(not RecessPass.claim_challenge(0), "passe: desafio não dá XP duas vezes")
+	SaveManager.section("pass").clear()
+
+
+func _test_presente_dia() -> void:
+	SaveManager.section("daily_gift").clear()
+	check(DailyGift.available_day() == 1, "presente: primeiro dia disponível")
+	var c0 := GameManager.coins()
+	check(DailyGift.claim() != "" and GameManager.coins() == c0, "presente: dia 1 = figurinhas + XP (moedas só nas aulas)")
+	check(DailyGift.available_day() == 0, "presente: só um por dia")
+	var d := DailyGift.data()
+	d["last"] = int(d.last) - 1
+	check(DailyGift.available_day() == 2, "presente: dia seguinte continua a sequência")
+	d["last"] = int(d.last) - 3
+	check(DailyGift.available_day() == 1, "presente: pulou dias, recomeça")
+	var p := DailyGiftPanel.show_if_available(main.hud)
+	await _frames(2)
+	check(p != null, "presente: janela aparece")
+	p.queue_free()
+	SaveManager.section("daily_gift").clear()
+
+
+func _test_pipa() -> void:
+	await _recess()
+	await _clear_discipline()
+	var mm: MinigameManager = main.minigames
+	var st: Node3D = mm.stations["pipa"]
+	check(st.global_position.y > 4.0, "pipa: estação no alto do Morro (%.1f m)" % st.global_position.y)
+	check(mm.start_local("pipa", {}), "pipa: começa")
+	var k = mm.active
+	await _wait(3.3)
+	k.on_play()
+	await _wait(1.5)
+	var e1: float = k.el
+	k.on_play_release()
+	await _wait(1.5)
+	check(k.el < e1, "pipa: soltando a linha a pipa desce")
+	k.on_play()
+	await _wait(1.0)
+	check(k._kite.global_position.y > player.global_position.y + 6.0, "pipa: puxando, a pipa voa alto (%.1f m)" % (k._kite.global_position.y - player.global_position.y))
+	# estrela bem na pipa: pega
+	k._spawn_t = 0.0
+	await _frames(2)
+	if not k._star_nodes.is_empty():
+		var e: Dictionary = k._star_nodes[0]
+		e.az = k.az
+		e.el = k.el
+		await _frames(3)
+	check(k.stars >= 1, "pipa: pega estrela com a pipa")
+	k.on_play_release()
+	k.el = 0.03
+	await _frames(3)
+	check(k.lives == 2, "pipa: pipa no chão perde uma vida")
+	k.time_left = 0.05
+	await _wait(0.4)
+	check(mm.active == null and player.camera_rig.override_active == false, "pipa: termina e devolve a câmera")
+
+
+func _test_brincadeira_paga() -> void:
+	await _recess()
+	await _clear_discipline()
+	var mm: MinigameManager = main.minigames
+	MinigameManager.FREE_PLAY = false
+	var p: Dictionary = SaveManager.section("player")
+	check(int(SaveManager.default_data().player.coins) == 0, "economia: começa sem moedas (as primeiras vêm da 1ª aula)")
+	p["coins"] = 2
+	player.force_stand()
+	await _frames(2)
+	check(not mm.start("kart") and mm.active == null, "brincadeira: sem moedas suficientes não começa (kart custa %d)" % MinigameManager.price_of("kart"))
+	p["coins"] = 20
+	check(mm.start("corda") and mm.active != null, "brincadeira: com moedas começa")
+	check(GameManager.coins() == 20 - MinigameManager.PRICES.corda, "brincadeira: pular corda custa %d moedas" % MinigameManager.PRICES.corda)
+	mm.active.end_game(0, "teste", 0, 0)
+	await _frames(3)
+	check(mm.active == null, "brincadeira: terminou")
+	check(MinigameManager.PRICES.corda < MinigameManager.PRICES.kart, "brincadeira: umas são mais baratas que outras")
+	var maxp := 0
+	for k in MinigameManager.PRICES.keys():
+		maxp = maxi(maxp, int(MinigameManager.PRICES[k]))
+	check(SchoolDay.COIN_RIGHT * SchoolDay.MIN_CORRECT[0] >= maxp * 4, "economia: uma aula boa paga pelo menos 4 brincadeiras das mais caras")
+	MinigameManager.FREE_PLAY = true
+
+
+func _test_passe_loja() -> void:
+	var prog: Progression = main.progression
+	SaveManager.section("pass").clear()
+	check(RecessPass.tier() == 0 and not RecessPass.is_premium(), "passe: começa no nível 0, sem premium")
+	GameManager.add_rewards(RecessPass.TIER_XP * 3, 0)
+	check(RecessPass.tier() == 3, "passe: XP do jogo também sobe o passe (nível %d)" % RecessPass.tier())
+	var c0 := GameManager.coins()
+	check(RecessPass.can_claim("free", 3) and RecessPass.claim("free", 3) != "" and GameManager.coins() == c0 + 20, "passe: pega prêmio grátis (20 moedas)")
+	check(not RecessPass.can_claim("free", 3), "passe: não pega o mesmo prêmio duas vezes")
+	check(RecessPass.FREE.size() * 3 <= RecessPass.PREMIUM.size(), "passe: a trilha grátis dá bem menos prêmios (%d x %d)" % [RecessPass.FREE.size(), RecessPass.PREMIUM.size()])
+	check(str(RecessPass.FREE[RecessPass.TIERS].get("item", "")).begins_with("kart_"), "passe: grátis ganha kart com design só no ÚLTIMO nível")
+	check(not RecessPass.can_claim("prem", 1), "passe: trilha premium bloqueada sem comprar")
+	check(prog.buy("emo_floss") != "" and prog.buy("kart_turbo") != "", "passe: item exclusivo (emoji, kart) não se compra com moedas")
+	check(ShopCatalog.ITEMS.all(func(i): return i.cat != "kart" or i.id == "kart_padrao" or (int(i.get("price", 0)) == 0 and ShopCatalog.diamonds_of(i) == 0)), "loja: karts não se compram (só no passe)")
+	RecessPass.grant_premium()
+	check(RecessPass.is_premium(), "passe: comprar ativa o premium (30 dias)")
+	check(RecessPass.claim("prem", 1) != "" and Progression.owns("kart_turbo"), "passe: premium já dá um KART com design no nível 1")
+	check(RecessPass.claim("prem", 2) != "" and Progression.owns("emo_floss"), "passe: premium nível 2 dá o emoji animado Fio dental")
+	check(ShopCatalog.owned_emotes().any(func(e): return e[1] == "floss"), "passe: o emoji aparece no botão de emojis")
+	# emoji animado: a figura aparece em cima da cabeça
+	player.force_stand()
+	await _wait(0.5)
+	player.emote("floss")
+	await _frames(2)
+	check(player.visual.find_children("*", "EmoteFX", false, false).size() >= 1, "emoji animado: figura animada em cima da cabeça")
+	# efeito (aura) aparece no personagem
+	SaveManager.section("pass")["claimed_prem"].append_array([3, 4, 5, 6])
+	RecessPass.data()["xp"] = RecessPass.TIER_XP * 8
+	check(RecessPass.claim("prem", 7) != "" and Progression.owns("aura_fogo"), "passe: nível 7 dá o efeito Chamas")
+	prog.equip("aura_fogo")
+	await _frames(2)
+	check(player.visual.get_node_or_null("Aura") != null, "efeito: partículas em volta do personagem")
+	check(str(player.visual.appearance.to_dict().get("aura", "")) == "fogo", "efeito: vai junto no visual (os colegas online veem)")
+	prog.equip("aura_nenhuma")
+	await _frames(2)
+	check(player.visual.get_node_or_null("Aura") == null, "efeito: tirar o efeito")
+	# preços: emojis animados caros na loja
+	var anim := ShopCatalog.EMOTES.filter(func(e): return e.get("animated", false) and not e.get("pass", false))
+	check(not anim.is_empty() and anim.all(func(e): return int(e.price) >= 800), "loja: emojis animados são caros fora do passe")
+	# vitrine grande
+	main.profile_menu.open_tab("loja")
+	var sc := ItemShowcase.open(main.profile_menu, main.profile_menu, "skin_galaxia")
+	await _frames(3)
+	check(sc._stage != null and sc._stage.size.x > 400.0, "loja: vitrine em tela cheia com o personagem grande (%.0f px)" % sc._stage.size.x)
+	sc._cmp_btn.pressed.emit()
+	check(sc._before, "loja: botão antes/depois")
+	sc.queue_free()
+	main.profile_menu.open_tab("passe")
+	await _frames(2)
+	check(main.profile_menu._content.find_children("*", "ItemIcon", true, false).size() > 10, "passe: tela do passe com os prêmios desenhados")
+	main.profile_menu.close_menu()
+	SaveManager.section("pass").clear()
+
+
+func _test_kart() -> void:
+	await _recess()
+	await _clear_discipline()
+	var mm: MinigameManager = main.minigames
+	check(KartTrack.length() > 700.0, "kart: pista grande em volta da escola (%.0f m)" % KartTrack.length())
+	var ymax := 0.0
+	var ymin := 99.0
+	var outside := 0
+	for p in KartTrack.points():
+		ymax = maxf(ymax, p.y)
+		ymin = minf(ymin, p.y)
+		if not SchoolBuilder.LOT.has_point(Vector2(p.x, p.z)):
+			outside += 1
+	check(ymax > 7.0 and ymin < 0.5, "kart: tem subida e descida (viaduto de %.1f m)" % ymax)
+	check(outside > KartTrack.points().size() * 0.6, "kart: dá a volta POR FORA do muro da escola (terreno aumentado)")
+	var res := []
+	var rc := func(r): res.append(r)
+	mm.game_finished.connect(rc)
+	check(mm.start_local("kart", {}), "kart: corrida começa (sozinho: contra 5 pilotos)")
+	var kr = mm.active
+	check(kr.racers.size() == 6, "kart: 6 karts no grid")
+	check(player.bounds_off, "kart: na corrida o jogador pode estar fora do muro")
+	await _wait(3.3)
+	check(kr._countdown <= 0.0, "kart: largou depois do 3-2-1")
+	var s0: float = kr.me.s
+	await _wait(1.5)
+	check(kr.me.s > s0 + 15.0 and kr.me.v > 10.0, "kart: acelera sozinho (%.1f m/s)" % kr.me.v)
+	# item: todo mundo larga com um turbo na mão
+	check(str(kr.me.item) == "turbo" and kr.play_label() != "", "kart: começa com TURBO no botão amarelo")
+	kr.on_play()
+	check(str(kr.me.item) == "" and kr.me.boost > 0.0, "kart: botão amarelo = usa o item (turbo)")
+	await _wait(0.6)
+	check(kr.me.v > kr.MAX_V, "kart: com turbo passa da velocidade máxima (%.1f)" % kr.me.v)
+	# itens por posição: líder ganha mais óleo, último ganha turbo triplo/foguete
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var lead_oil := 0
+	var last_good := 0
+	for i in 200:
+		if KartRace.roll_item(0.0, rng) == "oleo":
+			lead_oil += 1
+		if KartRace.roll_item(1.0, rng) in ["turbo3", "foguete"]:
+			last_good += 1
+	check(lead_oil > 100 and last_good > 120, "kart: itens equilibram (1º: %d óleos / último: %d turbos fortes)" % [lead_oil, last_good])
+	# nunca anda de ré nem ao contrário: frear para, virar para trás não passa de ~43°
+	var keep_s: float = kr.me.s
+	for i in range(1, kr.racers.size()):  # os outros bem longe (ninguém bate atrás)
+		kr.racers[i].s = fposmod(float(kr.me.s) + 80.0 + i * 6.0, KartTrack.length())
+	kr.me.v = 3.0
+	kr._brake_btn = true
+	await _wait(0.6)
+	check(kr.me.v >= 0.0 and kr.me.v < 0.5, "kart: freio só para (não anda de ré) (%.1f)" % kr.me.v)
+	kr._brake_btn = false
+	kr.me.h = 3.0
+	await _frames(2)
+	check(absf(kr.me.h) <= kr.MAX_H + 0.01, "kart: nunca fica virado ao contrário (%.2f rad)" % kr.me.h)
+	check(kr.me.s >= keep_s - 0.01, "kart: não volta para trás na pista")
+	kr.me.h = 0.0
+	# batida na mureta: quica para dentro e perde um pouco (não para de vez)
+	kr.me.boost = 0.0
+	kr.me.v = 20.0
+	kr.me.d = 3.6
+	kr.me.h = 0.6
+	await _frames(6)
+	check(float(kr.me.vd) < -0.5 or float(kr.me.d) < 3.6, "kart: bateu na mureta = quica para dentro")
+	check(kr.me.v > 10.0 and kr.me.v < 20.0, "kart: mureta tira velocidade mas não para (%.1f)" % kr.me.v)
+	kr.me.h = 0.0
+	# óleo: quem passa rodopia
+	var bot: Dictionary = kr.racers[1]
+	bot.oil_safe = 0.0
+	bot.spin = 0.0
+	bot.rocket = 0.0
+	bot.air_y = 0.0
+	kr._drop_oil(float(bot.s) + 0.3, float(bot.d))
+	await _frames(3)
+	check(float(bot.spin) > 0.0, "kart: passou no ÓLEO = rodopia")
+	# vácuo: logo atrás de outro kart carrega e dá velocidade
+	kr.me.slip = 0.0
+	bot.spin = 0.0
+	for i in 70:  # o colega fica uns 7 m na frente, na mesma faixa
+		bot.s = fposmod(float(kr.me.s) + 7.0, KartTrack.length())
+		bot.d = kr.me.d
+		bot.v = kr.me.v
+		await _frames(1)
+	check(float(kr.me.slip) >= kr.SLIP_CHARGE, "kart: atrás de alguém pega VÁCUO (vento aparece: %s)" % kr._wind.visible)
+	# batida entre karts: um não atravessa o outro
+	bot.s = kr.me.s
+	bot.d = float(kr.me.d) + 0.3
+	kr._collide(0.016)
+	check(absf(float(bot.d) - float(kr.me.d)) > 0.6, "kart: karts lado a lado se empurram (não atravessam)")
+	# foguete: dirige sozinho e faz quem encosta rodopiar
+	kr.me.spin = 0.0
+	kr.me.item = "foguete"
+	kr.on_play()
+	check(float(kr.me.rocket) > 0.0 and kr.me.boost > 0.0, "kart: FOGUETE (dirige sozinho)")
+	await _wait(1.0)
+	check(absf(float(kr.me.d)) < KartTrack.width_at(kr.me.s) * 0.5, "kart: no foguete fica na pista")
+	kr.me.rocket = 0.0
+	kr.me.v = 20.0
+	# derrapagem com miniturbo
+	kr.me.boost = 0.0
+	kr.me.d = -3.5
+	kr.me.h = 0.0
+	kr.on_interact()
+	kr._drift_dir = 1.0
+	await _wait(1.1)
+	kr.on_interact_release()
+	check(kr.me.boost > 0.0, "kart: derrapar e soltar dá miniturbo")
+	# volta: cruzar a chegada conta
+	kr.me.s = KartTrack.length() - 1.0
+	kr.me.lap = kr.LAPS - 1
+	await _wait(0.5)
+	check(kr.me.done and kr._place_of(kr.me) >= 1, "kart: cruzou a chegada na última volta = terminou (%dº)" % kr._place_of(kr.me))
+	await _wait(4.5)
+	mm.game_finished.disconnect(rc)
+	check(mm.active == null and not res.is_empty() and res[-1].id == "kart", "kart: corrida termina com resultado")
+	check(not player.bounds_off and SchoolBuilder.LOT.has_point(Vector2(player.global_position.x, player.global_position.z)), "kart: no fim volta para dentro da escola")
+	check(player.camera_rig.override_active == false, "kart: câmera volta ao normal")
+
+
+func _test_elevador_tobogã() -> void:
+	await _recess()
+	await _clear_discipline()
+	var slide: RideTrack = null
+	for r in main.world.rides:
+		if r.kind == "slide":
+			slide = r
+	check(slide != null and slide._cabin != null, "tobogã: tem elevador com cabine")
+	check(slide.get_prompt(player).contains("elevador"), "tobogã: o botão diz 'Subir no elevador'")
+	player.force_stand()
+	player.global_position = slide.global_position + Vector3(0, 0.1, 0.5)
+	await _frames(2)
+	slide.interact(player)
+	await _wait(3.5)
+	check(slide._cabin_y > 3.0 and absf(player.global_position.y - (slide.elevator.y + slide._cabin_y + 0.08)) < 0.3, "tobogã: a cabine sobe com a criança dentro (%.1f m)" % slide._cabin_y)
+	await _wait(3.5)
+	check(slide._phase == "ride" and player.global_position.y > slide.elevator.y + 5.0, "tobogã: chegou lá em cima e começou a escorregar")
+	slide.eject()
+	await _frames(2)
+	player.input_enabled = true
+	player.movement_locked = false
+
+
+func _test_mesas_dois() -> void:
+	await _recess()
+	await _clear_discipline()
+	var table: TableGame = null
+	for n in main.world.get_children():
+		if n is TableGame and n.kind == "xadrez":
+			table = n
+			break
+	# chega pelo lado: o ponto de interação é o banquinho, não a frente da mesa
+	player.force_stand()
+	player.global_position = table.side_pos(1) + Vector3(0.6, 0.05, 0)
+	await _frames(2)
+	check(table.interact_point().distance_to(table.side_pos(1)) < 0.05, "mesa: joga chegando AO LADO (banquinho)")
+	table.interact(player)
+	await _wait(0.5)
+	var hp := player.global_position
+	check(Vector2(hp.x - table.side_pos(1).x, hp.z - table.side_pos(1).z).length() < 0.2, "mesa: o boneco fica no banquinho virado para a mesa")
+	var tgui: TableGames = null
+	for c in main.hud.get_children():
+		if c is TableGames:
+			tgui = c
+	check(tgui != null and tgui.side == 1, "mesa: sabe de qual lado estou")
+	# 2 jogadores no mesmo celular: os dois lados jogam
+	tgui._level = 2
+	tgui._new_round()
+	var board: Control = tgui._board
+	board._play([52, 36])
+	await _wait(0.6)
+	check(board.st.turn == "b" and board.mode == "2p", "xadrez: 2 jogadores, o computador não joga sozinho")
+	check(board._can_touch(), "xadrez: 2 jogadores, as pretas podem tocar")
+	# online: o colega do outro lado manda 'hi' e vira partida um contra o outro
+	NetworkManager.my_id = "eu"
+	NetworkManager.names["amigo"] = "Amigo"
+	tgui._on_direct("amigo", "Amigo", "mesa", {"t": "hi", "table": table.key(), "side": 0})
+	await _frames(2)
+	check(tgui.opp_id == "amigo" and board.mode == "net" and board.mine == "b", "xadrez online: pareou com quem está do outro lado (eu de pretas)")
+	check(board._flip(), "xadrez online: de pretas o tabuleiro vira")
+	tgui._on_direct("amigo", "Amigo", "mesa", {"t": "mv", "table": table.key(), "m": [52, 36]})
+	await _frames(2)
+	check(board.st.b[36] == "P" and board.st.turn == "b", "xadrez online: o lance do colega chega no meu tabuleiro")
+	check(board._can_touch(), "xadrez online: agora é a minha vez")
+	tgui._on_direct("amigo", "Amigo", "mesa", {"t": "bye", "table": table.key()})
+	await _frames(2)
+	check(tgui.opp_id == "" and board.mode != "net", "xadrez online: o colega saiu, volta para o normal")
+	tgui.close()
+	await _frames(2)
+	NetworkManager.my_id = ""
+	# pingue-pongue online: anfitrião simula; quem recebe vê a mesa virada e mais lenta
+	var pg := TableGames.open(main.hud, "pingpong", func(_w): pass)
+	await _frames(2)
+	pg.opp_id = "amigo"
+	pg.side = 1
+	var pong: Control = pg._board
+	pong.reset(1)
+	check(pong.net == 1 and pong.spd < 1.0, "pingue-pongue online: bola mais lenta")
+	pong.net_msg({"t": "st", "b": [0.2, 0.3], "v": [0.1, 0.4], "px": 0.7, "s": [2, 1], "sv": 0.0, "over": false})
+	check(absf(pong.ball.x - 0.8) < 0.01 and absf(pong.ball.y - 0.7) < 0.01 and absf(pong.cx - 0.3) < 0.01 and pong.me == 1 and pong.cpu == 2,
+		"pingue-pongue online: vê a mesa do outro lado (virada) e o placar certo")
+	pg.opp_id = ""
+	pg.close()
+	await _frames(2)
+
+
+func _test_educacao_infantil() -> void:
+	var gen := ClassroomTasks.new(0, 0)
+	var lesson := gen.make_lesson(7, true, "Matemática")
+	var all_pic := lesson.all(func(t): return t.type == "pic" and t.options.size() >= 2 and int(t.answer) >= 0)
+	check(all_pic and lesson.size() == 7, "3 anos: a aula inteira é com figuras (sem ler)")
+	var kinds := {}
+	for t in lesson:
+		kinds[t.prompt.split(" ")[0]] = true
+	check(kinds.size() >= 4, "3 anos: atividades variadas (%d tipos)" % kinds.size())
+	check(ClassroomTasks.level_for_age(3) == 0 and ClassroomTasks.level_for_age(4) == 0, "3 anos: idade 3–4 = Educação Infantil")
+	var ui: ClassroomUI = main.school_day.classroom_ui
+	ui.show_task(lesson[0], 0, 7, [])
+	await _frames(3)
+	var cards := ui.find_children("*", "PictureCard", true, false)
+	check(cards.size() >= 2, "3 anos: a lousa mostra figuras grandes (%d)" % cards.size())
+	ui.hide_panel()
+	# atividade com figura de referência ("conte"/"igual"): errar não pode travar a aula
+	var shown: Dictionary = {}
+	for k in 40:
+		for t in gen.make_lesson(7, true, "Matemática"):
+			if t.has("show"):
+				shown = t
+		if not shown.is_empty():
+			break
+	if not shown.is_empty():
+		ui.show_task(shown, 0, 7, [])
+		await _frames(3)
+		var wrong: Button = null
+		for b in ui.find_children("*", "Button", true, false):
+			if b.find_children("*", "PictureCard", true, false).size() > 0 and b.get_index() != int(shown.answer):
+				wrong = b
+		check(wrong != null, "3 anos: figura de referência + respostas")
+		if wrong:
+			wrong.pressed.emit()
+			await _frames(2)
+			check(ui._feedback.text.begins_with("Não foi"), "3 anos: errar mostra a resposta certa (não trava)")
+		ui.hide_panel()
 
 
 func _test_tela_amigos() -> void:
@@ -2521,19 +3184,57 @@ func _test_salas_uso() -> void:
 		player.force_stand()
 
 
+func _test_montanha_russa(coaster: CoasterRide) -> void:
+	var pts := CoasterTrack.points()
+	var span := AABB(pts[0], Vector3.ZERO)
+	for q in pts:
+		span = span.expand(q)
+	check(span.size.x > 55.0 and span.size.z > 85.0 and span.end.y > 40.0, "montanha-russa: enorme (%.0f x %.0f m, %.0f m de altura)" % [span.size.x, span.size.z, span.end.y])
+	check(CoasterTrack.inversions.size() >= 2, "montanha-russa: gira de cabeça para baixo (looping + saca-rolha: %d)" % CoasterTrack.inversions.size())
+	var vmax := 0.0
+	for k in int(CoasterTrack.ride_time * 10):
+		vmax = maxf(vmax, CoasterTrack.speed_at_time(k * 0.1))
+	check(vmax > 24.0, "montanha-russa: descida bem rápida (%.0f km/h)" % (vmax * 3.6))
+	check(coaster.cars.size() == 4 and CoasterRide.CARS * CoasterRide.SEATS_PER_CAR >= 16, "montanha-russa: trem com 4 carrinhos e 16 lugares")
+	# com o trem andando: entra na FILA e vai na próxima remessa
+	coaster._local_offset += CoasterRide.BOARD + 5.0 - fposmod(coaster._now(), coaster.cycle())
+	check(not coaster.state().board, "montanha-russa: trem saiu (andando)")
+	player.force_stand()
+	player.global_position = coaster.global_position
+	await _frames(2)
+	check(coaster.get_prompt(player).contains("fila"), "montanha-russa: com o trem andando, o botão é 'Entrar na fila'")
+	coaster.interact(player)
+	check(coaster.queued and not coaster.riding, "montanha-russa: está na fila (não vai sozinho)")
+	# o trem volta: quem está na fila embarca
+	coaster._local_offset += coaster.state().left + 0.1
+	await _frames(3)
+	check(coaster.riding and not coaster.queued, "montanha-russa: o trem chegou e quem estava na fila embarcou")
+	check(coaster._cam_btn != null, "montanha-russa: botão de 1ª pessoa aparece")
+	coaster._cam_btn.pressed.emit()
+	check(coaster.first_person, "montanha-russa: 1ª pessoa ligada")
+	# pula para o meio do looping: a criança fica de cabeça para baixo junto
+	var inv: Array = CoasterTrack.inversions[0]
+	var tau := 0.0
+	while CoasterTrack.s_at_time(tau) + 1.0 * CoasterRide.SPACING < (float(inv[0]) + float(inv[1])) * 0.5 and tau < CoasterTrack.ride_time:
+		tau += 0.1
+	coaster._local_offset += CoasterRide.BOARD - fposmod(coaster._now(), coaster.cycle()) + tau
+	await _frames(3)
+	check(player.visual.global_transform.basis.y.y < 0.3, "montanha-russa: no looping fica de cabeça para baixo (up.y=%.2f)" % player.visual.global_transform.basis.y.y)
+	# fim da viagem: desembarca na plataforma
+	coaster._local_offset += coaster.state().left + 0.1
+	await _frames(3)
+	check(not coaster.riding and player.input_enabled and not player.movement_locked, "montanha-russa: desembarca no fim e devolve o controle")
+	check(player.visual.global_transform.basis.y.y > 0.95, "montanha-russa: desceu em pé")
+
+
 func _test_atracoes() -> void:
 	await _recess()
 	if player.mode == PlayerController.Mode.SITTING:
 		player.force_stand()
 	var world = main.world
-	check(world.rides.size() == 2, "atrações: tobogã gigante e montanha-russa existem")
-	var slide: RideTrack = null
-	var coaster: RideTrack = null
-	for r in world.rides:
-		if r.kind == "slide":
-			slide = r
-		else:
-			coaster = r
+	check(world.rides.size() == 1 and world.coaster != null, "atrações: tobogã gigante e montanha-russa existem")
+	var slide: RideTrack = world.rides[0]
+	var coaster: CoasterRide = world.coaster
 	# tobogã: sobe pelo elevador e escorrega até o fim
 	player.global_position = slide.global_position
 	await _frames(2)
@@ -2555,25 +3256,7 @@ func _test_atracoes() -> void:
 		"tobogã gigante: sobe a torre (%.0f m) e desce %.0f m até o Parquinho" % [max_y, len])
 	check(player.input_enabled and not player.movement_locked, "tobogã gigante: devolve o controle no fim")
 	check(len > 180.0 and slide_v > 13.0, "tobogã gigante: longo (%.0f m) e rápido (%.1f m/s)" % [len, slide_v])
-	# montanha-russa: duas voltas e volta para a estação
-	player.global_position = coaster.global_position
-	await _frames(2)
-	coaster.interact(player)
-	var top_v := 0.0
-	t0 = Time.get_ticks_msec()
-	Engine.time_scale = 4.0
-	while coaster._rider != null and Time.get_ticks_msec() - t0 < 40000:
-		top_v = maxf(top_v, coaster._v)
-		await _frames(1)
-	Engine.time_scale = 1.0
-	check(coaster._rider == null and coaster._lap == 2 and player.global_position.distance_to(coaster.global_position) < 2.0,
-		"montanha-russa: dá 2 voltas pelo parque e desembarca na estação")
-	check(top_v > 18.0, "montanha-russa: a descida é rápida (%.1f m/s)" % top_v)
-	var cpts: PackedVector3Array = coaster.points
-	var span := AABB(cpts[0], Vector3.ZERO)
-	for q in cpts:
-		span = span.expand(q)
-	check(span.size.x > 70.0 and span.size.y > 20.0, "montanha-russa: grande (%.0f m de comprido, %.0f m de altura)" % [span.size.x, span.size.y])
+	await _test_montanha_russa(coaster)
 	# cama elástica
 	var tr: Trampoline = null
 	for n in world.get_children():
@@ -2591,6 +3274,7 @@ func _test_atracoes() -> void:
 
 
 func _test_contador_e_brilho() -> void:
+	_force_offline()
 	var sd: SchoolDay = main.school_day
 	await _clear_discipline()
 	await _recess()

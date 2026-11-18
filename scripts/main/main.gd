@@ -33,6 +33,7 @@ func _ready() -> void:
 	# versão desatualizada? (pergunta ao servidor enquanto carrega; se for, trava na tela de atualizar)
 	if not _is_test_run():
 		NetworkManager.check_version()
+		QuestionDB.refresh(self)  # perguntas novas do banco de dados do servidor
 	# abertura FT (1,8 s): espera acabar antes de carregar a escola (fica lisa)
 	if FTSplash.playing:
 		await FTSplash.finished
@@ -648,6 +649,9 @@ func _on_play_pressed() -> void:
 
 func _start_game() -> void:
 	get_viewport().disable_3d = false
+	if not _is_test_run():
+		Notifier.ask_permission()
+		get_tree().create_timer(1.5).timeout.connect(func(): WhatsNew.show_if_new(hud))
 	AudioManager.play_ui("ui_confirm")
 	var tw := create_tween()
 	tw.tween_property(_menu, "modulate:a", 0.0, 0.35)

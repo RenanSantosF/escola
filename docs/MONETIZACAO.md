@@ -24,3 +24,68 @@ recompensa só é dada se o vídeo foi assistido até o fim.
 
 Público infantil: tratamento infantil (COPPA), menor de idade (LGPD/GDPR) e
 classificação **G** em todas as solicitações; sem ID de publicidade.
+
+# Passe do Recreio (assinatura mensal R$ 11,99)
+
+- Código: `scripts/progression/recess_pass.gd` (temporada = mês do calendário, 30 níveis,
+  250 XP por nível; todo XP do jogo também conta para o passe), tela na mochila
+  (aba **Passe do Recreio**) e `autoloads/billing_manager.gd` (compra).
+- Trilha grátis (poucos prêmios, 8 de 30 níveis): moedas, pacotes, 1 emoji e o
+  **Kart Esportivo só no nível 30**. Trilha premium (prêmio em todo nível): já começa com o
+  **Kart Turbo V8** (aerofólio gigante e carburadores) no nível 1, e tem Kart Neon,
+  Kart Foguete, Kart Arco-íris e Kart Campeão, 4 skins exclusivas, emojis ANIMADOS,
+  efeitos (auras), diamantes e moedas. Itens com `"pass": true` não se compram.
+- Karts: todos andam IGUAL (é só aparência). Na loja só fica o Kart da Escola; os karts
+  com design são só do passe (os antigos continuam com quem já tinha, `"legacy": true`).
+- Emojis animados fora do passe custam 800–1.200 moedas (de propósito: valorizar o passe).
+
+## Configurar na Play Console
+Passo a passo bem detalhado: [CRIAR_ASSINATURA_PASSE.md](CRIAR_ASSINATURA_PASSE.md).
+O plugin é recompilado automaticamente pelo GitHub Actions (`.github/workflows/android-plugin.yml`).
+
+1. Monetizar > Produtos > **Assinaturas** > criar `passe_recreio_mensal`.
+2. Plano base mensal, renovação automática, preço **R$ 11,99** (Brasil).
+3. Política de Famílias: compras só com aprovação do responsável (o Google cuida disso
+   na conta da criança; o jogo nunca pede dados de pagamento).
+4. Recompilar o plugin Android (agora inclui `RecessBilling` e `RecessNotify`):
+   `cd android_plugin && gradle assembleRelease` e copiar o AAR para
+   `addons/recess_ads/bin/recess_ads.aar`. O addon já adiciona as dependências
+   `com.android.billingclient:billing:8.0.0` e `androidx.work:work-runtime:2.9.1`.
+5. Testar com uma conta de "testador de licença" (compras de teste não cobram).
+
+Fluxo: `Billing.buy_pass()` → plugin abre a tela do Google → `purchase_ok` →
+`RecessPass.grant_premium()` (30 dias) → reconhece a compra (`acknowledge`).
+Ao abrir o jogo, `query_purchases` renova o premium se a assinatura continua ativa.
+Fora do Android, em versão de desenvolvimento, "Comprar" ativa um passe de TESTE.
+
+# Notificações
+
+- `autoloads/notifier.gd` + plugin `RecessNotify` (Java): pede a permissão (Android 13+),
+  agenda lembretes quando o jogo vai para segundo plano (22 h, 3 dias e "prêmio do
+  passe esperando") e cancela quando a criança volta.
+- Amigo online: com o jogo ABERTO o servidor manda `friend_online` (aviso na tela);
+  com o jogo FECHADO, um trabalho do Android (WorkManager, ~15 min) consulta
+  `GET /api/friends/online` com o token da conta e notifica "fulano está jogando agora!".
+- Dá para desligar em Configurações > "Notificações".
+
+
+# Diamantes (moeda especial)
+
+- `GameManager.diamonds()/add_diamonds()/spend_diamonds()`; itens com `"diamonds": N` no
+  catálogo (`ShopCatalog.DIAMOND_ITEMS`) só se compram com diamantes.
+- Como ganhar sem pagar: Passe (grátis: 5; premium: 95 por temporada), conquistas (+5 cada),
+  presente do dia (3, 5, 8 e 20 diamantes ao longo dos 7 dias).
+
+# Economia das moedas (brincar exige estudar)
+
+- Moedas vêm das **aulas**: 8 por acerto, 2 por tentativa (erro), 10 por tarefa de
+  "buscar" e no fim do dia 6 por acerto + 15. O jogo novo começa com 0 moedas.
+- Cada brincadeira custa poucas moedas (`MinigameManager.PRICES`): kart 6; futebol e
+  queimada 5; esconde-esconde, cabo de guerra, pipa e basquete 4; guerra de papel,
+  corrida, gude, pontaria e aviãozinho 3; amarelinha e pular corda 2.
+  Uma aula boa (4+ acertos) já paga várias partidas, e ainda sobra para a loja.
+- Brincadeiras não dão moedas (só XP/passe). O presente do dia também não dá moedas.
+- Com dinheiro de verdade (`StoreOffers`): pacotes de 60 a 900 diamantes, pacotes de moedas,
+  pacote de boas-vindas (uma vez) e troca de diamantes por moedas dentro do jogo.
+- Compras avulsas: `Billing.buy(id)` → plugin `purchase_inapp` → `purchase_ok` →
+  `StoreOffers.deliver()` (uma vez por token) → `consume` (o pacote inicial não é consumido).

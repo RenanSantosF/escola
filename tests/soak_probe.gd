@@ -19,6 +19,7 @@ func _ready() -> void:
 		if a.begins_with("--seed="):
 			rng.seed = int(a.substr(7))
 	Settings.set_value("quality", 1, false)
+	MinigameManager.FREE_PLAY = true  # o robô não estuda: joga de graça
 	main = load("res://scenes/main/main.tscn").instantiate()
 	add_child(main)
 	while GameManager.player == null or main.school_day == null:
@@ -33,7 +34,10 @@ func _ready() -> void:
 	await _frames(5)
 	var interactables: Array = get_tree().get_nodes_in_group("interactable")
 	print("SOAK: %d interativos, %d passos" % [interactables.size(), steps])
+	var last_what := ""
 	for i in steps:
+		if OS.get_cmdline_user_args().has("--trace"):
+			print("STEP %d %s" % [i, last_what])
 		var act := rng.randi() % 10
 		var what := ""
 		match act:
@@ -136,6 +140,7 @@ func _ready() -> void:
 				await _secs(0.8)
 		await _frames(2)
 		_check(what, i)
+		last_what = what
 	print("SOAK_DONE problemas=%d" % problems.size())
 	for p in problems:
 		print("  PROBLEMA: ", p)
