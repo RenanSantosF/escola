@@ -2205,7 +2205,20 @@ func _walk_through(from: Vector3, to: Vector3, secs: float) -> Vector3:
 	return player.global_position
 
 
+## Garante o jogo sozinho (sem relógio de servidor de testes anteriores).
+func _force_offline() -> void:
+	var sd: SchoolDay = main.school_day
+	if sd.synced or NetworkManager.is_online() or not NetworkManager.clock.is_empty():
+		print("DBG offline: synced=", sd.synced, " online=", NetworkManager.is_online(), " want=", NetworkManager._want_online, " clock=", NetworkManager.clock.get("phase", ""), " id=", NetworkManager.my_id)
+	NetworkManager._want_online = false
+	NetworkManager.disconnect_from_server()
+	NetworkManager.clock = {}
+	NetworkManager.my_id = ""
+	sd.unsync()
+
+
 func _test_portas() -> void:
+	_force_offline()
 	await _clear_discipline()
 	var info: Dictionary = main.world.builder.classrooms["Sala 5"]
 	var outp: Vector3 = info.door_out + (info.door_out - info.door_in).normalized() * 1.5
@@ -3143,6 +3156,7 @@ func _test_atracoes() -> void:
 
 
 func _test_contador_e_brilho() -> void:
+	_force_offline()
 	var sd: SchoolDay = main.school_day
 	await _clear_discipline()
 	await _recess()
