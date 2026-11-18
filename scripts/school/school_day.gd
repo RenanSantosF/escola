@@ -571,6 +571,11 @@ func _start_recess() -> void:
 		player.stand_up()
 	npcs.begin_recess()
 	_set_objective("Aproveite o recreio!", null)
+	# presente do dia (uma vez por dia, no começo do recreio)
+	if not " ".join(OS.get_cmdline_args()).contains("res://tests/"):
+		get_tree().create_timer(2.5).timeout.connect(func():
+			if phase == Phase.RECESS and player.minigame == null:
+				DailyGiftPanel.show_if_available(hud))
 
 
 func _start_return() -> void:

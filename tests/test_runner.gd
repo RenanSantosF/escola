@@ -101,6 +101,7 @@ func _ready() -> void:
 	await _test_passe_loja()
 	await _test_pipa()
 	await _test_diamantes()
+	await _test_presente_dia()
 	await _test_interpolacao()
 	_finish()
 
@@ -2499,6 +2500,24 @@ func _test_diamantes() -> void:
 	check(RecessPass.claim_challenge(0) and RecessPass.xp() == xp0 + int(e.xp), "passe: desafio completo dá XP do passe")
 	check(not RecessPass.claim_challenge(0), "passe: desafio não dá XP duas vezes")
 	SaveManager.section("pass").clear()
+
+
+func _test_presente_dia() -> void:
+	SaveManager.section("daily_gift").clear()
+	check(DailyGift.available_day() == 1, "presente: primeiro dia disponível")
+	var c0 := GameManager.coins()
+	check(DailyGift.claim() != "" and GameManager.coins() == c0 + 50, "presente: dia 1 = 50 moedas")
+	check(DailyGift.available_day() == 0, "presente: só um por dia")
+	var d := DailyGift.data()
+	d["last"] = int(d.last) - 1
+	check(DailyGift.available_day() == 2, "presente: dia seguinte continua a sequência")
+	d["last"] = int(d.last) - 3
+	check(DailyGift.available_day() == 1, "presente: pulou dias, recomeça")
+	var p := DailyGiftPanel.show_if_available(main.hud)
+	await _frames(2)
+	check(p != null, "presente: janela aparece")
+	p.queue_free()
+	SaveManager.section("daily_gift").clear()
 
 
 func _test_pipa() -> void:
