@@ -143,6 +143,23 @@ var desk_owner := {}
 
 ## Carteiras da turma (as 12 mais perto da lousa) numa ordem que é IGUAL em
 ## todos os celulares. As do fundo da sala ficam vazias.
+## Carteira livre: quem chega senta em QUALQUER carteira da sala. Se era a
+## carteira guardada para um colega-bot, ele fica com a antiga do jogador.
+func claim_desk(seat: Seat) -> bool:
+	if seat == null or seat == player_desk or not (seat in desk_seats(CLASS_ROOM)):
+		return false
+	var old := player_desk
+	for n in classmates:
+		if n.activity_data.get("desk") == seat:
+			n.activity_data["desk"] = old
+	if old and old.has_meta("my_desk"):
+		old.remove_meta("my_desk")
+	player_desk = seat
+	seat.set_meta("my_desk", true)
+	player_desk_changed.emit(seat)
+	return true
+
+
 func desk_seats(room := "") -> Array:
 	var rname: String = room if room != "" else CLASS_ROOM
 	var list: Array = room_seats.get(rname, []).duplicate()

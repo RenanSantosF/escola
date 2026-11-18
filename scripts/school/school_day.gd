@@ -166,7 +166,7 @@ func start_day() -> void:
 func _go_objective(n: int) -> void:
 	var r := room_for_class(n)
 	if r == NPCManager.CLASS_ROOM:
-		_set_objective("Vá para a %s e sente na sua carteira" % r, npcs.player_desk)
+		_set_objective("Vá para a %s e sente numa carteira" % r, npcs.player_desk)
 	else:
 		var subj: String = _subjects[n] if n < _subjects.size() else ""
 		_set_objective("Aula de %s no(a) %s" % [subj, r], room_point(r))
@@ -295,9 +295,9 @@ func _join_synced(p: int) -> void:
 				_place(info.get("door_out", GATE) + Vector3(0, 0, 0.6), PI)
 			_out_of_class = -45.0
 			_waiting_seat = true
-			hud.show_banner("A aula já começou!", "Sente na sua carteira (a da estrela)." if not _special_room() else "A aula de hoje é aqui no(a) %s." % class_room)
+			hud.show_banner("A aula já começou!", "Sente numa carteira livre." if not _special_room() else "A aula de hoje é aqui no(a) %s." % class_room)
 			if not _special_room():
-				_set_objective("Sente na sua carteira", npcs.player_desk)
+				_set_objective("Sente numa carteira", npcs.player_desk)
 		Phase.RECESS:
 			_place(Vector3(randf_range(-4, 4), 0.05, randf_range(-4, 2)), PI)
 			_start_recess()
@@ -591,7 +591,7 @@ func _start_return() -> void:
 	if next_room != NPCManager.CLASS_ROOM:
 		_set_objective("Próxima aula: %s no(a) %s" % [_subjects[1], next_room], room_point(next_room))
 	else:
-		_set_objective("Volte para a %s e sente na sua carteira" % NPCManager.CLASS_ROOM, npcs.player_desk)
+		_set_objective("Volte para a %s e sente numa carteira" % NPCManager.CLASS_ROOM, npcs.player_desk)
 	_waiting_seat = true
 
 
@@ -715,6 +715,9 @@ func _player_at_desk() -> bool:
 
 
 func _on_player_sat(seat: Seat) -> void:
+	# sem lugar marcado: qualquer carteira livre da sala vira a sua
+	if seat != npcs.player_desk and seat.room == NPCManager.CLASS_ROOM:
+		npcs.claim_desk(seat)
 	if seat != npcs.player_desk:
 		if seat.room == NPCManager.CLASS_ROOM and _teacher_watching():
 			_wrong_seat_t = 0.0
@@ -758,7 +761,7 @@ func _on_player_stood() -> void:
 	if _special_room():
 		return  # na sala da matéria pode ficar em pé
 	if (phase == Phase.CLASS_1 or phase == Phase.CLASS_2) and _find_task.is_empty() and not _class_done:
-		_set_objective("Volte para a sua carteira", npcs.player_desk)
+		_set_objective("Volte e sente numa carteira", npcs.player_desk)
 		if not _task_active:
 			_waiting_seat = true
 		GameManager.report_behavior("levantou_na_aula")
@@ -833,7 +836,7 @@ func _finish_find(ok: bool) -> void:
 		_find_item.queue_free()
 	_find_item = null
 	_find_task = {}
-	_set_objective("Volte para a sua carteira", npcs.player_desk)
+	_set_objective("Volte e sente numa carteira", npcs.player_desk)
 	_waiting_seat = false
 	lesson_results.append(ok)
 	day_total += 1

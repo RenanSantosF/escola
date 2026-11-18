@@ -7,6 +7,7 @@ extends Control
 signal pause_pressed
 signal emote_pressed
 signal bag_pressed
+signal games_pressed
 
 const JOY_RADIUS := 92.0
 const KNOB_RADIUS := 40.0
@@ -22,6 +23,7 @@ var btn_run: TouchButton
 var btn_pause: TouchButton
 var btn_emote: TouchButton
 var btn_bag: TouchButton
+var btn_games: TouchButton
 var btn_ride: TouchButton
 var buttons: Array[TouchButton] = []
 var blockers: Array[Control] = []  # áreas da HUD que não giram a câmera
@@ -48,6 +50,7 @@ func _ready() -> void:
 	btn_pause = _make_button(TouchButton.Icon.MENU, Color("ffffff"), "")
 	btn_emote = _make_button(TouchButton.Icon.EMOTE, Color("ffffff"), "")
 	btn_bag = _make_button(TouchButton.Icon.BAG, Color("ffffff"), "")
+	btn_games = _make_button(TouchButton.Icon.GAMES, Color("ffffff"), "")
 	btn_ride = _make_button(TouchButton.Icon.RIDE, Color("c7a6ff"), "Montar")
 	btn_ride.visible = false
 	btn_ride.pressed.connect(func():
@@ -66,6 +69,7 @@ func _ready() -> void:
 	btn_pause.pressed.connect(pause_pressed.emit)
 	btn_emote.pressed.connect(emote_pressed.emit)
 	btn_bag.pressed.connect(bag_pressed.emit)
+	btn_games.pressed.connect(games_pressed.emit)
 	# bolinha vermelha: prêmios do passe / desafios prontos para pegar
 	var badge_timer := Timer.new()
 	badge_timer.wait_time = 2.0
@@ -175,6 +179,7 @@ func _layout() -> void:
 	_place(btn_pause, Vector2(br.x - m - 36, sr.position.y + m + 36), 72)
 	_place(btn_emote, Vector2(br.x - m - 122, sr.position.y + m + 36), 72)
 	_place(btn_bag, Vector2(br.x - m - 208, sr.position.y + m + 36), 72)
+	_place(btn_games, Vector2(br.x - m - 294, sr.position.y + m + 36), 72)
 	_place(btn_ride, br + Vector2(-m - 215, -m - 345), 88)
 	_joy_rest = Vector2(sr.position.x + m + 150, br.y - m - 140)
 	if _joy_index == -1:
@@ -201,6 +206,7 @@ func _on_context_changed(interact_label: String, play_label: String) -> void:
 	btn_run.visible = not "run" in hidden
 	btn_jump.visible = not "jump" in hidden
 	btn_emote.visible = not "emote" in hidden
+	btn_games.visible = player == null or player.minigame == null
 	if "ride" in hidden:
 		btn_ride.visible = false
 	elif player and not player.minigame:

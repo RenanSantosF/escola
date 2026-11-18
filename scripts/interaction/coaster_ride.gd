@@ -5,7 +5,8 @@ extends Interactable
 ## depois faz a viagem (sempre igual, CoasterTrack.ride_table). O horário
 ## vem do relógio do servidor quando online — todo mundo vê o MESMO trem
 ## e quem chega com ele andando entra na fila e vai na próxima remessa.
-## Andando: botão "1ª pessoa" troca a câmera (vê o looping de dentro!).
+## Andando: câmera de fora (3ª pessoa) que gira arrastando o dedo.
+## Sozinho, o trem fica PARADO na estação até alguém embarcar.
 
 const BOARD := 16.0         # segundos parado na estação
 const UNLOAD := 2.0
@@ -18,7 +19,7 @@ var cars: Array[Node3D] = []
 var riding := false
 var queued := false
 var seat := -1
-var first_person := true
+var first_person := false  ## (1ª pessoa foi removida: sempre de fora, girando)
 ## Olhar em volta (arrastando o dedo na tela): giro e inclinação da câmera.
 var _look_yaw := 0.0
 var _look_pitch := 0.0
@@ -29,7 +30,10 @@ var _cam_xf := Transform3D()
 var _was_board := true
 var _queue_spot := Vector3.ZERO
 var _yay := false
-var _local_offset := 0.0  # sozinho: o relógio local começa com o trem chegando
+var _local_offset := 0.0  # sozinho: deslocamento do relógio local (os testes adiantam o tempo)
+## Sozinho: quando o trem sai (relógio local). INF = parado esperando alguém.
+var _depart_at := INF
+const SOLO_WAIT := 6.0  # sozinho: embarcou, sai em poucos segundos
 
 
 func _ready() -> void:
@@ -108,8 +112,23 @@ func _now() -> float:
 	return Time.get_ticks_msec() / 1000.0 + _local_offset
 
 
+func _shared_clock() -> bool:
+	return NetworkManager.is_online() and not NetworkManager.clock.is_empty()
+
+
 ## {board: parado na estação?, left: segundos para sair/voltar, tau: tempo de viagem}
 func state() -> Dictionary:
+	if not _shared_clock():
+		# sozinho: parado na estação até alguém embarcar
+		if _depart_at == INF:
+			return {"board": true, "left": SOLO_WAIT, "tau": 0.0, "idle": true}
+		var dt := _now() - _depart_at
+		if dt < 0.0:
+			return {"board": true, "left": -dt, "tau": 0.0}
+		if dt < CoasterTrack.ride_time + UNLOAD:
+			return {"board": false, "left": CoasterTrack.ride_time + UNLOAD - dt, "tau": minf(dt, CoasterTrack.ride_time)}
+		_depart_at = INF  # voltou e ninguém embarcou de novo: fica parado
+		return {"board": true, "left": SOLO_WAIT, "tau": 0.0, "idle": true}
 	var t := fposmod(_now(), cycle())
 	if t < BOARD:
 		return {"board": true, "left": BOARD - t, "tau": 0.0}
@@ -155,7 +174,7 @@ func get_prompt(_p: Node) -> String:
 	if queued:
 		return "Sair da fila"
 	if st.board:
-		return "Entrar no trem! (sai em %ds)" % ceili(st.left)
+		return "Entrar no trem!" if st.get("idle", false) else "Entrar no trem! (sai em %ds)" % ceili(st.left)
 	return "Entrar na fila (próximo trem em %ds)" % ceili(st.left + 0.0)
 
 
@@ -174,12 +193,39 @@ func interact(p: Node) -> void:
 
 func _join_queue() -> void:
 	queued = true
-	var q: Dictionary = _coaster_info()
-	_queue_spot = q.get("queue", global_position + Vector3(4, 0, 4)) + Vector3(-1.5, 0.05, 0.6)
+	_queue_spot = _free_queue_spot()
 	_player.global_position = _queue_spot
 	_player.velocity = Vector3.ZERO
 	_player.yaw = PI * 0.5
 	GameManager.show_toast("Você está na FILA. O trem que está andando volta já: você vai no próximo!")
+
+
+## Primeiro lugar livre da fila em zigue-zague (cada um no seu lugar, ninguém
+## em cima do outro: colegas online e alunos são conferidos).
+func _free_queue_spot() -> Vector3:
+	var q: Dictionary = _coaster_info()
+	var q0: Vector3 = q.get("queue", global_position + Vector3(4, 0, 4))
+	var others: Array[Vector3] = []
+	var sess := get_tree().get_first_node_in_group("online_session")
+	if sess and sess.get("remotes") is Dictionary:
+		for r in (sess.remotes as Dictionary).values():
+			if r.get("root") is Node3D and is_instance_valid(r.root):
+				others.append((r.root as Node3D).global_position)
+	for n in get_tree().get_nodes_in_group("npc"):
+		if n is Node3D:
+			others.append((n as Node3D).global_position)
+	for row in 3:
+		for k in 9:
+			var x := q0.x - 0.4 - k * 0.95 if row % 2 == 0 else q0.x - 8.0 + k * 0.95
+			var spot := Vector3(x, 0.05, q0.z + row * 1.4)
+			var free := true
+			for o in others:
+				if Vector2(o.x - spot.x, o.z - spot.z).length() < 0.7:
+					free = false
+					break
+			if free:
+				return spot
+	return q0 + Vector3(-1.5, 0.05, 0.6)
 
 
 func _coaster_info() -> Dictionary:
@@ -205,6 +251,8 @@ func _board() -> void:
 	queued = false
 	riding = true
 	_was_board = true  # embarcou agora: não confundir com a chegada
+	if not _shared_clock() and _depart_at == INF:
+		_depart_at = _now() + SOLO_WAIT
 	seat = _pick_seat()
 	var p := _player
 	if p.riding:
@@ -216,15 +264,14 @@ func _board() -> void:
 	p.velocity = Vector3.ZERO
 	p.visual.play("sit_down")
 	_yay = false
-	first_person = true  # começa em 1ª pessoa (como se estivesse sentado no carrinho)
+	first_person = false
 	_look_yaw = 0.0
 	_look_pitch = 0.0
-	_add_cam_button()
-	_cam_xf = _first_xf()
+	_cam_xf = _third_xf()
 	if p.camera_rig:
 		p.camera_rig.set_override(_cam_xf)
 	AudioManager.play_ui("ui_confirm", -4.0)
-	GameManager.show_toast("Trava fechada! O trem sai em %ds. Arraste o dedo para olhar em volta." % ceili(state().left))
+	GameManager.show_toast("Trava fechada! O trem sai em %ds. Arraste o dedo para girar a câmera." % ceili(state().left))
 
 
 func _unload() -> void:
@@ -317,7 +364,7 @@ func _third_xf() -> Transform3D:
 		flat = Vector3(0, 0, 1)
 	flat = flat.normalized().rotated(Vector3.UP, _look_yaw)
 	var mid := car_xf(1).origin
-	var eye := mid - flat * 9.0 + Vector3.UP * (4.5 + _look_pitch * 4.0)
+	var eye := mid - flat * 10.0 + Vector3.UP * (4.0 + _look_pitch * 5.0)
 	# nunca embaixo da terra nem do trilho
 	eye.y = maxf(eye.y, maxf(ParkHill.height(eye.x, eye.z), 0.0) + 1.5)
 	return Transform3D(Basis(), eye).looking_at(mid + Vector3.UP * 0.5, Vector3.UP)

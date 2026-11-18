@@ -17,6 +17,8 @@ var view_radius := 34.0
 var full := false
 var _font: Font
 var _zones: Array = []
+## Quem aparece no mapa: [{pos, shirt, hair, skin, name, online}] (colegas e amigos online).
+var people_provider: Callable
 var _track_pts := PackedVector2Array()
 var _shapes: Array = []
 var _lot := Rect2(-90, -75, 180, 150)
@@ -158,10 +160,19 @@ func _draw() -> void:
 		draw_rect(bg, Color(0.05, 0.08, 0.18, 0.12))
 	if full:
 		_draw_labels(center, scale)
-	# marcadores (missões, brincadeiras, objetivo)
+	# colegas: carinhas com a cor do cabelo e da camiseta de cada um
+	if people_provider.is_valid():
+		for pe in people_provider.call():
+			var p3: Vector3 = pe.pos
+			var mp0 := _w2m(Vector2(p3.x, p3.z), center, scale)
+			if not bg.grow(-6).has_point(mp0):
+				continue
+			_person_icon(mp0, pe, 1.0 if full else 0.8)
+			if full and bool(pe.get("online", false)):
+				_draw_label_pill(mp0 + Vector2(0, -26), str(pe.get("name", "")), Color("3b82f6"), 15)
+	# marcadores (missões e objetivo); as brincadeiras não viram bolinhas no mapa
 	for g in markers.keys():
-		# minimapa pequeno mostra só o que importa agora (objetivo/missão)
-		if not full and g in ["brincadeiras"]:
+		if g in ["brincadeiras"]:
 			continue
 		for m in markers[g]:
 			var mp := _w2m(Vector2(m.pos.x, m.pos.z), center, scale)
@@ -213,6 +224,18 @@ func _draw() -> void:
 
 
 ## Pista do kart: uma faixa cinza contínua com bordas brancas (a volta inteira).
+## Carinha do colega: corpo (camiseta), rosto e cabelo, com contorno branco.
+func _person_icon(c: Vector2, pe: Dictionary, k: float) -> void:
+	var r := 9.0 * k
+	draw_circle(c + Vector2(0, r * 0.9), r * 1.05, Color.WHITE)
+	draw_circle(c + Vector2(0, r * 0.95), r * 0.85, pe.get("shirt", Color("4f46e5")))
+	draw_circle(c, r * 0.95, Color.WHITE)
+	draw_circle(c, r * 0.78, pe.get("skin", Color("e8b48f")))
+	draw_arc(c + Vector2(0, -r * 0.05), r * 0.62, PI * 1.05, TAU * 0.98, 10, pe.get("hair", Color("3b2417")), r * 0.42, true)
+	if bool(pe.get("online", false)):
+		draw_arc(c, r * 1.15, 0, TAU, 20, Color("3b82f6"), 2.5, true)
+
+
 func _draw_kart_track(center: Vector2, scale: float) -> void:
 	if _track_pts.is_empty():
 		var pts := KartTrack.points()

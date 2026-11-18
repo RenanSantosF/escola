@@ -121,6 +121,8 @@ func build_all(step: Callable) -> void:
 	_dressing_extra()
 	_general_zones()
 	_recess_spots()
+	# árvores no caminho do viaduto do kart saem (nada atravessando a pista)
+	trees = trees.filter(func(t): return not KartTrack._near_track(t.pos, 4.0))
 
 
 # =====================================================================

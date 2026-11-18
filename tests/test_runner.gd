@@ -2020,35 +2020,21 @@ func _test_relogio_servidor() -> void:
 		if n.active and qs.available_for(n) != "":
 			offer = true
 	check(sd.phase == SchoolDay.Phase.RETURN and not offer, "missões: ninguém oferece missão na volta para a aula")
-	# sentou no lugar do colega: professora reclama; não saiu: diretoria
+	# carteira livre: sentar em qualquer carteira da sala vira a sua (sem bronca)
 	sd.apply_clock(_fake_clock("class2", 4, 150.0))
 	await _wait(0.3)
-	var other: Seat = seats[0]
+	var other: Seat = null
+	for sx in seats:
+		if sx.occupant == null and sx != npcm.player_desk:
+			other = sx
+			break
 	if player.mode == PlayerController.Mode.SITTING:
 		player.force_stand()
 	player.global_position = other.global_position + other.global_basis.z * 0.5
 	player.sit_on(other)
 	await _wait(0.4)
-	check(player.current_seat == other and sd._wrong_seat_t >= 0.0, "lugar do colega: professora percebe")
-	check("Amigo" in sd.desk_owner_name(other), "lugar do colega: sabe de quem é a carteira")
-	sd._update_wrong_seat(SchoolDay.WRONG_SEAT_WARN2)
-	check(sd._wrong_seat_warned == 1, "lugar do colega: segundo aviso")
-	sd._update_wrong_seat(SchoolDay.WRONG_SEAT_LIMIT)
-	await _wait(0.6)
-	var disc: DisciplineSystem = main.discipline
-	check(disc.in_cutscene, "lugar do colega: não saiu e foi para a diretoria")
-	var dlg: DialogueUI = sd.dialogue
-	for i in 80:
-		await _wait(0.1)
-		if dlg.is_open():
-			dlg.advance()
-			dlg.advance()
-		if not disc.in_cutscene:
-			break
-	await _wait(1.0)
-	check(not disc.in_cutscene and player.input_enabled, "lugar do colega: volta da diretoria")
-	# saiu do lugar errado a tempo: sem diretoria
-	sd._wrong_seat_t = -1.0
+	check(player.current_seat == other and npcm.player_desk == other and sd._wrong_seat_t < 0.0, "carteira livre: qualquer carteira da sala vira a sua, sem bronca")
+	check(not main.discipline.in_cutscene, "carteira livre: ninguém vai para a diretoria por sentar em outra carteira")
 	# fim do dia e dia seguinte (todo mundo junto)
 	sd.apply_clock(_fake_clock("end", 4, 30.0))
 	await _wait(0.3)
@@ -2693,7 +2679,7 @@ func _test_kart() -> void:
 	await _recess()
 	await _clear_discipline()
 	var mm: MinigameManager = main.minigames
-	check(KartTrack.length() > 700.0, "kart: pista grande em volta da escola (%.0f m)" % KartTrack.length())
+	check(KartTrack.length() > 600.0, "kart: pista grande em volta da escola (%.0f m)" % KartTrack.length())
 	var ymax := 0.0
 	var ymin := 99.0
 	var outside := 0
@@ -2703,7 +2689,13 @@ func _test_kart() -> void:
 		if not SchoolBuilder.LOT.has_point(Vector2(p.x, p.z)):
 			outside += 1
 	check(ymax > 7.0 and ymin < 0.5, "kart: tem subida e descida (viaduto de %.1f m)" % ymax)
-	check(outside > KartTrack.points().size() * 0.6, "kart: dá a volta POR FORA do muro da escola (terreno aumentado)")
+	check(outside > KartTrack.points().size() * 0.5, "kart: dá a volta POR FORA do muro da escola (terreno aumentado)")
+	var over_school := 0
+	for q in KartTrack.points():
+		if SchoolBuilder.SCHOOL_AREA.has_point(Vector2(q.x, q.z)) and q.y > 10.0:
+			over_school += 1
+	check(over_school > 50, "kart: viaduto passa POR CIMA da escola (%d pontos a mais de 10 m)" % over_school)
+	check(KartTrack.WIDTH >= 12.0, "kart: pista larga (%.0f m)" % KartTrack.WIDTH)
 	# nenhum pedaço da pista ou do trilho da montanha-russa dentro do chão
 	var buried := 0
 	var sk := 0.0
@@ -2734,7 +2726,8 @@ func _test_kart() -> void:
 	check(kr._countdown <= 0.0, "kart: largou depois do 3-2-1")
 	var s0: float = kr.me.s
 	await _wait(1.5)
-	check(kr.me.s > s0 + 15.0 and kr.me.v > 10.0, "kart: acelera sozinho (%.1f m/s)" % kr.me.v)
+	check(kr.me.s > s0 + 10.0 and kr.me.v > 8.0, "kart: acelera sozinho (%.1f m/s)" % kr.me.v)
+	check(kr.ASSIST <= 0.25 and kr.MAX_V <= 18.0, "kart: quem guia é a criança (ajuda %.2f) e velocidade controlável (%.0f km/h)" % [kr.ASSIST, kr.MAX_V * 3.6])
 	# item: todo mundo larga com um turbo na mão
 	check(str(kr.me.item) == "turbo" and kr.play_label() != "", "kart: começa com TURBO no botão amarelo")
 	kr.on_play()
@@ -2768,12 +2761,13 @@ func _test_kart() -> void:
 	kr.me.h = 0.0
 	# batida na mureta: quica para dentro e perde um pouco (não para de vez)
 	kr.me.boost = 0.0
-	kr.me.v = 20.0
-	kr.me.d = 3.6
+	kr.me.v = 16.0
+	var edge: float = KartTrack.width_at(kr.me.s) * 0.5 - 0.9
+	kr.me.d = edge
 	kr.me.h = 0.6
 	await _frames(6)
-	check(float(kr.me.vd) < -0.5 or float(kr.me.d) < 3.6, "kart: bateu na mureta = quica para dentro")
-	check(kr.me.v > 10.0 and kr.me.v < 20.0, "kart: mureta tira velocidade mas não para (%.1f)" % kr.me.v)
+	check(float(kr.me.vd) < -0.5 or float(kr.me.d) < edge, "kart: bateu na mureta = quica para dentro")
+	check(kr.me.v > 7.0 and kr.me.v < 16.0, "kart: mureta tira velocidade mas não para (%.1f)" % kr.me.v)
 	kr.me.h = 0.0
 	# óleo: quem passa rodopia
 	var bot: Dictionary = kr.racers[1]
@@ -2806,7 +2800,7 @@ func _test_kart() -> void:
 	await _wait(1.0)
 	check(absf(float(kr.me.d)) < KartTrack.width_at(kr.me.s) * 0.5, "kart: no foguete fica na pista")
 	kr.me.rocket = 0.0
-	kr.me.v = 20.0
+	kr.me.v = 15.0
 	# derrapagem com miniturbo
 	kr.me.boost = 0.0
 	kr.me.d = -3.5
@@ -3254,33 +3248,39 @@ func _test_montanha_russa(coaster: CoasterRide) -> void:
 		vmax = maxf(vmax, CoasterTrack.speed_at_time(k * 0.1))
 	check(vmax > 24.0, "montanha-russa: descida bem rápida (%.0f km/h)" % (vmax * 3.6))
 	check(coaster.cars.size() == 4 and CoasterRide.CARS * CoasterRide.SEATS_PER_CAR >= 16, "montanha-russa: trem com 4 carrinhos e 16 lugares")
-	# com o trem andando: entra na FILA e vai na próxima remessa
-	coaster._local_offset += CoasterRide.BOARD + 5.0 - fposmod(coaster._now(), coaster.cycle())
+	# sem ninguém: o trem fica PARADO na estação
+	coaster._depart_at = INF
+	coaster._local_offset += 120.0
+	check(coaster.state().board and coaster.state().get("idle", false), "montanha-russa: sem ninguém, o trem fica parado na estação")
+	# com o trem andando (outra pessoa embarcou): entra na FILA, cada um no seu lugar
+	coaster._depart_at = coaster._now() - 5.0
 	check(not coaster.state().board, "montanha-russa: trem saiu (andando)")
 	player.force_stand()
 	player.global_position = coaster.global_position
 	await _frames(2)
 	check(coaster.get_prompt(player).contains("fila"), "montanha-russa: com o trem andando, o botão é 'Entrar na fila'")
+	var npc0: NPC = main.npcs.classmates[0]
+	var first_spot := coaster._free_queue_spot()
+	npc0.teleport(first_spot, 0.0)
+	await _frames(2)
 	coaster.interact(player)
 	check(coaster.queued and not coaster.riding, "montanha-russa: está na fila (não vai sozinho)")
+	check(Vector2(player.global_position.x - first_spot.x, player.global_position.z - first_spot.z).length() > 0.6, "montanha-russa: na fila não fica em cima de quem já está lá")
 	# o trem volta: quem está na fila embarca
 	coaster._local_offset += coaster.state().left + 0.1
 	await _frames(3)
 	check(coaster.riding and not coaster.queued, "montanha-russa: o trem chegou e quem estava na fila embarcou")
-	check(coaster._cam_btn != null and coaster.first_person, "montanha-russa: já começa em 1ª pessoa (com botão para ver de fora)")
+	check(not coaster.first_person and coaster._cam_btn == null, "montanha-russa: câmera de fora (sem 1ª pessoa)")
 	var ev := InputEventScreenDrag.new()
 	ev.relative = Vector2(-120, 0)
 	coaster._unhandled_input(ev)
-	check(absf(coaster._look_yaw) > 0.3, "montanha-russa: arrastar o dedo gira a câmera para olhar em volta")
-	coaster._cam_btn.pressed.emit()
-	check(not coaster.first_person, "montanha-russa: botão troca para ver de fora")
-	coaster._cam_btn.pressed.emit()
+	check(absf(coaster._look_yaw) > 0.3, "montanha-russa: arrastar o dedo gira a câmera em volta do trem")
 	# pula para o meio do looping: a criança fica de cabeça para baixo junto
 	var inv: Array = CoasterTrack.inversions[0]
 	var tau := 0.0
 	while CoasterTrack.s_at_time(tau) + 1.0 * CoasterRide.SPACING < (float(inv[0]) + float(inv[1])) * 0.5 and tau < CoasterTrack.ride_time:
 		tau += 0.1
-	coaster._local_offset += CoasterRide.BOARD - fposmod(coaster._now(), coaster.cycle()) + tau
+	coaster._local_offset = coaster._depart_at + tau - (coaster._now() - coaster._local_offset)
 	await _frames(3)
 	check(player.visual.global_transform.basis.y.y < 0.3, "montanha-russa: no looping fica de cabeça para baixo (up.y=%.2f)" % player.visual.global_transform.basis.y.y)
 	# fim da viagem: desembarca na plataforma

@@ -12,38 +12,32 @@ extends RefCounted
 
 ## Terreno novo (escola + faixa do kartódromo).
 const OUTER := Rect2(-116, -151, 232, 226)
-const WIDTH := 10.0          # largura da pista no chão
-const WIDTH_BRIDGE := 9.0    # no viaduto
+const WIDTH := 13.0          # largura da pista no chão
+const WIDTH_BRIDGE := 11.0   # no viaduto
 const BRIDGE_Y := 6.0        # acima disto é viaduto (guard-rail, pilares)
 const START_S := 0.0         # largada/chegada no início do trilho
 const STEP := 1.6
 
 ## Pontos de controle (x, altura, z), no sentido da corrida, começando na largada.
 const CTRL := [
-	Vector3(-103, 0, -6),
-	# lado oeste: zigue-zague (S) até o fundo
-	Vector3(-103, 0, -16), Vector3(-98, 0, -36), Vector3(-108, 0, -58), Vector3(-98, 0, -80),
-	Vector3(-107, 0, -100), Vector3(-104, 0, -118),
-	# curva noroeste
+	# largada (lado oeste, plano) indo para o norte
+	Vector3(-103, 0, -62),
+	Vector3(-99, 0, -80), Vector3(-107, 0, -100), Vector3(-104, 0, -118),
 	Vector3(-99, 0, -132), Vector3(-88, 0, -139),
-	# fundos: curvas com morrinhos e o SALTO no meio
+	# fundos: ondas e morrinhos
 	Vector3(-66, 2.0, -133), Vector3(-44, 0, -143), Vector3(-24, 2.0, -134),
 	Vector3(-10, 0.4, -138), Vector3(2, 3.0, -138), Vector3(11, 0.8, -138),
 	Vector3(30, 0, -133), Vector3(51, 1.4, -143), Vector3(72, 0, -134),
-	# curva nordeste
 	Vector3(89, 0, -139), Vector3(100, 0, -131), Vector3(104, 0, -117),
-	# lado leste: zigue-zague e SUBIDA para o viaduto
-	Vector3(98, 0, -98), Vector3(108, 0, -78), Vector3(98, 0, -56), Vector3(108, 0, -34),
-	Vector3(102, 0, -12), Vector3(103, 1.4, 10), Vector3(103, 4.4, 30), Vector3(103, 7.0, 49),
-	Vector3(103, 8.0, 61),
-	# curva sudeste (já no alto)
-	Vector3(100, 8.0, 70), Vector3(90, 8.0, 75),
-	# VIADUTO (com curvinhas) por cima do portão
-	Vector3(70, 8.0, 73), Vector3(50, 8.6, 77), Vector3(30, 7.8, 73), Vector3(14, 7.4, 75), Vector3(0, 7.4, 75),
-	Vector3(-14, 7.4, 75), Vector3(-30, 7.8, 77), Vector3(-50, 8.6, 73), Vector3(-70, 8.0, 77), Vector3(-90, 8.0, 75),
-	# curva sudoeste e a DESCIDA
-	Vector3(-100, 8.0, 70), Vector3(-103, 8.0, 61), Vector3(-103, 7.0, 50), Vector3(-103, 4.4, 32),
-	Vector3(-103, 1.4, 12),
+	# lado leste: zigue-zague subindo a rampa
+	Vector3(100, 0, -99), Vector3(105, 0.6, -81), Vector3(100, 2.6, -63), Vector3(105, 5.0, -46), Vector3(103, 7.6, -31),
+	# vira para o oeste e passa POR CIMA DA ESCOLA (viaduto em zigue-zague)
+	Vector3(96, 9.8, -19), Vector3(84, 11.4, -14),
+	Vector3(66, 12.5, -19), Vector3(46, 12.5, -10), Vector3(26, 12.5, -19), Vector3(6, 12.5, -10),
+	Vector3(-14, 12.5, -19), Vector3(-34, 12.5, -10), Vector3(-52, 11.6, -18),
+	# desce do lado oeste e volta para a largada
+	Vector3(-68, 9.2, -12), Vector3(-82, 6.6, -15), Vector3(-95, 4.4, -22),
+	Vector3(-103, 2.6, -33), Vector3(-104, 0.8, -45),
 ]
 
 ## Poças de ÓLEO fixas na pista (fração da volta, deslocamento lateral).
@@ -155,6 +149,21 @@ static func world_at(s: float, d: float) -> Vector3:
 	return pos_at(s) + right_at(s) * d
 
 
+## s do ponto da pista mais perto de p.
+static func _s_of_point(p: Vector3) -> float:
+	return nearest_s(p)
+
+
+## A pista (com folga) passa por cima/perto deste ponto do chão?
+static func _near_track(p: Vector3, margin: float) -> bool:
+	points()
+	for i in range(0, _pts.size(), 2):
+		var q := _pts[i]
+		if Vector2(q.x - p.x, q.z - p.z).length() < WIDTH * 0.5 + margin:
+			return true
+	return false
+
+
 ## Distância aproximada de um ponto qualquer até a pista (s mais perto).
 static func nearest_s(p: Vector3) -> float:
 	points()
@@ -201,7 +210,8 @@ static func build(b: SchoolBuilder) -> void:
 		var yaw := atan2(dir.x, dir.z)
 		var pitch := -atan2(dir.y, Vector2(dir.x, dir.z).length())
 		var basis := Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
-		var bridge := a.y > BRIDGE_Y - 0.5
+		var inside := SchoolBuilder.LOT.grow(-1.0).has_point(Vector2(a.x, a.z)) or SchoolBuilder.LOT.grow(-1.0).has_point(Vector2(c.x, c.z))
+		var bridge := a.y > BRIDGE_Y - 0.5 or (inside and a.y > 1.0)
 		var lift := Vector3(0, 0.1, 0)
 		# asfalto (duas tonalidades) e zebras vermelho/branco nas bordas
 		var asphalt := Color("4b4f57") if (i / 3) % 2 == 0 else Color("50545c")
@@ -239,20 +249,20 @@ static func build(b: SchoolBuilder) -> void:
 		# pilares do viaduto/rampa (a cada ~12 m)
 		if a.y > 1.2 and int(s / 12.0) != int((s + seg) / 12.0):
 			var px := Vector3(mid.x, 0.0, mid.z)
-			var gate := absf(mid.x) < 7.5 and absf(mid.z - 75.0) < 6.0
-			var car_gate := mid.x > 38.0 and mid.x < 49.0 and absf(mid.z - 75.0) < 6.0
-			if bridge and not gate and not car_gate:
+			if bridge:
 				for sd: float in [-1.0, 1.0]:
 					var pp: Vector3 = px + rights[i] * sd * (wa - 1.0)
+					# pilar nunca no meio de um prédio (o viaduto passa por cima)
+					var in_bld := false
+					for sh in b.map_shapes:
+						if (sh.rect as Rect2).grow(1.2).has_point(Vector2(pp.x, pp.z)):
+							in_bld = true
+					if in_bld or absf(pp.x) > 88.5 and absf(pp.x) < 91.5:
+						continue
 					deco.cylinder("concrete", pp + Vector3(0, (a.y - 0.8) * 0.5, 0), 0.35, 0.4, a.y - 0.8, Color("c8cdd4"), 10)
 					deco.collider(pp + Vector3(0, (a.y - 0.8) * 0.5, 0), Vector3(0.8, a.y - 0.8, 0.8))
 		s += seg
-	# portal do viaduto por cima do portão da escola
-	for sx: float in [-1.0, 1.0]:
-		deco.box("concrete", Vector3(8.6 * sx, 3.4, 75), Vector3(1.0, 6.8, 1.0), Color("c8cdd4"))
-		deco.collider(Vector3(8.6 * sx, 3.4, 75), Vector3(1.0, 6.8, 1.0))
-	deco.box("concrete", Vector3(0, 6.75, 75), Vector3(18.2, 0.7, 1.4), Color("b7bcc4"))
-	b.add_label("KARTÓDROMO RECREIO", Vector3(0, 9.2, 79.8), 0.0, 96, Color("e53935"), Color(1, 1, 1, 0.95), 0.01, 140.0)
+	b.add_label("KARTÓDROMO RECREIO", pos_at(_s_of_point(Vector3(6, 12.5, -10))) + Vector3(0, 3.0, 0), 0.0, 96, Color("e53935"), Color(1, 1, 1, 0.95), 0.01, 160.0)
 	# placas de turbo (setas amarelas no chão)
 	for u in BOOST_U:
 		var sb: float = u * total

@@ -19,20 +19,21 @@ extends Minigame
 
 const LAPS := 3
 const BOTS := 5
-const MAX_V := 23.0          # m/s (~83 km/h de kart de brinquedo...)
-const BOOST_V := 31.0
-const ACCEL := 9.0
-const BRAKE := 20.0
+const MAX_V := 17.0          # m/s (~60 km/h): dá tempo de fazer as curvas na mão
+const BOOST_V := 23.0
+const ACCEL := 7.0
+const BRAKE := 18.0
 const DRIFT_MINI := [0.9, 1.9]  # segundos de derrapagem para miniturbo azul / laranja
 const ITEM_U := [0.08, 0.3, 0.55, 0.82]  # fileiras de caixinhas "?" (fração da volta)
 const MAX_H := 0.75          # ângulo máximo com a pista (nunca anda ao contrário)
 const SLIP_CHARGE := 0.8     # segundos atrás de alguém para o vácuo "pegar"
-const SLIP_BONUS := 2.6      # m/s a mais no vácuo
-const CATCH_UP := 1.6        # m/s a mais para quem está bem atrás do líder
+const SLIP_BONUS := 2.0      # m/s a mais no vácuo
+const CATCH_UP := 1.2        # m/s a mais para quem está bem atrás do líder
 const SPIN_TIME := 1.1       # rodopio no óleo
 const OIL_TTL := 25.0
 const KART_LEN := 1.75       # tamanho para as batidas (ao longo da pista / de lado)
 const KART_WID := 1.15
+const ASSIST := 0.18         # ajuda de direção do jogador (0 = nenhuma)
 const TIME_LIMIT := 300.0
 const COLORS := [Color("e53935"), Color("2f80ed"), Color("27ae60"), Color("ffb300"), Color("8e44ad"), Color("ff6fae"), Color("16a085"), Color("f39c12")]
 const NAMES_BOT := ["Bia", "Rafa", "Pedro", "Lucas", "Júlia", "Gui"]
@@ -123,9 +124,9 @@ func _add_racer(who: Node3D, col: Color, grid: int, ai: bool, paint := "") -> Di
 	var row := grid / 2
 	var side := -1.0 if grid % 2 == 0 else 1.0
 	var r := {
-		"who": who, "s": -3.0 - row * 4.2, "d": side * 2.2, "h": 0.0, "v": 0.0, "lap": 0, "done": false,
+		"who": who, "s": -3.0 - row * 4.2, "d": side * 3.0, "h": 0.0, "v": 0.0, "lap": 0, "done": false,
 		"time": 0.0, "ai": ai, "boost": 0.0, "wall_cd": 0.0, "air_y": 0.0, "air_v": 0.0, "prev_slope": 0.0,
-		"name": "Você" if who == player else "", "color": col, "max": randf_range(22.2, 23.6) if ai else MAX_V,
+		"name": "Você" if who == player else "", "color": col, "max": randf_range(16.3, 17.3) if ai else MAX_V,
 		"line": randf_range(-1.2, 1.2), "skill": randf_range(0.7, 1.0), "vd": 0.0, "spin": 0.0, "slip": 0.0,
 		"item": "", "item_n": 0, "roulette": 0.0, "next_item": "", "item_t": randf_range(0.5, 2.0), "rocket": 0.0,
 		"oil_safe": 0.0, "oil_seen": {}, "n_spin": 0, "n_wall": 0,
@@ -455,7 +456,7 @@ func _build_items() -> void:
 	mat.emission_energy_multiplier = 0.6
 	for u in ITEM_U:
 		var s: float = u * _total
-		for lane in [-2.8, 0.0, 2.8]:
+		for lane in [-4.2, -1.4, 1.4, 4.2]:
 			var box := MeshInstance3D.new()
 			var bm := BoxMesh.new()
 			bm.size = Vector3(0.75, 0.75, 0.75)
@@ -732,9 +733,9 @@ func _step(r: Dictionary, delta: float) -> void:
 	else:
 		steer = _steer_input()
 		brake = _brake_btn or player.read_move_raw().y > 0.6
-		# ajudinha na curva (boa parte do volante já vem certo): divertido para criança
+		# quem dirige é você: só uma ajudinha bem pequena nas curvas
 		var tn := lerpf(2.6, 1.35, clampf(absf(float(r.v)) / MAX_V, 0.0, 1.0))
-		steer = clampf(steer + KartTrack.curve_at(r.s) * float(r.v) / tn * 0.75, -1.3, 1.3)
+		steer = clampf(steer + KartTrack.curve_at(r.s) * float(r.v) / tn * ASSIST, -1.2, 1.2)
 	if not r.done:
 		maxv += _catch_up(r)
 	# VÁCUO: atrás de outro kart (3 a 14 m, na mesma faixa) carrega e dá velocidade
@@ -794,7 +795,7 @@ func _step(r: Dictionary, delta: float) -> void:
 	h = clampf(h, -MAX_H, MAX_H)
 	# sem mexer, o kart "endireita" um pouco (fica fácil de dirigir)
 	if absf(steer) < 0.1 and not (r == me and _drift):
-		h = move_toward(h, 0.0, 0.6 * delta)
+		h = move_toward(h, 0.0, (0.6 if r.ai else 0.25) * delta)
 	var ds := v * cos(h) * delta
 	var dd := v * sin(h) * delta + float(r.vd) * delta
 	r.vd = float(r.vd) * exp(-4.0 * delta)  # empurrão de lado vai perdendo força
@@ -831,7 +832,7 @@ func _step(r: Dictionary, delta: float) -> void:
 	r.d = d
 	# salto: crista do morrinho com velocidade = voa um pouco
 	var slope := dir.y
-	if r.air_y <= 0.0 and float(r.prev_slope) > 0.09 and slope < float(r.prev_slope) - 0.06 and v > 14.0:
+	if r.air_y <= 0.0 and float(r.prev_slope) > 0.09 and slope < float(r.prev_slope) - 0.06 and v > 11.0:
 		r.air_v = v * float(r.prev_slope) * 0.9
 		if r == me:
 			popup(player.global_position + Vector3(0, 2.4, 0), "SALTO!", Color("6be36b"), 70)
@@ -926,10 +927,10 @@ func _ai_max(r: Dictionary) -> float:
 		m = minf(m, 1.25 * 1.4 / c)
 	# "elástico" leve em relação a você: ninguém some na frente nem fica para trás demais
 	var gap := _progress_raw(r) - _progress_raw(me)
-	if gap > 45.0:
-		m -= 1.6
-	elif gap < -45.0:
-		m += 1.0
+	if gap > 35.0:
+		m -= 1.2
+	elif gap < -35.0:
+		m += 0.8
 	return m
 
 

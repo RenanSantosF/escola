@@ -88,6 +88,7 @@ func _ready() -> void:
 	hud.bind(player, camera_rig, world)
 	hud.main_menu_cb = _back_to_menu
 	hud.unstuck_cb = _unstuck
+	hud.minimap.people_provider = _map_people
 
 	school_day = SchoolDay.new()
 	school_day.name = "SchoolDay"
@@ -149,6 +150,7 @@ func _ready() -> void:
 	profile_menu.minigames = minigames
 	ui_layer.add_child(profile_menu)
 	hud.controls.bag_pressed.connect(profile_menu.open_menu)
+	hud.controls.games_pressed.connect(func(): GamesPicker.open(hud, minigames))
 	profile_menu.closed.connect(_refresh_hello)  # menu: o boneco do palco troca de roupa junto
 	progression.inventory_changed.connect(func():
 		if NetworkManager.is_online():
@@ -165,6 +167,25 @@ func _ready() -> void:
 	# Atalho para testes automatizados: --autoplay inicia direto.
 	if "--autoplay" in OS.get_cmdline_user_args():
 		_start_game()
+
+
+## Quem aparece no mapa: colegas da turma e quem está online.
+func _map_people() -> Array:
+	var out := []
+	if npcs:
+		for n in npcs.classmates:
+			if is_instance_valid(n) and n.active and n.visual and n.visual.appearance:
+				var a: CharacterAppearance = n.visual.appearance
+				out.append({"pos": n.global_position, "shirt": a.shirt_color, "hair": a.hair_color, "skin": a.skin, "name": n.display_name})
+	if online:
+		for r in online.remotes.values():
+			var root: Node3D = r.get("root")
+			var vis = r.get("visual")
+			if root and is_instance_valid(root):
+				var a2: CharacterAppearance = vis.appearance if vis and vis.get("appearance") else null
+				out.append({"pos": root.global_position, "shirt": a2.shirt_color if a2 else Color("3b82f6"), "hair": a2.hair_color if a2 else Color("3b2417"),
+					"skin": a2.skin if a2 else Color("e8b48f"), "name": str(r.get("name", "")), "online": true})
+	return out
 
 
 ## Botão "Estou preso!": vai para o ponto de caminho livre mais perto

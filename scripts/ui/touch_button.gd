@@ -6,7 +6,7 @@ extends Control
 signal pressed
 signal released
 
-enum Icon { RUN, INTERACT, JUMP, PLAY, PAUSE, EMOTE, MAP, BAG, RIDE, WALK, MENU }
+enum Icon { RUN, INTERACT, JUMP, PLAY, PAUSE, EMOTE, MAP, BAG, RIDE, WALK, MENU, GAMES }
 
 @export var icon: Icon = Icon.INTERACT
 @export var base_color := Color("ffcf3f")
@@ -118,6 +118,14 @@ func _draw() -> void:
 			draw_rect(Rect2(c - Vector2(s * 0.6, s * 0.45), Vector2(s * 1.2, s * 1.15)), ic, false, r * 0.06)
 			draw_arc(c + Vector2(0, -s * 0.45), s * 0.35, PI, TAU, 12, ic, r * 0.07, true)
 			draw_rect(Rect2(c + Vector2(-s * 0.35, s * 0.05), Vector2(s * 0.7, s * 0.35)), Color("ffcf3f"))
+		Icon.GAMES:
+			# bola colorida (brincadeiras)
+			draw_circle(c, s * 0.72, Color.WHITE)
+			draw_arc(c, s * 0.72, 0, TAU, 24, ic, r * 0.06, true)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -s * 0.28), c + Vector2(s * 0.27, -s * 0.08), c + Vector2(s * 0.17, s * 0.24), c + Vector2(-s * 0.17, s * 0.24), c + Vector2(-s * 0.27, -s * 0.08)]), Color("22c55e"))
+			for k in 5:
+				var a := -PI * 0.5 + k * TAU / 5.0
+				draw_line(c + Vector2.from_angle(a) * s * 0.3, c + Vector2.from_angle(a) * s * 0.7, ic, r * 0.05, true)
 		Icon.RIDE:
 			draw_arc(c + Vector2(-s * 0.5, s * 0.25), s * 0.32, 0, TAU, 16, ic, r * 0.07, true)
 			draw_arc(c + Vector2(s * 0.5, s * 0.25), s * 0.32, 0, TAU, 16, ic, r * 0.07, true)
