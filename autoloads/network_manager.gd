@@ -39,7 +39,7 @@ signal friend_invite(from: String, name: String, code: String)
 const SERVER_URL := "wss://escola-production-061f.up.railway.app"
 ## Código da versão do app (o mesmo "version/code" do export Android).
 ## A cada versão publicada na Play Store: aumente aqui E no export_presets.cfg.
-const APP_VERSION_CODE := 1
+const APP_VERSION_CODE := 2
 var update_blocked := false  ## servidor pediu atualização: não reconecta mais
 
 var _ws: WebSocketPeer
