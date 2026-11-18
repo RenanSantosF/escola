@@ -18,8 +18,13 @@ cantina, salas de aula, biblioteca, parquinho e muito mais.
   horário igual para todos, câmera em 1ª pessoa.
 - Balanço de verdade, esconde-esconde com agachar e limite, xadrez/pingue-pongue um contra
   o outro, elevador do tobogã, pipa no alto do Morro, queimada e futebol revisados.
-- **Passe do Recreio** (R$ 11,99/mês), loja remodelada com vitrine grande, emojis animados,
-  efeitos (auras) e notificações. Veja [docs/MONETIZACAO.md](docs/MONETIZACAO.md).
+- **Passe do Recreio** (R$ 11,99/mês) com 30 níveis e **desafios da semana** (é jogando que
+  se libera), loja remodelada (Destaques, Seleção do dia, vitrine grande, vitrine 3D de karts),
+  **diamantes** e moedas com dinheiro de verdade, pacote de boas-vindas, skins com **estampas**,
+  pinturas de kart, emojis animados, efeitos (auras), **presente do dia** e notificações.
+  Veja [docs/MONETIZACAO.md](docs/MONETIZACAO.md) e o passo a passo da Play Console em
+  [docs/CRIAR_ASSINATURA_PASSE.md](docs/CRIAR_ASSINATURA_PASSE.md).
+- O plugin Android é compilado sozinho pelo GitHub Actions (`.github/workflows/android-plugin.yml`).
 
 ## Como abrir e jogar
 

@@ -63,3 +63,15 @@ Fora do Android, em versão de desenvolvimento, "Comprar" ativa um passe de TEST
   com o jogo FECHADO, um trabalho do Android (WorkManager, ~15 min) consulta
   `GET /api/friends/online` com o token da conta e notifica "fulano está jogando agora!".
 - Dá para desligar em Configurações > "Notificações".
+
+
+# Diamantes (moeda especial)
+
+- `GameManager.diamonds()/add_diamonds()/spend_diamonds()`; itens com `"diamonds": N` no
+  catálogo (`ShopCatalog.DIAMOND_ITEMS`) só se compram com diamantes.
+- Como ganhar sem pagar: Passe (grátis: 20; premium: 115 por temporada), conquistas (+5 cada),
+  presente do dia (5 no 5º dia, 15 no 7º).
+- Com dinheiro de verdade (`StoreOffers`): pacotes de 60 a 900 diamantes, pacotes de moedas,
+  pacote de boas-vindas (uma vez) e troca de diamantes por moedas dentro do jogo.
+- Compras avulsas: `Billing.buy(id)` → plugin `purchase_inapp` → `purchase_ok` →
+  `StoreOffers.deliver()` (uma vez por token) → `consume` (o pacote inicial não é consumido).
