@@ -81,6 +81,11 @@ func _ready() -> void:
 		hint.add_theme_font_size_override("font_size", 16)
 		hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
 		left.add_child(hint)
+	elif it.has("kart"):
+		var ks := KartStage.new()
+		ks.item_id = item_id
+		ks.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		left.add_child(ks)
 	else:
 		_icon = ItemIcon.new(it)
 		_icon.size_flags_vertical = Control.SIZE_EXPAND_FILL

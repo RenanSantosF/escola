@@ -110,7 +110,7 @@ func _update_aura() -> void:
 		pm.color_initial_ramp = gt
 	_aura.process_material = pm
 	var q := QuadMesh.new()
-	q.size = Vector2(0.18, 0.18)
+	q.size = Vector2(0.13, 0.13)
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES

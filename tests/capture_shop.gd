@@ -26,6 +26,9 @@ func _ready() -> void:
 	pm._cat = "kart"
 	pm._refresh()
 	await _snap("loja_karts")
+	var sck := ItemShowcase.open(pm, pm, "kart_chamas")
+	await _snap("vitrine_kart", 40)
+	sck.queue_free()
 	var sc0 := ItemShowcase.open(pm, pm, "skin_princesa")
 	await _snap("vitrine_princesa", 50)
 	sc0.queue_free()

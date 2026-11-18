@@ -127,11 +127,48 @@ func _shirt(s: float, col: Color, trim: Color, logo: bool) -> void:
 	_o(PackedVector2Array([Vector2(-s * 0.45, -s * 0.8), Vector2(-s, -s * 0.45), Vector2(-s * 0.75, -s * 0.05), Vector2(-s * 0.5, -s * 0.25),
 		Vector2(-s * 0.5, s * 0.85), Vector2(s * 0.5, s * 0.85), Vector2(s * 0.5, -s * 0.25), Vector2(s * 0.75, -s * 0.05),
 		Vector2(s, -s * 0.45), Vector2(s * 0.45, -s * 0.8), Vector2(s * 0.18, -s * 0.7), Vector2(-s * 0.18, -s * 0.7)]), col)
+	_pattern_2d(str(item.get("look", {}).get("shirt_pattern", "")), Rect2(-s * 0.48, -s * 0.45, s * 0.96, s * 1.28), trim)
 	draw_polyline(PackedVector2Array([Vector2(-s * 0.45, -s * 0.8), Vector2(-s * 0.18, -s * 0.7), Vector2(0, -s * 0.5), Vector2(s * 0.18, -s * 0.7), Vector2(s * 0.45, -s * 0.8)]), trim, 6.0, true)
 	draw_line(Vector2(-s, -s * 0.45), Vector2(-s * 0.75, -s * 0.05), trim, 6.0)
 	draw_line(Vector2(s, -s * 0.45), Vector2(s * 0.75, -s * 0.05), trim, 6.0)
 	if logo:
 		draw_circle(Vector2(-s * 0.22, -s * 0.25), s * 0.12, trim)
+
+
+## Estampa desenhada dentro de um retângulo (camiseta/tronco).
+func _pattern_2d(kind: String, r: Rect2, c: Color) -> void:
+	match kind:
+		"listras":
+			var n := 5
+			for i in n:
+				if i % 2 == 0:
+					draw_rect(Rect2(r.position.x, r.position.y + r.size.y * i / n, r.size.x, r.size.y / n), c)
+		"xadrez":
+			for i in 4:
+				for j in 4:
+					if (i + j) % 2 == 0:
+						draw_rect(Rect2(r.position + Vector2(r.size.x * i / 4.0, r.size.y * j / 4.0), r.size / 4.0), c)
+		"faixa":
+			draw_colored_polygon(PackedVector2Array([r.position + Vector2(0, r.size.y * 0.25), r.position + Vector2(r.size.x, r.size.y * 0.65),
+				r.position + Vector2(r.size.x, r.size.y * 0.9), r.position + Vector2(0, r.size.y * 0.5)]), c)
+		"raio":
+			var o := r.position + r.size * 0.5
+			var w := r.size.x * 0.25
+			var h := r.size.y * 0.45
+			draw_colored_polygon(PackedVector2Array([o + Vector2(w * 0.3, -h), o + Vector2(-w, h * 0.1), o + Vector2(0, h * 0.1), o + Vector2(-w * 0.4, h), o + Vector2(w, -h * 0.15), o + Vector2(0, -h * 0.15)]), c)
+		"degrade":
+			for i in 8:
+				var col := c
+				col.a = float(i) / 8.0
+				draw_rect(Rect2(r.position.x, r.position.y + r.size.y * i / 8.0, r.size.x, r.size.y / 8.0 + 1), col)
+		"estrela":
+			var pts := PackedVector2Array()
+			var o2 := r.position + r.size * 0.5
+			var rr := minf(r.size.x, r.size.y) * 0.32
+			for i in 10:
+				var a := -PI * 0.5 + i * PI / 5.0
+				pts.append(o2 + Vector2(cos(a), sin(a)) * (rr if i % 2 == 0 else rr * 0.45))
+			draw_colored_polygon(pts, c)
 
 
 func _pants(s: float, col: Color, long: bool) -> void:
@@ -211,6 +248,8 @@ func _mini_kid(s: float, simple := false) -> void:
 	draw_rect(Rect2(s * 0.06, s * 0.8, s * 0.32, s * 0.14), shoe)
 	_o(PackedVector2Array([Vector2(-s * 0.4, -s * 0.35), Vector2(s * 0.4, -s * 0.35), Vector2(s * 0.42, s * 0.3), Vector2(-s * 0.42, s * 0.3)]), shirt)
 	draw_line(Vector2(-s * 0.4, -s * 0.35), Vector2(s * 0.4, -s * 0.35), trim, 5.0)
+	if not simple:
+		_pattern_2d(str(item.get("look", {}).get("shirt_pattern", "")), Rect2(-s * 0.4, -s * 0.33, s * 0.8, s * 0.62), trim)
 	draw_rect(Rect2(-s * 0.62, -s * 0.3, s * 0.2, s * 0.5), shirt)
 	draw_rect(Rect2(s * 0.42, -s * 0.3, s * 0.2, s * 0.5), shirt)
 	draw_circle(Vector2(0, -s * 0.65), s * 0.32, Color("e8b48f"))

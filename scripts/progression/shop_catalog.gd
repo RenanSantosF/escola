@@ -192,7 +192,7 @@ const DIAMOND_ITEMS := [
 		"look": {"shirt_color": "c9d1db", "shirt_trim": "ffcf3f", "shirt_logo": true, "shirt_pattern": "faixa", "pants_color": "7b8794", "long_pants": true, "sock_color": "ffcf3f", "shoe_color": "ffcf3f", "shoe_sole": "5d6670", "backpack": true, "backpack_color": "b0bac5", "cap": false, "aura": "dourada"}},
 	{"id": "skin_princesa", "cat": "skin", "name": "Princesa Estelar", "price": 0, "diamonds": 280, "lvl": 1, "rarity": "lendario",
 		"desc": "Lilás com estrela no peito, cabelo rosa e estrelinhas em volta.",
-		"look": {"shirt_color": "b98cff", "shirt_trim": "fff3b0", "shirt_logo": false, "shirt_pattern": "estrela", "pants_color": "8e5bd1", "long_pants": true, "sock_color": "ffffff", "shoe_color": "ff8fcf", "shoe_sole": "ffffff", "backpack": true, "backpack_color": "ff8fcf", "cap": false, "hair_color": "ff8fcf", "aura": "estrelas"}},
+		"look": {"shirt_color": "b98cff", "shirt_trim": "ffcf3f", "shirt_logo": false, "shirt_pattern": "estrela", "pants_color": "8e5bd1", "long_pants": true, "sock_color": "ffffff", "shoe_color": "ff8fcf", "shoe_sole": "ffffff", "backpack": true, "backpack_color": "ff8fcf", "cap": false, "hair_color": "ff8fcf", "aura": "estrelas"}},
 	{"id": "skin_craque_neon", "cat": "skin", "name": "Craque Neon", "price": 0, "diamonds": 200, "lvl": 1, "rarity": "lendario",
 		"desc": "Camisa listrada preta e verde-neon com raios elétricos.",
 		"look": {"shirt_color": "1c1c24", "shirt_trim": "39ff88", "shirt_logo": true, "shirt_pattern": "listras", "pants_color": "1c1c24", "long_pants": false, "sock_color": "39ff88", "shoe_color": "39ff88", "shoe_sole": "1c1c24", "backpack": false, "cap": false, "aura": "raio"}},
