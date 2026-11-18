@@ -28,7 +28,6 @@ var _content: VBoxContainer
 var _side: VBoxContainer
 var _stage: CharacterStage
 var _last_look := ""
-var _coins: Label
 var _info: Label
 var _action: Button
 var _ad_action: Button  ## "Ganhar com vídeo (1/3)" (só aparece com vídeo pronto)
@@ -88,7 +87,6 @@ func _ready() -> void:
 		b.custom_minimum_size = Vector2(0, 52)
 		tabs.add_child(b)
 		_tab_buttons[tid] = b
-	_coins = UITheme.title_label("", 22, UITheme.INK)
 	var wallet := HBoxContainer.new()
 	wallet.add_theme_constant_override("separation", 8)
 	top.add_child(wallet)
@@ -211,7 +209,7 @@ func _refresh() -> void:
 	for c in _content.get_children():
 		c.queue_free()
 	_fill_wallet()
-	var show_preview := _tab in ["loja", "visual"]
+	var show_preview := _tab in ["loja", "visual", "passe"]
 	_side_panel.visible = show_preview
 	_action.visible = false
 	_info.text = ""
@@ -533,9 +531,16 @@ func _update_preview() -> void:
 			_stage.play("celebrate")
 	if item.has("emote"):
 		_stage.play(str(item.emote))
-	if _selected == "" or not (_tab in ["loja", "visual"]):
+	if _selected == "" or not (_tab in ["loja", "visual", "passe"]):
 		_item_name.text = "Seu personagem"
-		_info.text = "Toque num item para ver em você. Arraste para girar."
+		_info.text = "Toque num prêmio para ver em você." if _tab == "passe" else "Toque num item para ver em você. Arraste para girar."
+		_ad_action.visible = false
+		return
+	if _tab == "passe":
+		# no passe: só mostra o prêmio (pega tocando no nível)
+		_item_name.text = str(item.get("name", ""))
+		_info.text = "%s · prêmio do passe" % str(ShopCatalog.RARITY[ShopCatalog.rarity_of(item)][0])
+		_action.visible = false
 		_ad_action.visible = false
 		return
 	var owned := Progression.owns(_selected)
@@ -1016,7 +1021,9 @@ func _pass_cell(track: String, tier_i: int) -> Control:
 					progression.equip(str(r.item))
 			_refresh()
 		elif r.has("item"):
-			ItemShowcase.open(self, self, str(r.item)).done.connect(func(): _refresh())
+			# mostra o prêmio na vitrine do lado (sem abrir outra tela)
+			_selected = str(r.item)
+			_update_preview()
 		elif prem and not RecessPass.is_premium():
 			GameManager.show_toast("Prêmio da trilha PREMIUM: compre o Passe do Recreio!"))
 	return b

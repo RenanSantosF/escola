@@ -56,11 +56,13 @@ func _big(text: String, col: Color, cb: Callable, w := 620) -> Button:
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(w, 72)
 	b.add_theme_font_size_override("font_size", 30)
-	for st in ["normal", "hover", "focus"]:
-		b.add_theme_stylebox_override(st, UITheme.box(col, 10, col.darkened(0.3), 0, 4))
-	b.add_theme_stylebox_override("pressed", UITheme.box(col.darkened(0.12), 10, col.darkened(0.3), 0, 1))
-	b.add_theme_stylebox_override("disabled", UITheme.box(Color("d5dbe6"), 10, Color("aab3c5"), 0, 2))
-	b.add_theme_color_override("font_color", Color.WHITE if col.get_luminance() < 0.7 else UITheme.DARK)
+	# visual novo: cores do tema, botão liso de cantos discretos
+	var c := col
+	if col == UITheme.TEAL:
+		c = UITheme.ACCENT
+	elif col == UITheme.NAVY_2:
+		c = UITheme.INK
+	UITheme.style_button(b, c, c.get_luminance() > 0.7)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	b.pressed.connect(func():
 		AudioManager.play_ui("ui_click")

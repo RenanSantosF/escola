@@ -26,12 +26,12 @@ var friends: Array = []
 
 
 func _ready() -> void:
-	add_theme_stylebox_override("panel", UITheme.box(Color(1, 1, 1, 0.97), 22, UITheme.LINE, 2, 0))
+	add_theme_stylebox_override("panel", UITheme.card(UITheme.CARD, 18))
 	custom_minimum_size = Vector2(900, 0)
 	var root := VBoxContainer.new()
 	root.add_theme_constant_override("separation", 12)
 	add_child(root)
-	root.add_child(UITheme.title_label("Amigos", 46, UITheme.NAVY))
+	root.add_child(UITheme.title_label("Amigos", 40, UITheme.INK))
 
 	_main = VBoxContainer.new()
 	_main.add_theme_constant_override("separation", 12)
@@ -47,7 +47,7 @@ func _ready() -> void:
 	_add_edit.max_length = 16
 	_add_edit.add_theme_font_size_override("font_size", 24)
 	for st in ["normal", "focus"]:
-		var eb := UITheme.box(Color.WHITE, 14, UITheme.TEAL if st == "focus" else Color("c5cfe0"), 3, 0)
+		var eb := UITheme.box(Color.WHITE, 14, UITheme.ACCENT if st == "focus" else UITheme.STROKE, 2, 0)
 		eb.content_margin_left = 16
 		_add_edit.add_theme_stylebox_override(st, eb)
 	_add_edit.add_theme_color_override("font_color", UITheme.DARK)
@@ -55,7 +55,7 @@ func _ready() -> void:
 	_add_edit.add_theme_color_override("caret_color", UITheme.DARK)
 	_add_edit.text_submitted.connect(func(_t): _add_friend())
 	add_row.add_child(_add_edit)
-	_add_btn = _small_btn("Adicionar", UITheme.TEAL, _add_friend, 190)
+	_add_btn = _small_btn("Adicionar", UITheme.ACCENT, _add_friend, 190)
 	add_row.add_child(_add_btn)
 	_add_msg = Label.new()
 	_add_msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -68,7 +68,7 @@ func _ready() -> void:
 	scroll.custom_minimum_size = Vector2(0, 250)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.scroll_deadzone = 12
-	scroll.add_theme_stylebox_override("panel", UITheme.box(Color("eef3fb"), 16))
+	scroll.add_theme_stylebox_override("panel", UITheme.box(UITheme.CARD_2, 12))
 	_main.add_child(scroll)
 	_list_box = VBoxContainer.new()
 	_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -79,7 +79,7 @@ func _ready() -> void:
 	rr.add_theme_constant_override("separation", 12)
 	_main.add_child(rr)
 	rr.add_child(_big("Criar sala", "Aparece um código: fale para o amigo", Color("22c55e"), func(): _go("create", "")))
-	rr.add_child(_big("Entrar com código", "Digite o código que o amigo falou", UITheme.NAVY_2, _open_pad))
+	rr.add_child(_big("Entrar com código", "Digite o código que o amigo falou", UITheme.INK, _open_pad))
 
 	_pad = VBoxContainer.new()
 	_pad.visible = false
@@ -253,9 +253,9 @@ func _small_btn(text: String, col: Color, cb: Callable, w := 150) -> Button:
 	b.custom_minimum_size = Vector2(w, 56)
 	b.add_theme_font_size_override("font_size", 22)
 	for s in ["normal", "hover", "focus"]:
-		b.add_theme_stylebox_override(s, UITheme.box(col, 14, col.darkened(0.3), 0, 4))
-	b.add_theme_stylebox_override("pressed", UITheme.box(col.darkened(0.12), 14, col.darkened(0.3), 0, 1))
-	b.add_theme_stylebox_override("disabled", UITheme.box(Color("dfe4ec"), 14, Color("c5ccd8"), 0, 2))
+		b.add_theme_stylebox_override(s, UITheme.flat(col, 10))
+	b.add_theme_stylebox_override("pressed", UITheme.flat(col.darkened(0.12), 10, false))
+	b.add_theme_stylebox_override("disabled", UITheme.flat(Color("e6e9f1"), 10, false))
 	b.add_theme_color_override("font_color", Color.WHITE if col.get_luminance() < 0.7 else UITheme.DARK)
 	b.pressed.connect(func():
 		AudioManager.play_ui("ui_click")
@@ -323,8 +323,8 @@ func _big(title: String, desc: String, col: Color, cb: Callable) -> Button:
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.focus_mode = Control.FOCUS_NONE
 	for st in ["normal", "hover", "focus"]:
-		b.add_theme_stylebox_override(st, UITheme.box(col, 16, col.darkened(0.3), 0, 5))
-	b.add_theme_stylebox_override("pressed", UITheme.box(col.darkened(0.12), 16, col.darkened(0.3), 0, 1))
+		b.add_theme_stylebox_override(st, UITheme.flat(col, 12))
+	b.add_theme_stylebox_override("pressed", UITheme.flat(col.darkened(0.12), 12, false))
 	var v := VBoxContainer.new()
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER

@@ -2,14 +2,14 @@ class_name WhatsNew
 extends Control
 ## "O QUE HÁ DE NOVO": aparece uma vez depois que o jogo é atualizado.
 
-const VERSION := "2026-11-kart2"
+const VERSION := "2026-11-visual"
 const ITEMS := [
-	["Kart novo, igual videogame", "Pista com muitas curvas, caixinhas \"?\" com itens (turbo, óleo e foguete), VÁCUO com vento atrás dos outros karts e batidas de verdade. Quem está atrás ganha itens melhores!"],
-	["Karts com design no Passe", "Todos os karts andam igual. Os bonitos, com aerofólio gigante, carburadores e foguete, vêm no Passe do Recreio (o premium já ganha um no nível 1)."],
-	["Brincadeiras custam moedinhas", "Cada brincadeira custa de 2 a 6 moedas. As aulas agora pagam mais: 8 moedas por acerto e 2 por tentar!"],
-	["Montanha-russa gigante", "42 metros de altura, looping e saca-rolha. Entre na fila e experimente a visão em 1ª pessoa!"],
-	["Loja nova", "Diamantes, skins com estampa e efeitos especiais. Toque num item para ver bem grande."],
-	["Mais brincadeiras", "Soltar pipa no alto do Morro, balanço de verdade, esconde-esconde com agachar e xadrez com os amigos."],
+	["Visual novo", "Menu, loja e opções mais bonitos e simples. Na loja, o seu personagem já aparece usando o item ao lado."],
+	["Montanha-russa em 1ª pessoa", "Você vai sentado no carrinho! Arraste o dedo para olhar em volta."],
+	["Kart novo, igual videogame", "Caixinhas \"?\" com turbo, óleo e foguete, vácuo com vento e pista caprichada."],
+	["Brincadeiras custam moedinhas", "De 2 a 6 moedas. As aulas pagam mais: 8 moedas por acerto e 2 por tentar!"],
+	["Karts com design no Passe", "Os karts bonitos (aerofólio, carburadores, foguete) vêm no Passe do Recreio."],
+	["Ficou preso?", "No menu de pausa tem o botão \"Estou preso!\" que te leva para um lugar livre."],
 ]
 
 signal closed
@@ -47,7 +47,7 @@ func _ready() -> void:
 	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(cc)
 	var panel := PanelContainer.new()
-	var sb := UITheme.box(Color("fffaf0"), 28, Color("9b59ff"), 6, 10)
+	var sb := UITheme.card(UITheme.CARD, 18)
 	sb.content_margin_left = 26
 	sb.content_margin_right = 26
 	sb.content_margin_top = 16
@@ -58,7 +58,7 @@ func _ready() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
 	panel.add_child(v)
-	v.add_child(UITheme.title_label("Novidades no Recess Club!", 38, Color("7b3fe0")))
+	v.add_child(UITheme.title_label("Novidades no Recess Club", 34, UITheme.INK))
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 16)
@@ -71,13 +71,13 @@ func _ready() -> void:
 		t.text = it[0]
 		t.add_theme_font_override("font", UITheme.bold_font())
 		t.add_theme_font_size_override("font_size", 22)
-		t.add_theme_color_override("font_color", Color("e67e22"))
+		t.add_theme_color_override("font_color", UITheme.ACCENT)
 		box.add_child(t)
 		var d := Label.new()
 		d.text = it[1]
 		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		d.add_theme_font_size_override("font_size", 16)
-		d.add_theme_color_override("font_color", UITheme.DARK)
+		d.add_theme_color_override("font_color", UITheme.INK_2)
 		box.add_child(d)
 		grid.add_child(box)
 	var btn := UITheme.make_button("Vamos brincar!", func():

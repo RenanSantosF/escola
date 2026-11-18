@@ -99,6 +99,7 @@ func _ready() -> void:
 	await _test_mesas_dois()
 	await _test_elevador_tobogã()
 	await _test_kart()
+	await _test_geometria()
 	await _test_passe_loja()
 	await _test_brincadeira_paga()
 	await _test_pipa()
@@ -2667,6 +2668,25 @@ func _test_passe_loja() -> void:
 	check(main.profile_menu._content.find_children("*", "ItemIcon", true, false).size() > 10, "passe: tela do passe com os prêmios desenhados")
 	main.profile_menu.close_menu()
 	SaveManager.section("pass").clear()
+
+
+## Nada enterrado nem flutuando: árvores e estações no chão (inclusive no morro).
+func _test_geometria() -> void:
+	var b: SchoolBuilder = main.world.builder
+	var bad := []
+	for t in b.trees:
+		var p: Vector3 = t.pos
+		var g := maxf(ParkHill.height(p.x, p.z), 0.0) if ParkHill.AREA.grow(1.0).has_point(Vector2(p.x, p.z)) else 0.0
+		if absf(p.y - g) > 0.4:
+			bad.append("%s %s (chão %.1f)" % [t.type, str(p.snapped(Vector3.ONE * 0.1)), g])
+	check(bad.is_empty(), "geometria: árvores no chão, nem enterradas nem voando (%d)" % bad.size(), ", ".join(bad.slice(0, 6)))
+	var st_bad := []
+	for gid in main.minigames.stations.keys():
+		var st: Node3D = main.minigames.stations[gid]
+		var g2 := maxf(ParkHill.height(st.global_position.x, st.global_position.z), 0.0)
+		if absf(st.global_position.y - g2) > 0.5:
+			st_bad.append("%s y=%.1f chão=%.1f" % [gid, st.global_position.y, g2])
+	check(st_bad.is_empty(), "geometria: placas das brincadeiras no chão", ", ".join(st_bad))
 
 
 func _test_kart() -> void:
