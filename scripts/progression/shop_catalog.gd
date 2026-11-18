@@ -247,8 +247,9 @@ static func owned_emotes() -> Array:
 	var inv: Dictionary = SaveManager.section("inventory")
 	var owned: Array = inv.get("owned", [])
 	var out: Array = []
-	for e in EMOTES:
-		if e.id == "emo_wave" or e.id in owned:
+	# todos os itens com emoji (inclusive os de diamante, como o mortal e a guitarra)
+	for e in ITEMS:
+		if e.has("emote") and (e.id == "emo_wave" or e.id in owned):
 			out.append([e.name, e.emote])
 	return out
 

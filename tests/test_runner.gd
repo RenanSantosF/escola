@@ -2521,7 +2521,7 @@ func _test_presente_dia() -> void:
 	SaveManager.section("daily_gift").clear()
 	check(DailyGift.available_day() == 1, "presente: primeiro dia disponível")
 	var c0 := GameManager.coins()
-	check(DailyGift.claim() != "" and GameManager.coins() == c0 + 50, "presente: dia 1 = 50 moedas")
+	check(DailyGift.claim() != "" and GameManager.coins() == c0, "presente: dia 1 = figurinhas + XP (moedas só nas aulas)")
 	check(DailyGift.available_day() == 0, "presente: só um por dia")
 	var d := DailyGift.data()
 	d["last"] = int(d.last) - 1
@@ -2696,6 +2696,8 @@ func _test_kart() -> void:
 	check(lead_oil > 100 and last_good > 120, "kart: itens equilibram (1º: %d óleos / último: %d turbos fortes)" % [lead_oil, last_good])
 	# nunca anda de ré nem ao contrário: frear para, virar para trás não passa de ~43°
 	var keep_s: float = kr.me.s
+	for i in range(1, kr.racers.size()):  # os outros bem longe (ninguém bate atrás)
+		kr.racers[i].s = fposmod(float(kr.me.s) + 80.0 + i * 6.0, KartTrack.length())
 	kr.me.v = 3.0
 	kr._brake_btn = true
 	await _wait(0.6)
@@ -2738,6 +2740,15 @@ func _test_kart() -> void:
 	bot.d = float(kr.me.d) + 0.3
 	kr._collide(0.016)
 	check(absf(float(bot.d) - float(kr.me.d)) > 0.6, "kart: karts lado a lado se empurram (não atravessam)")
+	# foguete: dirige sozinho e faz quem encosta rodopiar
+	kr.me.spin = 0.0
+	kr.me.item = "foguete"
+	kr.on_play()
+	check(float(kr.me.rocket) > 0.0 and kr.me.boost > 0.0, "kart: FOGUETE (dirige sozinho)")
+	await _wait(1.0)
+	check(absf(float(kr.me.d)) < KartTrack.width_at(kr.me.s) * 0.5, "kart: no foguete fica na pista")
+	kr.me.rocket = 0.0
+	kr.me.v = 20.0
 	# derrapagem com miniturbo
 	kr.me.boost = 0.0
 	kr.me.d = -3.5
@@ -2861,6 +2872,27 @@ func _test_educacao_infantil() -> void:
 	var cards := ui.find_children("*", "PictureCard", true, false)
 	check(cards.size() >= 2, "3 anos: a lousa mostra figuras grandes (%d)" % cards.size())
 	ui.hide_panel()
+	# atividade com figura de referência ("conte"/"igual"): errar não pode travar a aula
+	var shown: Dictionary = {}
+	for k in 40:
+		for t in gen.make_lesson(7, true, "Matemática"):
+			if t.has("show"):
+				shown = t
+		if not shown.is_empty():
+			break
+	if not shown.is_empty():
+		ui.show_task(shown, 0, 7, [])
+		await _frames(3)
+		var wrong: Button = null
+		for b in ui.find_children("*", "Button", true, false):
+			if b.find_children("*", "PictureCard", true, false).size() > 0 and b.get_index() != int(shown.answer):
+				wrong = b
+		check(wrong != null, "3 anos: figura de referência + respostas")
+		if wrong:
+			wrong.pressed.emit()
+			await _frames(2)
+			check(ui._feedback.text.begins_with("Não foi"), "3 anos: errar mostra a resposta certa (não trava)")
+		ui.hide_panel()
 
 
 func _test_tela_amigos() -> void:

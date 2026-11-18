@@ -20,7 +20,9 @@ func _process(delta: float) -> void:
 		_t += delta
 		var rar := ShopCatalog.rarity_of(item)
 		if rar in ["epico", "lendario"] or item.get("animated", false) or item.cat == "aura":
-			queue_redraw()
+			# só redesenha o que está aparecendo na tela (lista grande da loja rola)
+			if get_global_rect().intersects(get_viewport_rect()):
+				queue_redraw()
 
 
 func _col(key: String, def: Color) -> Color:

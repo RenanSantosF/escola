@@ -53,7 +53,7 @@ static func deliver(id: String) -> String:
 	var parts := []
 	var dia := int(o.get("diamonds", 0)) + int(o.get("bonus", 0))
 	if dia > 0:
-		GameManager.add_diamonds(dia)
+		GameManager.add_diamonds(dia, false)  # grava tudo de uma vez no fim (compra + prêmios)
 		parts.append("%d diamantes" % dia)
 	if int(o.get("coins", 0)) > 0:
 		GameManager.add_rewards(0, int(o.coins))
@@ -76,4 +76,5 @@ static func exchange(i: int) -> bool:
 	if not GameManager.spend_diamonds(int(e[0])):
 		return false
 	GameManager.add_rewards(0, int(e[1]))
+	SaveManager.save_game()  # grava as moedas junto (os diamantes já foram descontados)
 	return true

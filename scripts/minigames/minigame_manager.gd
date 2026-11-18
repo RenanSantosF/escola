@@ -336,6 +336,8 @@ func _send_invite() -> void:
 	cands.sort_custom(func(a, b): return Friendship.points(a.data.id) > Friendship.points(b.data.id))
 	var n: NPC = cands[randi() % mini(3, cands.size())]
 	var gid: String = INVITES.get(n.personality, "corda")
+	if not can_pay(gid):
+		return  # sem moedas para essa brincadeira: o colega não convida agora
 	_inviter = n
 	npcs._leave_activity(n)
 	n.activity = "inviting"
@@ -351,7 +353,7 @@ func _invite_arrived(n: NPC, gid: String) -> void:
 	n.visual.play("wave")
 	player.input_enabled = false
 	hud.controls.visible = false
-	var lines := ["Ei, %s!" % "você", "Bora jogar %s comigo?" % GAMES[gid].title.to_lower()]
+	var lines := ["Ei, %s!" % "você", "Bora jogar %s comigo? (%d moedas)" % [GAMES[gid].title.to_lower(), price_of(gid)] if price_of(gid) > 0 else "Bora jogar %s comigo?" % GAMES[gid].title.to_lower()]
 	day.dialogue.open(n.display_name, lines, ["Bora!", "Agora não"])
 	var cb := func(choice: int):
 		player.input_enabled = true

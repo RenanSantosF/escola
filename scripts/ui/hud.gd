@@ -797,11 +797,13 @@ func show_result(game: String, head: String, summary: String, stars: int, xp: in
 	tw2.tween_property(p, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw2.tween_property(p, "modulate:a", 1.0, 0.2)
 	_result_t = 7.0
+	var wp: WeakRef = weakref(p)  # o cartão pode já ter sido fechado (não captura o nó direto)
 	get_tree().create_timer(7.0).timeout.connect(func():
-		if is_instance_valid(p) and _result_t < 100.0:  # vendo o vídeo: não fecha sozinho
-			var tw3 := p.create_tween()
-			tw3.tween_property(p, "modulate:a", 0.0, 0.4)
-			tw3.tween_callback(p.queue_free))
+		var pp := wp.get_ref() as Control
+		if pp and _result_t < 100.0:  # vendo o vídeo: não fecha sozinho
+			var tw3 := pp.create_tween()
+			tw3.tween_property(pp, "modulate:a", 0.0, 0.4)
+			tw3.tween_callback(pp.queue_free))
 
 
 class _ResultStar extends Control:

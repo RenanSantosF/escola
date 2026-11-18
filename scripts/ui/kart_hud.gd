@@ -68,12 +68,17 @@ func _draw() -> void:
 		draw_rect(Rect2(bx, cy, 90 * slip, 18), wc)
 		_shadow_text(f, Vector2(bx, cy - 8), "VÁCUO!" if on else "vácuo", 26, wc)
 		if on:
-			var tt := Time.get_ticks_msec() * 0.004
-			for i in 6:
-				var yy := 200.0 + i * 70.0
-				var xx := fposmod(tt * 300.0 + i * 137.0, 160.0)
-				draw_line(Vector2(xx, yy), Vector2(xx + 70, yy), Color(1, 1, 1, 0.35), 3.0)
-				draw_line(Vector2(vs.x - xx, yy + 30), Vector2(vs.x - xx - 70, yy + 30), Color(1, 1, 1, 0.35), 3.0)
+			# riscos de vento nas bordas da tela, apontando para o centro (sensação de velocidade)
+			var tt := Time.get_ticks_msec() * 0.001
+			var c := vs * Vector2(0.5, 0.45)
+			for i in 18:
+				var ang := TAU * i / 18.0 + 0.17 * i
+				var dirv := Vector2(cos(ang), sin(ang))
+				var ph := fposmod(tt * 2.2 + i * 0.37, 1.0)
+				var r0 := vs.length() * (0.55 - ph * 0.2)
+				var p0 := c + dirv * r0
+				var p1 := c + dirv * (r0 - vs.length() * 0.09)
+				draw_line(p0, p1, Color(0.85, 0.95, 1.0, 0.55 * (1.0 - ph)), 5.0)
 	# caixa do item (com a roleta girando quando pegou uma caixinha)
 	var ib := Rect2(28, vs.y * 0.56 - 225.0, 108, 108)
 	draw_rect(ib.grow(4), Color(1, 1, 1, 0.9), false, 4.0)

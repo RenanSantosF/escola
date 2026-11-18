@@ -192,7 +192,7 @@ func on_interact() -> bool:
 	if is_net() and mgr and mgr.online_play:
 		mgr.online_play.leave()
 		return true
-	_finish()
+	_finish(true)
 	return true
 
 
@@ -396,8 +396,12 @@ func _hint() -> void:
 			return
 
 
-func _finish() -> void:
+func _finish(quit := false) -> void:
 	if not running:
+		return
+	if role == "hide" and quit and not _caught:
+		# desistir não é "ninguém me achou": não ganha a vitória
+		end_game(-1, "Esconde-esconde: você desistiu", 0, 4)
 		return
 	if role == "hide":
 		var safe := not _caught

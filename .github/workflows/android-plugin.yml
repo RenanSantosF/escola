@@ -47,7 +47,14 @@ jobs:
           git commit -m "Plugin Android recompilado (anúncios, Passe do Recreio e notificações)"
           # alguém pode ter enviado commits enquanto compilava: junta antes de enviar
           for i in 1 2 3; do
-            git pull --rebase origin "${GITHUB_REF_NAME}" && git push && exit 0
+            git pull --rebase origin "${GITHUB_REF_NAME}" || { sleep 5; continue; }
+            # o código do plugin mudou depois desta compilação? então não salva este
+            # arquivo velho: a execução disparada pelo commit novo compila de novo
+            if ! git diff --quiet "${GITHUB_SHA}" HEAD -- android_plugin; then
+              echo "android_plugin mudou desde ${GITHUB_SHA}: deixando para a próxima execução."
+              exit 0
+            fi
+            git push && exit 0
             sleep 5
           done
           exit 1

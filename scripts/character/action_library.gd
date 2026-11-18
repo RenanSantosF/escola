@@ -381,8 +381,8 @@ static func _build_dances() -> void:
 		[0.2, {"hips": Vector3(0, -0.12, 0), "LeftUpperLeg": Vector3(-40, 0, 0), "RightUpperLeg": Vector3(-40, 0, 0), "LeftLowerLeg": Vector3(70, 0, 0), "RightLowerLeg": Vector3(70, 0, 0)}],
 		[0.45, _merge(_merge(la.call(170), ra.call(170)), {"hips": Vector3(0, 0.45, 0), "Hips": Vector3(0, 180, 0), "mouth": 2.4})],
 		[0.7, _merge(_merge(la.call(170), ra.call(170)), {"hips": Vector3(0, 0.2, 0), "Hips": Vector3(0, 359, 0), "mouth": 2.4})],
-		[0.85, {"hips": Vector3(0, -0.08, 0), "LeftLowerLeg": Vector3(40, 0, 0), "RightLowerLeg": Vector3(40, 0, 0)}],
-		[1.0, {}]]}
+		[0.85, {"hips": Vector3(0, -0.08, 0), "Hips": Vector3(0, 360, 0), "LeftLowerLeg": Vector3(40, 0, 0), "RightLowerLeg": Vector3(40, 0, 0)}],
+		[1.0, {"Hips": Vector3(0, 360, 0)}]]}
 	# Gargalhada: barriga, cabeça para trás
 	var lk := [[0.0, {}]]
 	for i in 6:
@@ -403,7 +403,7 @@ static func _build_dances() -> void:
 		[0.4, _merge(_merge(la.call(160), ra.call(160)), {"hips": Vector3(0, 0.55, 0), "Hips": Vector3(-150, 0, 0), "LeftUpperLeg": Vector3(-90, 0, 0), "RightUpperLeg": Vector3(-90, 0, 0), "LeftLowerLeg": Vector3(110, 0, 0), "RightLowerLeg": Vector3(110, 0, 0)})],
 		[0.62, {"hips": Vector3(0, 0.45, 0), "Hips": Vector3(-300, 0, 0), "LeftUpperLeg": Vector3(-60, 0, 0), "RightUpperLeg": Vector3(-60, 0, 0)}],
 		[0.8, _merge(_merge(la.call(150), ra.call(150)), {"hips": Vector3(0, -0.1, 0), "Hips": Vector3(-359, 0, 0), "LeftLowerLeg": Vector3(40, 0, 0), "RightLowerLeg": Vector3(40, 0, 0), "mouth": 2.4})],
-		[1.0, {}]]}
+		[1.0, {"Hips": Vector3(-360, 0, 0)}]]}  # termina na volta completa (sem "desgirar")
 	# Guitarra imaginária
 	var gk := [[0.0, {}]]
 	for i in 7:

@@ -149,8 +149,8 @@ static func icon(kind: String, c: Color) -> ImageTexture:
 			for o in [Vector2(-18, 14), Vector2(0, 14), Vector2(18, 14)]:
 				_disk(img, C + o, 5, Color("e53935"))
 		"bubble":
-			_ring(img, C, 40, 6, Color(c.r, c.g, c.b, 0.95))
-			_ring(img, C + Vector2(0, 40), 40, 6, Color(c.r, c.g, c.b, 0.95))
+			_disk(img, C, 40, Color(c.r, c.g, c.b, 0.18))
+			_ring(img, C, 40, 6, Color(c.r, c.g, c.b, 0.95), true)
 			_disk(img, C + Vector2(-14, -16), 7, Color(1, 1, 1, 0.9))
 		"rainbow":
 			var cols := [Color("e53935"), Color("ff8a1f"), Color("ffd23f"), Color("27ae60"), Color("2f80ed"), Color("8e44ad")]
@@ -200,8 +200,10 @@ static func _disk(img: Image, c: Vector2, r: float, col: Color) -> void:
 				img.set_pixel(x, y, col)
 
 
-static func _ring(img: Image, c: Vector2, r: float, w: float, col: Color) -> void:
-	for y in range(maxi(int(c.y - r), 0), mini(int(c.y) + 1, img.get_height())):
+## Anel (meio de cima, para o arco-íris) ou inteiro (full, para a bolha).
+static func _ring(img: Image, c: Vector2, r: float, w: float, col: Color, full := false) -> void:
+	var y_end := int(c.y + r) if full else int(c.y)
+	for y in range(maxi(int(c.y - r), 0), mini(y_end + 1, img.get_height())):
 		for x in range(maxi(int(c.x - r), 0), mini(int(c.x + r) + 1, img.get_width())):
 			var d := Vector2(x + 0.5, y + 0.5).distance_to(c)
 			if d <= r and d >= r - w:

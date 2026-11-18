@@ -100,6 +100,10 @@ func _on_purchase(id: String, token: String, acknowledged: bool) -> void:
 			var got := StoreOffers.deliver(id)
 			GameManager.show_toast("Compra feita! Você ganhou: %s" % got)
 			delivered.emit(got)
+		# só consome depois que o prêmio ficou gravado (se não gravar, a Play Store
+		# devolve a compra na próxima abertura e o jogo entrega de novo)
+		if not SaveManager.save_game():
+			return
 		# o pacote inicial não se consome (fica marcado como comprado)
 		if id != StoreOffers.STARTER.id:
 			_api.consume(token)

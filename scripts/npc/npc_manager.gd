@@ -292,7 +292,8 @@ func _set_turma_room(room: String) -> void:
 ## (o da Turma A continua sendo o da Turma A) e a minha carteira é sorteada
 ## de novo na sala nova.
 func set_turma_rooms(rooms: Array, my_turma: int) -> void:
-	if rooms.size() < TURMA_ROOMS.size() or turma_teacher_list.size() < TURMA_ROOMS.size():
+	# exatamente uma sala por turma (3): lista maior quebrava a troca de professores
+	if rooms.size() != Schedule.TURMAS or turma_teacher_list.size() < rooms.size():
 		return
 	for r in rooms:
 		if not world.builder.classrooms.has(r):

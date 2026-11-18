@@ -5,7 +5,7 @@ extends EditorPlugin
 
 const APP_ID := "ca-app-pub-4311255826061303~3657630165"
 const ADS_SDK := "com.google.android.gms:play-services-ads:23.6.0"
-const BILLING_SDK := "com.android.billingclient:billing:7.1.1"
+const BILLING_SDK := "com.android.billingclient:billing:8.0.0"
 const WORK_SDK := "androidx.work:work-runtime:2.9.1"
 
 var _export: AdsExport

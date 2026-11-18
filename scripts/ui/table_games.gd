@@ -116,7 +116,14 @@ func attach_table(t: TableGame, s: int) -> void:
 	side = s
 	if kind in ["xadrez", "pingpong"] and NetworkManager.is_online():
 		NetworkManager.direct.connect(_on_direct)
+		NetworkManager.player_left.connect(_on_player_left)
 		_say_hi()
+
+
+## O colega saiu do jogo sem dizer "tchau" (caiu a internet, trocou de sala).
+func _on_player_left(id: String) -> void:
+	if table != null and id == opp_id:
+		_on_direct(id, "", "mesa", {"t": "bye", "table": table.key()})
 
 
 func _say_hi() -> void:
@@ -139,6 +146,10 @@ func _on_direct(from: String, _from_name: String, k: String, data: Variant) -> v
 		return
 	match str(data.get("t", "")):
 		"hi", "ok":
+			# só aceita quem está sentado do OUTRO lado desta mesa
+			var seated := table.remote_at(1 - side)
+			if int(data.get("side", 1 - side)) != 1 - side or (seated != "" and seated != from):
+				return
 			if opp_id == "" or opp_id == from:
 				var was := opp_id
 				opp_id = from
@@ -256,8 +267,11 @@ class _Chess extends Control:
 	var mine := "w"
 	var mode := "cpu"
 
+	var _gen := 0
+
 	func reset(lv: int) -> void:
 		level = lv
+		_gen += 1
 		st = ChessRules.new_game()
 		sel = -1
 		targets = []
@@ -347,8 +361,9 @@ class _Chess extends Control:
 		if st.turn == "b":
 			thinking = true
 			ui.set_status("O computador está pensando...")
+			var g := _gen
 			await get_tree().create_timer(0.35).timeout
-			if not is_inside_tree() or over:
+			if not is_inside_tree() or over or g != _gen or mode != "cpu":
 				return
 			var mv := ChessRules.pick_move(st, level)
 			thinking = false
@@ -664,8 +679,11 @@ class _Tic extends Control:
 	var busy := false
 	const LINES := [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]]
 
+	var _gen := 0  # muda a cada partida: jogada atrasada do computador não cai no tabuleiro novo
+
 	func reset(lv: int) -> void:
 		level = lv
+		_gen += 1
 		cells = ["", "", "", "", "", "", "", "", ""]
 		over = false
 		busy = false
@@ -702,8 +720,9 @@ class _Tic extends Control:
 		if _end():
 			return
 		busy = true
+		var g := _gen
 		await get_tree().create_timer(0.45).timeout
-		if not is_inside_tree():
+		if not is_inside_tree() or g != _gen or level == 2:
 			return
 		busy = false
 		cells[_cpu_move()] = "O"

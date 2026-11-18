@@ -1052,6 +1052,9 @@ func _pass_cell(track: String, tier_i: int) -> Control:
 
 func _build_games() -> void:
 	_title("Brincadeiras do recreio")
+	var tip := _label("Cada brincadeira custa poucas moedas. Ganhe moedas nas AULAS: cada acerto vale %d (e tentar vale %d)!" % [SchoolDay.COIN_RIGHT, SchoolDay.COIN_TRY], 18, Color("8a5a00"))
+	tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_content.add_child(tip)
 	var stats: Dictionary = SaveManager.section("stats")
 	for gid in MinigameManager.GAMES.keys():
 		var g: Dictionary = MinigameManager.GAMES[gid]
@@ -1063,7 +1066,7 @@ func _build_games() -> void:
 		var v := VBoxContainer.new()
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var a := Label.new()
-		a.text = g.title
+		a.text = "%s  ·  %d moedas" % [g.title, int(MinigameManager.PRICES.get(gid, 3))]
 		a.add_theme_font_override("font", UITheme.bold_font())
 		a.add_theme_font_size_override("font_size", 22)
 		var b := Label.new()

@@ -70,6 +70,10 @@ func _ready() -> void:
 			var di := DiamondIcon.new()
 			di.radius = 20
 			ic.add_child(di)
+		elif r.has("packs"):
+			var pk := _PackIcon.new()
+			pk.custom_minimum_size = Vector2(44, 44)
+			ic.add_child(pk)
 		else:
 			var co := CoinIcon.new()
 			co.radius = 18
@@ -94,3 +98,21 @@ func _ready() -> void:
 	var bc := CenterContainer.new()
 	bc.add_child(btn)
 	v.add_child(bc)
+
+
+## Pacotinho de figurinhas (duas cartinhas com estrela).
+class _PackIcon extends Control:
+	func _draw() -> void:
+		if size.x < 4.0:
+			return
+		var w := size.x * 0.55
+		var h := size.y * 0.75
+		draw_rect(Rect2(size.x * 0.12, size.y * 0.18, w, h), Color("2f80ed"))
+		draw_rect(Rect2(size.x * 0.32, size.y * 0.08, w, h), Color("ff6fae"))
+		draw_rect(Rect2(size.x * 0.32, size.y * 0.08, w, h), Color.WHITE, false, 2.0)
+		var c := Vector2(size.x * 0.32 + w * 0.5, size.y * 0.08 + h * 0.5)
+		var pts := PackedVector2Array()
+		for k in 10:
+			var rr := w * (0.34 if k % 2 == 0 else 0.15)
+			pts.append(c + Vector2.from_angle(-PI * 0.5 + k * TAU / 10.0) * rr)
+		draw_colored_polygon(pts, Color("ffd23f"))

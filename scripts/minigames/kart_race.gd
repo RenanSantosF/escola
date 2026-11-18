@@ -58,6 +58,12 @@ var _wind: Node3D
 var _wind_mat: StandardMaterial3D
 var _slip_told := false
 var _cam_lift := 0.0
+var _engine: AudioStreamPlayer
+var _engine_pb: AudioStreamGeneratorPlayback
+var _eng_ph := 0.0
+var _eng_ph2 := 0.0
+var _eng_lp := 0.0
+var _eng_f := 50.0
 var _sparks: GPUParticles3D
 var _brake_btn := false
 var _net_t := 0.0
@@ -93,6 +99,7 @@ func begin() -> void:
 	_build_hud()
 	_build_sparks()
 	_build_wind()
+	_build_engine()
 	for o in KartTrack.OIL_SPOTS:
 		_drop_oil(float(o[0]) * _total, float(o[1]), null, true)
 	# todo mundo começa com um turbo na mão (largada animada)
@@ -334,6 +341,35 @@ static func make_kart(col: Color, accent := Color.WHITE, style := "", body := ""
 		gi.mesh = gmd.build_mesh(gm)
 		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		root.add_child(gi)
+	# chamas do turbo (aparecem só com turbo / miniturbo / foguete)
+	var fmat := StandardMaterial3D.new()
+	fmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	fmat.albedo_color = Color(1.0, 0.55, 0.12, 0.85)
+	var cmat := fmat.duplicate() as StandardMaterial3D
+	cmat.albedo_color = Color(1.0, 0.92, 0.5, 0.95)
+	var flames: Array = []
+	var spots := [Vector3(-0.32, 0.34, -1.32), Vector3(0.32, 0.34, -1.32)] if body == "turbo" else ([Vector3(0, 0.42, -1.3)] if body == "foguete" else [Vector3(0.22, 0.3, -1.08)])
+	for sp in spots:
+		var fl := Node3D.new()
+		fl.position = sp
+		fl.visible = false
+		for layer in 2:
+			var cone := MeshInstance3D.new()
+			var cm := CylinderMesh.new()
+			cm.top_radius = 0.0
+			cm.bottom_radius = 0.11 if layer == 0 else 0.06
+			cm.height = 0.55 if layer == 0 else 0.32
+			cm.radial_segments = 8
+			cone.mesh = cm
+			cone.material_override = fmat if layer == 0 else cmat
+			cone.rotation.x = -PI * 0.5  # ponta para trás
+			cone.position = Vector3(0, 0, -cm.height * 0.5)
+			cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			fl.add_child(cone)
+		root.add_child(fl)
+		flames.append(fl)
+	root.set_meta("flames", flames)
 	# rodas (giram e as da frente esterçam)
 	var wmd := MeshData.new()
 	wmd.cur_color = Color("1d1d1d")
@@ -518,12 +554,15 @@ func _use_item(r: Dictionary) -> void:
 		"oleo":
 			r.item = ""
 			_drop_oil(float(r.s) - 2.6, float(r.d), r)
-			if is_multi():
+			if is_net():
 				NetworkManager.mg_send_relay(str(net.gid), {"oil": [snappedf(float(r.s) - 2.6, 0.1), snappedf(float(r.d), 0.1)]})
 		"foguete":
 			r.item = ""
 			r.rocket = 3.0
 			_give_boost(r, 3.0)
+			if r == me:
+				_drift = false
+				_sparks.emitting = false
 	if r == me:
 		popup(player.global_position + Vector3(0, 2.3, 0), ITEM_NAMES.get(it, it).to_upper() + "!", Color("ffb300"), 72)
 		player._emit_context(true)
@@ -626,14 +665,15 @@ func tick(delta: float) -> void:
 	_check_oil(delta)
 	_place_all(delta)
 	_update_wind(delta)
+	_update_engine(delta)
 	_update_camera(delta)
 	_update_hud()
 	# ultrapassagem: avisa quando ganha ou perde posição
 	var place_now := _place_of(me)
 	if place_now < place_before and not me.done:
 		popup(player.global_position + Vector3(0, 2.4, 0), "%dº!" % place_now, Color("6be36b"), 70)
-	if is_multi():
-		_net_send(delta)
+	if is_net():
+		_net_send(delta)  # mesmo largando sozinho: quem entrar depois vê seu progresso
 	# fim: eu cheguei (espera 3 s mostrando o pódio) ou estourou o tempo
 	if me.done and _end_t < 0.0:
 		_end_t = 3.5
@@ -687,6 +727,8 @@ func _step(r: Dictionary, delta: float) -> void:
 		steer = _ai_steer(r)
 		maxv = _ai_max(r)
 		_ai_items(r, delta)
+	elif float(r.rocket) > 0.0:
+		steer = _ai_steer(r)  # foguete: dirige sozinho (é só aproveitar!)
 	else:
 		steer = _steer_input()
 		brake = _brake_btn or player.read_move_raw().y > 0.6
@@ -732,6 +774,8 @@ func _step(r: Dictionary, delta: float) -> void:
 	v = clampf(v, 0.0, BOOST_V + 8.0)
 	# direção: vira mais devagar em alta velocidade; derrapando, curva fechada
 	var turn := lerpf(2.6, 1.35, clampf(absf(v) / MAX_V, 0.0, 1.0))
+	if float(r.rocket) > 0.0:
+		turn *= 1.7  # no foguete faz as curvas mesmo voando baixo
 	if r == me and _drift:
 		_drift_t += delta
 		if _drift_dir == 0.0 and absf(steer) > 0.2:
@@ -825,8 +869,8 @@ func _lap_done(r: Dictionary) -> void:
 			hud.show_banner("CHEGADA! %dº lugar" % _place_of(me), "Tempo: %s" % _fmt(_elapsed))
 			AudioManager.play_ui("win" if _place_of(me) <= 3 else "reward", -2.0)
 			Effects.burst(player.global_position + Vector3(0, 1.5, 0), "confetti")
-			if is_net():
-				NetworkManager.mg_score(str(net.gid), snappedf(_elapsed, 0.01), true)
+			# o placar vai para o servidor no fim (OnlinePlay.on_local_finished), não aqui:
+			# mandar agora fazia o servidor fechar a rodada antes do resultado do kart
 	elif r == me:
 		if r.lap == LAPS - 1:
 			hud.show_banner("ÚLTIMA VOLTA!", "")
@@ -866,7 +910,7 @@ func _ai_steer(r: Dictionary) -> float:
 	var want_h := clampf((target - float(r.d)) * 0.16, -0.45, 0.45)
 	var curve := KartTrack.curve_at(r.s)
 	# esterço que mantém o rumo desejado mais o necessário para a curva
-	var turn := lerpf(2.6, 1.35, clampf(absf(float(r.v)) / MAX_V, 0.0, 1.0))
+	var turn := lerpf(2.6, 1.35, clampf(absf(float(r.v)) / MAX_V, 0.0, 1.0)) * (1.7 if float(r.rocket) > 0.0 else 1.0)
 	var need := (curve * float(r.v)) / maxf(turn, 0.1)
 	return clampf(need + (want_h - float(r.h)) * 3.0 * float(r.skill), -1.0, 1.0)
 
@@ -1016,26 +1060,41 @@ func _drop_oil(s: float, d: float, owner: Variant = null, permanent := false) ->
 	cm.radial_segments = 16
 	mi.mesh = cm
 	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.08, 0.06, 0.12, 0.92)
+	m.albedo_color = Color(0.05, 0.04, 0.07, 0.95)
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.metallic = 0.6
-	m.roughness = 0.08
+	m.metallic = 0.85
+	m.roughness = 0.05
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# brilho de arco-íris (óleo) por cima
-	var shine := MeshInstance3D.new()
-	var sc := CylinderMesh.new()
-	sc.top_radius = 0.5
-	sc.bottom_radius = 0.5
-	sc.height = 0.005
-	shine.mesh = sc
-	var sm := StandardMaterial3D.new()
-	sm.albedo_color = Color(0.6, 0.4, 1.0, 0.35)
-	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	shine.material_override = sm
-	shine.position = Vector3(0.25, 0.015, 0.1)
-	mi.add_child(shine)
+	# manchas de brilho de arco-íris por cima (óleo de verdade) e respingos em volta
+	var cols := [Color(0.65, 0.35, 1.0, 0.5), Color(0.2, 0.9, 0.7, 0.4), Color(1.0, 0.85, 0.2, 0.35)]
+	for i in 3:
+		var shine := MeshInstance3D.new()
+		var sc := CylinderMesh.new()
+		sc.top_radius = 0.42 - i * 0.1
+		sc.bottom_radius = sc.top_radius
+		sc.height = 0.004
+		sc.radial_segments = 14
+		shine.mesh = sc
+		var sm := StandardMaterial3D.new()
+		sm.albedo_color = cols[i]
+		sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		shine.material_override = sm
+		shine.position = Vector3(0.22 - i * 0.12, 0.012 + i * 0.002, 0.1 + i * 0.08)
+		mi.add_child(shine)
+	for k in 5:
+		var drop := MeshInstance3D.new()
+		var dc := CylinderMesh.new()
+		dc.top_radius = randf_range(0.12, 0.22)
+		dc.bottom_radius = dc.top_radius
+		dc.height = 0.02
+		dc.radial_segments = 10
+		drop.mesh = dc
+		drop.material_override = m
+		var a := TAU * k / 5.0 + randf() * 0.6
+		drop.position = Vector3(cos(a), 0.0, sin(a)) * randf_range(1.0, 1.25)
+		mi.add_child(drop)
 	world.add_child(mi)
 	s = fposmod(s, _total)
 	mi.global_position = KartTrack.world_at(s, d) + Vector3(0, 0.08, 0)
@@ -1060,28 +1119,78 @@ func _check_oil(delta: float) -> void:
 			_oils.erase(oil)
 
 
+# ---------------------------------------------------------------- som do motor
+
+const ENGINE_RATE := 16000.0
+
+
+## Ronco do motor gerado na hora (sem arquivo): grave parado, agudo correndo,
+## mais forte no turbo. Só o seu kart.
+func _build_engine() -> void:
+	var gen := AudioStreamGenerator.new()
+	gen.mix_rate = ENGINE_RATE
+	gen.buffer_length = 0.15
+	_engine = AudioStreamPlayer.new()
+	_engine.stream = gen
+	_engine.bus = "SFX"
+	_engine.volume_db = -20.0
+	add_child(_engine)
+	_engine.play()
+	_engine_pb = _engine.get_stream_playback() as AudioStreamGeneratorPlayback
+
+
+func _update_engine(delta: float) -> void:
+	if _engine_pb == null or not is_instance_valid(_engine):
+		return
+	var v := absf(float(me.v))
+	var want := 42.0 + v * 3.4 + (22.0 if float(me.boost) > 0.0 else 0.0)
+	if float(me.spin) > 0.0 or me.done:
+		want = 40.0 + v * 2.0
+	_eng_f = lerpf(_eng_f, want, 1.0 - exp(-6.0 * delta))
+	_engine.volume_db = lerpf(_engine.volume_db, (-15.0 if float(me.boost) > 0.0 else -19.0), 1.0 - exp(-4.0 * delta))
+	var n := mini(_engine_pb.get_frames_available(), 4096)
+	if n <= 0:
+		return
+	var buf := PackedVector2Array()
+	buf.resize(n)
+	var f := _eng_f
+	for i in n:
+		_eng_ph = fmod(_eng_ph + f / ENGINE_RATE, 1.0)
+		_eng_ph2 = fmod(_eng_ph2 + f * 0.25 / ENGINE_RATE, 1.0)
+		var saw := _eng_ph * 2.0 - 1.0
+		var putt := 0.65 + 0.35 * sin(_eng_ph2 * TAU)  # "tuc-tuc" do motorzinho
+		var x := (saw * 0.7 + (1.0 if _eng_ph < 0.3 else -0.4) * 0.3) * putt
+		_eng_lp += (x - _eng_lp) * 0.22  # tira o chiado
+		buf[i] = Vector2(_eng_lp, _eng_lp) * 0.6
+	_engine_pb.push_buffer(buf)
+
+
 # ---------------------------------------------------------------- vento do vácuo
 
-## Riscos de vento passando em volta do kart quando você pega o vácuo.
+## Riscos de vento passando em volta do kart quando você pega o vácuo:
+## um "túnel" de vento do kart da frente até o seu.
 func _build_wind() -> void:
 	_wind = Node3D.new()
 	(me.kart as Node3D).add_child(_wind)
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.albedo_color = Color(1, 1, 1, 0.0)
+	mat.albedo_color = Color(0.85, 0.95, 1.0, 0.0)
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_wind_mat = mat
-	for i in 14:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	for i in 24:
 		var mi := MeshInstance3D.new()
 		var bm := BoxMesh.new()
-		bm.size = Vector3(0.025, 0.025, randf_range(0.9, 1.8))
+		bm.size = Vector3(0.05, 0.05, rng.randf_range(1.2, 2.6))
 		mi.mesh = bm
 		mi.material_override = mat
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var a := TAU * i / 14.0
-		mi.position = Vector3(cos(a) * randf_range(0.9, 1.4), 0.6 + sin(a) * randf_range(0.5, 0.9), randf_range(-3.0, 3.0))
-		mi.set_meta("speed", randf_range(18.0, 28.0))
+		var a := TAU * i / 24.0 + rng.randf_range(-0.1, 0.1)
+		var rad := rng.randf_range(0.9, 1.6)
+		mi.position = Vector3(cos(a) * rad * 1.15, 0.7 + sin(a) * rad * 0.7, rng.randf_range(-3.0, 8.0))
+		mi.set_meta("speed", rng.randf_range(20.0, 32.0))
 		_wind.add_child(mi)
 
 
@@ -1090,7 +1199,7 @@ func _update_wind(delta: float) -> void:
 		return
 	var charge := clampf(float(me.slip) / SLIP_CHARGE, 0.0, 1.0)
 	var on := float(me.slip) >= SLIP_CHARGE
-	var target_a := 0.75 if on else charge * 0.25
+	var target_a := 0.9 if on else charge * 0.35
 	_wind_mat.albedo_color.a = lerpf(_wind_mat.albedo_color.a, target_a, 1.0 - exp(-8.0 * delta))
 	_wind.visible = _wind_mat.albedo_color.a > 0.02
 	if not _wind.visible:
@@ -1099,7 +1208,7 @@ func _update_wind(delta: float) -> void:
 		var mi := c as MeshInstance3D
 		mi.position.z -= float(mi.get_meta("speed")) * delta
 		if mi.position.z < -3.5:
-			mi.position.z = 3.5
+			mi.position.z = 8.0
 	if on and not _slip_told:
 		_slip_told = true
 		popup(player.global_position + Vector3(0, 2.4, 0), "VÁCUO!", Color("bfe9ff"), 66)
@@ -1129,10 +1238,16 @@ func _kart_xf(r: Dictionary) -> Transform3D:
 
 
 func _place_all(delta: float) -> void:
+	var flick := 0.8 + 0.4 * sin(Time.get_ticks_msec() * 0.05)
 	for r in racers:
 		var xf := _kart_xf(r)
 		var k: Node3D = r.kart
 		k.global_transform = xf
+		# chamas do turbo piscando (maiores no foguete)
+		var big := 1.7 if float(r.rocket) > 0.0 else 1.0
+		for fl in k.get_meta("flames", []):
+			(fl as Node3D).visible = float(r.boost) > 0.0
+			(fl as Node3D).scale = Vector3(big, big, big * flick)
 		# rodas giram com a velocidade e as da frente esterçam
 		var wheels: Array = r.wheels
 		var spin: float = float(r.v) * delta / 0.2
@@ -1289,8 +1404,6 @@ func _finish() -> void:
 		return
 	var place := _place_of(me)
 	var n := _racer_count()
-	if not me.done and is_net():
-		NetworkManager.mg_score(str(net.gid), 999.0, true)
 	var won := 1 if place == 1 else (0 if place <= 3 else -1)
 	var coins: int = [30, 22, 16, 10, 8, 6, 5, 4][clampi(place - 1, 0, 7)]
 	var xp: int = [50, 38, 28, 20, 16, 12, 10, 8][clampi(place - 1, 0, 7)]
@@ -1301,6 +1414,9 @@ func _finish() -> void:
 
 
 func cleanup() -> void:
+	if is_instance_valid(_engine):
+		_engine.stop()
+	_engine_pb = null
 	if NetworkManager.mg_relay.is_connected(_on_relay):
 		NetworkManager.mg_relay.disconnect(_on_relay)
 	player.bounds_off = false

@@ -182,6 +182,8 @@ func my_turma() -> int:
 func _make_schedule() -> Dictionary:
 	if synced and Schedule.valid(NetworkManager.clock.get("schedule")):
 		return NetworkManager.clock.schedule
+	if synced:
+		return {}  # servidor antigo sem grade: usa as matérias compartilhadas (iguais para a turma)
 	if not RANDOM_SCHEDULE:
 		return {}
 	_sched_rng.randomize()
@@ -575,11 +577,8 @@ func _start_recess() -> void:
 		player.stand_up()
 	npcs.begin_recess()
 	_set_objective("Aproveite o recreio!", null)
-	# presente do dia (uma vez por dia, no começo do recreio)
-	if not " ".join(OS.get_cmdline_args()).contains("res://tests/"):
-		get_tree().create_timer(2.5).timeout.connect(func():
-			if phase == Phase.RECESS and player.minigame == null:
-				DailyGiftPanel.show_if_available(hud))
+	# presente do dia: oferecido no recreio quando a criança estiver livre (ver _process)
+	_gift_offered = " ".join(OS.get_cmdline_args()).contains("res://tests/")
 
 
 func _start_return() -> void:
@@ -901,10 +900,17 @@ func _on_dialogue_finished(_choice: int) -> void:
 
 # =================================================================== laço
 
+var _gift_offered := true
+
+
 func _process(delta: float) -> void:
 	if not GameManager.is_playing():
 		return
 	_phase_time += delta
+	# presente do dia: no recreio, assim que estiver livre (fora de brincadeira e de conversa)
+	if phase == Phase.RECESS and not _gift_offered and _phase_time > 2.5 and player.minigame == null and not dialogue.is_open():
+		_gift_offered = true
+		DailyGiftPanel.show_if_available(hud)
 	if phase == Phase.DAY_END:
 		_check_exit()
 	_update_wrong_seat(delta)

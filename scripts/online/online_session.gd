@@ -488,9 +488,7 @@ func _ask(text: String, yes: String, on_yes: Callable) -> void:
 	h.add_child(UITheme.make_button("Agora não", func(): p.queue_free(), 200))
 	chat_panel.get_parent().add_child(p)
 	AudioManager.play_ui("ui_confirm", -4.0)
-	get_tree().create_timer(20.0).timeout.connect(func():
-		if is_instance_valid(p):
-			p.queue_free())
+	get_tree().create_timer(20.0).timeout.connect(p.queue_free)  # some sozinho (desliga se já fechou)
 
 
 var _switch_from := ""

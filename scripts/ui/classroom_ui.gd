@@ -206,8 +206,9 @@ func _on_choice(i: int, b: Button) -> void:
 	_color_button(b, ok)
 	if not ok:
 		# mostra a resposta certa e some com as outras (sobra espaço para a explicação)
-		var g := (_body.get_child(0) as CenterContainer).get_child(0)
-		_color_button(g.get_child(int(_task.answer)), true)
+		# a grade é o pai do botão (nas figuras com "olhe esta figura" o 1º filho é a figura)
+		var g := b.get_parent()
+		_color_button(g.get_child(int(_task.answer)) as Button, true)
 		for k in g.get_child_count():
 			if k != int(_task.answer) and g.get_child(k) != b:
 				(g.get_child(k) as Control).visible = false

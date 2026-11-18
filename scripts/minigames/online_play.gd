@@ -407,9 +407,10 @@ func _show_results(gid: String, ev: Dictionary) -> void:
 		if mgr.can_start() and mgr.is_recess():
 			mgr.start(gid)
 	_show_panel("Placar · " + str(mgr.GAMES.get(gid, {}).get("title", gid)), lines, [["Jogar de novo", again], ["Fechar", func(): _panel.visible = false]])
-	var p := _panel
+	var wp: WeakRef = weakref(_panel)
 	get_tree().create_timer(6.0).timeout.connect(func():
-		if is_instance_valid(p) and my_gid == "":
+		var p := wp.get_ref() as Control
+		if p and my_gid == "":
 			p.visible = false)
 
 

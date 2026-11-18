@@ -34,7 +34,7 @@ func _ready() -> void:
 	var kr = mm.active
 	Engine.time_scale = 2.0
 	var t := 0.0
-	var shots := [2.0, 8.0, 18.0, 30.0, 44.0, 70.0, 110.0]
+	var shots := [2.0, 8.0, 18.0, 30.0, 40.6, 44.0, 70.0, 110.0]
 	var si := 0
 	var maxv := 0.0
 	var walls := 0
@@ -53,6 +53,17 @@ func _ready() -> void:
 			kr.on_interact_release()
 		if str(kr.me.item) != "" and kr._countdown <= 0.0 and absf(c) < 0.01:
 			kr.on_play()
+		# fotos do vácuo (um colega logo na frente) e do óleo
+		if t > 24.0 and t < 30.5:
+			var b: Dictionary = kr.racers[1]
+			b.s = fposmod(float(kr.me.s) + 6.0, KartTrack.length())
+			b.d = kr.me.d
+			b.v = kr.me.v
+		if t > 40.0 and t < 40.2:
+			var o: Dictionary = kr._oils[0]
+			kr.me.s = float(o.s) - 9.0
+			kr.me.d = float(o.d) - 0.3
+			kr.me.h = 0.0
 		maxv = maxf(maxv, kr.me.v)
 		if kr.me.wall_cd > lastw + 0.2:
 			walls += 1

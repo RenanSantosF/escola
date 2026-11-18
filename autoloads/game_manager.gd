@@ -109,13 +109,14 @@ func diamonds() -> int:
 	return int(SaveManager.section("player").get("diamonds", 0))
 
 
-func add_diamonds(amount: int) -> void:
+func add_diamonds(amount: int, save := true) -> void:
 	var p: Dictionary = SaveManager.section("player")
 	p["diamonds"] = maxi(int(p.get("diamonds", 0)) + amount, 0)
 	diamonds_changed.emit(int(p.diamonds))
 	if amount > 0:
 		AudioManager.play_ui("coin", -3.0)
-	SaveManager.save_game()
+	if save:
+		SaveManager.save_game()
 
 
 func spend_diamonds(amount: int) -> bool:

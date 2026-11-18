@@ -539,6 +539,26 @@ func _shoot_player(power: float) -> void:
 	_kick_from(player, dir, speed, lift)
 
 
+## Chute de um colega ONLINE com as mesmas regras do seu (força boa 55–85%,
+## canto escolhido pelo lado para onde ele olha, cheia demais sobe).
+func _shot_kick(r: Node3D, fwd: Vector3, goal: Vector3, power: float) -> void:
+	var to_goal := goal - r.global_position
+	to_goal.y = 0
+	var tg := to_goal.normalized()
+	var dir := fwd
+	if fwd.angle_to(tg) <= deg_to_rad(70):
+		var z := clampf((fwd.z - tg.z) * 4.0, -1.0, 1.0) * 1.15
+		dir = goal + Vector3(0, 0, z) - r.global_position
+		dir.y = 0
+		dir = dir.normalized()
+	var sweet := power >= 0.55 and power <= 0.85
+	var speed := lerpf(8.0, 19.0, power) + (1.5 if sweet else 0.0)
+	var lift := lerpf(0.4, 2.2, power) if power <= 0.85 else lerpf(2.6, 5.5, (power - 0.85) / 0.15)
+	if sweet:
+		popup(r.global_position + Vector3(0, 2.3, 0), "CHUTAÇO!", Color("ffd23f"), 64)
+	_kick_from(r, dir, speed, lift)
+
+
 func _ask_ball() -> void:
 	if holder is NPC and _has(team_a, holder):
 		var h := holder as NPC
@@ -1172,16 +1192,7 @@ func _host_input(from: String, d: Dictionary) -> void:
 		"shoot":
 			if holder != r:
 				return
-			var power := clampf(float(d.get("p", 0.5)), 0.0, 1.0)
-			var to_goal := goal - r.global_position
-			to_goal.y = 0
-			var dir := fwd
-			if fwd.angle_to(to_goal.normalized()) < deg_to_rad(45):
-				var aim := goal + Vector3(0, 0, randf_range(-1.05, 1.05))
-				dir = (aim - r.global_position)
-				dir.y = 0
-				dir = dir.normalized()
-			_kick_from(r, dir, lerpf(7.0, 16.0, power), lerpf(0.6, 3.0, power))
+			_shot_kick(r, fwd, goal, clampf(float(d.get("p", 0.5)), 0.0, 1.0))
 		"pass", "long", "through":
 			if holder != r:
 				return

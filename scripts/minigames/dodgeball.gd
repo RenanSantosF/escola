@@ -182,7 +182,7 @@ func _can_catch(who: Node3D) -> bool:
 
 func on_interact() -> bool:
 	if net_role == "client":
-		if _client_can_grab():
+		if _client_can_grab() or _client_can_catch():  # pegar no chão OU no ar (o anfitrião confere)
 			NetworkManager.mg_send_relay(str(net.gid), {"k": "grab"})
 		return true
 	if _countdown <= 0.0 and _can_catch(player):

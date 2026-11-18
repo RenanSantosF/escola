@@ -3,8 +3,10 @@ extends RefCounted
 ## PRESENTE DO DIA: entrar no jogo em dias seguidos dá prêmios cada vez
 ## melhores (7 dias; no 7º, diamantes e um pacote). Pulou um dia: recomeça.
 
+## Sem moedas: moedas vêm só das AULAS (brincar exige estudar). O presente dá
+## figurinhas, diamantes e XP do passe.
 const REWARDS := [
-	{"coins": 50}, {"coins": 80}, {"packs": 1}, {"coins": 120}, {"diamonds": 5}, {"coins": 200}, {"diamonds": 15, "coins": 300},
+	{"packs": 1, "xp": 100}, {"diamonds": 3}, {"packs": 1, "xp": 150}, {"diamonds": 5}, {"packs": 2}, {"diamonds": 8, "xp": 200}, {"diamonds": 20, "packs": 2},
 ]
 
 
@@ -48,6 +50,9 @@ static func claim() -> String:
 		for i in int(r.packs):
 			Stickers.open_pack()
 		parts.append("%d pacote de figurinhas" % int(r.packs))
+	if r.has("xp"):
+		GameManager.add_rewards(int(r.xp), 0)  # também sobe o Passe do Recreio
+		parts.append("%d XP" % int(r.xp))
 	SaveManager.save_game()
 	return ", ".join(parts)
 
@@ -60,5 +65,7 @@ static func reward_text(i: int) -> String:
 	if r.has("diamonds"):
 		parts.append("%d diamantes" % int(r.diamonds))
 	if r.has("packs"):
-		parts.append("figurinhas")
+		parts.append("figurinhas" if int(r.packs) == 1 else "%d pacotes" % int(r.packs))
+	if r.has("xp"):
+		parts.append("%d XP" % int(r.xp))
 	return " + ".join(parts)

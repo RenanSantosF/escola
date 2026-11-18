@@ -1,6 +1,8 @@
 package com.recessclub.ads;
 
 import android.app.Activity;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -16,6 +18,7 @@ import com.android.billingclient.api.ProductDetails;
 import com.android.billingclient.api.Purchase;
 import com.android.billingclient.api.PurchasesUpdatedListener;
 import com.android.billingclient.api.QueryProductDetailsParams;
+import com.android.billingclient.api.QueryProductDetailsResult;
 import com.android.billingclient.api.QueryPurchasesParams;
 
 import org.godotengine.godot.Godot;
@@ -33,6 +36,7 @@ import java.util.Set;
 
 /**
  * Compras do Recess Club pela Google Play (Passe do Recreio = assinatura mensal).
+ * Play Billing Library 8 (exigida pela Play Store para versões novas desde nov/2026).
  * Godot chama: connect_billing, query_product(id), purchase(id), query_purchases(), acknowledge(token).
  * Respostas por sinais (sempre na thread do Godot).
  */
@@ -42,6 +46,8 @@ public class RecessBilling extends GodotPlugin implements PurchasesUpdatedListen
     private ProductDetails details;
     /** Produtos avulsos (diamantes, moedas): id -> detalhes. */
     private final Map<String, ProductDetails> inapp = new HashMap<>();
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private int setupTries = 0;
 
     public RecessBilling(Godot godot) {
         super(godot);
@@ -78,6 +84,7 @@ public class RecessBilling extends GodotPlugin implements PurchasesUpdatedListen
             client = BillingClient.newBuilder(a)
                     .setListener(this)
                     .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
+                    .enableAutoServiceReconnection()
                     .build();
         }
         if (client.isReady()) {
@@ -87,8 +94,22 @@ public class RecessBilling extends GodotPlugin implements PurchasesUpdatedListen
         client.startConnection(new BillingClientStateListener() {
             @Override
             public void onBillingSetupFinished(@NonNull BillingResult r) {
-                if (r.getResponseCode() == BillingClient.BillingResponseCode.OK) emit("billing_ready");
-                else emit("billing_error", r.getResponseCode(), r.getDebugMessage());
+                int code = r.getResponseCode();
+                if (code == BillingClient.BillingResponseCode.OK) {
+                    setupTries = 0;
+                    emit("billing_ready");
+                    return;
+                }
+                emit("billing_error", code, r.getDebugMessage());
+                // falha passageira (sem rede, serviço ocupado): tenta de novo algumas vezes
+                boolean transient_ = code == BillingClient.BillingResponseCode.SERVICE_UNAVAILABLE
+                        || code == BillingClient.BillingResponseCode.NETWORK_ERROR
+                        || code == BillingClient.BillingResponseCode.ERROR
+                        || code == BillingClient.BillingResponseCode.SERVICE_DISCONNECTED;
+                if (transient_ && setupTries < 4) {
+                    setupTries++;
+                    handler.postDelayed(RecessBilling.this::connect_billing, 2000L * setupTries);
+                }
             }
 
             @Override
@@ -105,7 +126,8 @@ public class RecessBilling extends GodotPlugin implements PurchasesUpdatedListen
                 .setProductList(Collections.singletonList(QueryProductDetailsParams.Product.newBuilder()
                         .setProductId(productId).setProductType(BillingClient.ProductType.SUBS).build()))
                 .build();
-        client.queryProductDetailsAsync(p, (r, list) -> {
+        client.queryProductDetailsAsync(p, (r, result) -> {
+            List<ProductDetails> list = productList(result);
             if (r.getResponseCode() != BillingClient.BillingResponseCode.OK || list.isEmpty()) {
                 emit("billing_error", r.getResponseCode(), "produto não encontrado");
                 return;
@@ -125,6 +147,8 @@ public class RecessBilling extends GodotPlugin implements PurchasesUpdatedListen
     public void purchase(String productId) {
         Activity a = getActivity();
         if (client == null || !client.isReady() || a == null || details == null || !details.getProductId().equals(productId)) {
+            // a consulta do produto pode ter falhado antes: tenta carregar de novo
+            if (client != null && client.isReady()) query_product(productId);
             emit("purchase_failed", -1, "loja indisponível");
             return;
         }
@@ -150,9 +174,9 @@ public class RecessBilling extends GodotPlugin implements PurchasesUpdatedListen
                     .setProductType(BillingClient.ProductType.INAPP).build());
         }
         if (list.isEmpty()) return;
-        client.queryProductDetailsAsync(QueryProductDetailsParams.newBuilder().setProductList(list).build(), (r, found) -> {
+        client.queryProductDetailsAsync(QueryProductDetailsParams.newBuilder().setProductList(list).build(), (r, result) -> {
             if (r.getResponseCode() != BillingClient.BillingResponseCode.OK) return;
-            for (ProductDetails d : found) {
+            for (ProductDetails d : productList(result)) {
                 inapp.put(d.getProductId(), d);
                 ProductDetails.OneTimePurchaseOfferDetails o = d.getOneTimePurchaseOfferDetails();
                 emit("product_info", d.getProductId(), o != null ? o.getFormattedPrice() : "");
@@ -165,6 +189,7 @@ public class RecessBilling extends GodotPlugin implements PurchasesUpdatedListen
         Activity a = getActivity();
         ProductDetails d = inapp.get(productId);
         if (client == null || !client.isReady() || a == null || d == null) {
+            if (client != null && client.isReady()) query_inapp(productId);
             emit("purchase_failed", -1, "loja indisponível");
             return;
         }
@@ -207,9 +232,24 @@ public class RecessBilling extends GodotPlugin implements PurchasesUpdatedListen
 
     @UsedByGodot
     public void acknowledge(String token) {
+        acknowledgeTry(token, 0);
+    }
+
+    /** Reconhece a compra; se falhar, tenta de novo (e na próxima abertura o jogo tenta outra vez). */
+    private void acknowledgeTry(String token, int tries) {
         if (client == null || !client.isReady()) return;
-        client.acknowledgePurchase(AcknowledgePurchaseParams.newBuilder().setPurchaseToken(token).build(),
-                r -> Log.d(TAG, "ack " + r.getResponseCode()));
+        client.acknowledgePurchase(AcknowledgePurchaseParams.newBuilder().setPurchaseToken(token).build(), r -> {
+            Log.d(TAG, "ack " + r.getResponseCode());
+            if (r.getResponseCode() != BillingClient.BillingResponseCode.OK
+                    && r.getResponseCode() != BillingClient.BillingResponseCode.ITEM_NOT_OWNED && tries < 3) {
+                handler.postDelayed(() -> acknowledgeTry(token, tries + 1), 3000L * (tries + 1));
+            }
+        });
+    }
+
+    private static List<ProductDetails> productList(QueryProductDetailsResult result) {
+        if (result == null || result.getProductDetailsList() == null) return Collections.emptyList();
+        return result.getProductDetailsList();
     }
 
     private void report(Purchase p) {

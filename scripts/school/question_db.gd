@@ -24,7 +24,10 @@ static func for_subject(subject: String) -> Array:
 	if not _merged.has(subject):
 		var seen := {}
 		var out := []
-		for q in (_remote.get(subject, []) as Array) + (_base.get(subject, []) as Array):
+		# depois de baixar do servidor, a lista dele manda (pergunta desativada no painel
+		# some mesmo que venha no jogo); sem internet ainda, usa as que vêm no jogo
+		var src: Array = _remote.get(subject, []) if _remote.has(subject) else _base.get(subject, [])
+		for q in src:
 			if not seen.has(q[2]):
 				seen[q[2]] = true
 				out.append(q)

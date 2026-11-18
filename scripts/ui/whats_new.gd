@@ -2,17 +2,19 @@ class_name WhatsNew
 extends Control
 ## "O QUE HÁ DE NOVO": aparece uma vez depois que o jogo é atualizado.
 
-const VERSION := "2026-11-kart"
+const VERSION := "2026-11-kart2"
 const ITEMS := [
-	["Corrida de Kart", "Uma pista que dá a volta na escola, com viaduto por cima do portão! Derrape nas curvas e use o turbo."],
+	["Kart novo, igual videogame", "Pista com muitas curvas, caixinhas \"?\" com itens (turbo, óleo e foguete), VÁCUO com vento atrás dos outros karts e batidas de verdade. Quem está atrás ganha itens melhores!"],
+	["Karts com design no Passe", "Todos os karts andam igual. Os bonitos, com aerofólio gigante, carburadores e foguete, vêm no Passe do Recreio (o premium já ganha um no nível 1)."],
+	["Brincadeiras custam moedinhas", "Cada brincadeira custa de 2 a 6 moedas. As aulas agora pagam mais: 8 moedas por acerto e 2 por tentar!"],
 	["Montanha-russa gigante", "42 metros de altura, looping e saca-rolha. Entre na fila e experimente a visão em 1ª pessoa!"],
-	["Passe do Recreio", "Jogue, complete os desafios da semana e libere skins, emojis animados, karts e diamantes."],
-	["Loja nova", "Diamantes, skins com estampa, efeitos especiais e pinturas de kart. Toque num item para ver bem grande."],
-	["Aulas diferentes", "Cada dia a turma muda de sala e tem aulas na informática, nos laboratórios, na quadra e na sala de vídeo."],
+	["Loja nova", "Diamantes, skins com estampa e efeitos especiais. Toque num item para ver bem grande."],
 	["Mais brincadeiras", "Soltar pipa no alto do Morro, balanço de verdade, esconde-esconde com agachar e xadrez com os amigos."],
 ]
 
 signal closed
+var _player: Node = null
+var _prev_input := true
 
 
 static func show_if_new(parent: Control) -> WhatsNew:
@@ -30,6 +32,11 @@ static func show_if_new(parent: Control) -> WhatsNew:
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	# teclado/controle também não mexem o personagem por trás do aviso
+	_player = GameManager.player
+	if _player:
+		_prev_input = _player.input_enabled
+		_player.input_enabled = false
 	theme = UITheme.get_theme()
 	z_index = 45
 	var bg := ColorRect.new()
@@ -76,6 +83,8 @@ func _ready() -> void:
 	var btn := UITheme.make_button("Vamos brincar!", func():
 		SaveManager.section("progress")["news_seen"] = VERSION
 		SaveManager.save_game()
+		if is_instance_valid(_player):
+			_player.input_enabled = _prev_input
 		closed.emit()
 		queue_free(), 300)
 	var bc := CenterContainer.new()
