@@ -100,6 +100,7 @@ func _ready() -> void:
 	await _test_kart()
 	await _test_passe_loja()
 	await _test_pipa()
+	await _test_diamantes()
 	await _test_interpolacao()
 	_finish()
 
@@ -2452,6 +2453,52 @@ func _test_recreio_novo() -> void:
 		await _wait(0.3)
 	mm.game_finished.disconnect(rc)
 	check(mm.active == null and not res.is_empty() and int(res[-1].get("won", 0)) == 1, "esconde: achando todos, GANHA e termina", str(res))
+
+
+func _test_diamantes() -> void:
+	var prog: Progression = main.progression
+	SaveManager.section("player")["diamonds"] = 0
+	check(prog.buy("skin_princesa") == "Diamantes insuficientes.", "diamantes: sem diamantes não compra item de diamante")
+	# compra de teste (fora do Android): pacote de diamantes entregue
+	Billing.buy("diamantes_150")
+	check(GameManager.diamonds() == 165, "diamantes: pacote de 150 + 15 de bônus (%d)" % GameManager.diamonds())
+	var c0 := GameManager.coins()
+	var br := prog.buy("skin_bombeiro")
+	check(br == "" and Progression.owns("skin_bombeiro") and GameManager.coins() == c0, "diamantes: compra skin lendária com diamantes (sem gastar moedas)")
+	check(StoreOffers.exchange(0) or GameManager.diamonds() < 10, "diamantes: troca por moedas")
+	Billing.buy("pacote_inicial")
+	check(StoreOffers.starter_bought() and Progression.owns("skin_cavaleiro"), "loja: pacote de boas-vindas dá a skin e marca comprado")
+	var d1 := GameManager.diamonds()
+	Billing.buy("pacote_inicial")
+	check(GameManager.diamonds() == d1, "loja: pacote de boas-vindas só uma vez")
+	# estampas na camiseta
+	prog.grant("cam_listrada")
+	prog.equip("cam_listrada")
+	await _frames(2)
+	check(player.visual.appearance.shirt_pattern == "listras", "estampa: camiseta listrada")
+	prog.equip("cam_uniforme")
+	await _frames(2)
+	check(player.visual.appearance.shirt_pattern == "", "estampa: trocar de camiseta tira a estampa")
+	# pintura do kart
+	prog.grant("kart_chamas")
+	prog.equip("kart_chamas")
+	check(player.visual.appearance.kart == "kart_chamas", "kart: pintura equipada vai para o visual")
+	# passe: diamantes e desafios
+	SaveManager.section("pass").clear()
+	RecessPass.grant_premium()
+	RecessPass.data()["xp"] = RecessPass.TIER_XP * 2
+	var dd := GameManager.diamonds()
+	check(RecessPass.claim("prem", 2) == "+20 diamantes" and GameManager.diamonds() == dd + 20, "passe: nível 2 premium dá 20 diamantes")
+	var ch := RecessPass.challenges()
+	check(ch.size() == 6, "passe: 6 desafios da semana")
+	var e: Dictionary = ch[0]
+	var xp0 := RecessPass.xp()
+	SaveManager.section("stats")[str(e.key)] = int(e.base) + int(e.target) + 5 if not str(e.key).begins_with("mg") else {"played": int(e.base) + int(e.target), "won": int(e.base) + int(e.target)}
+	if str(e.key) == "dias":
+		SaveManager.section("progress")["days_completed"] = int(e.base) + int(e.target)
+	check(RecessPass.claim_challenge(0) and RecessPass.xp() == xp0 + int(e.xp), "passe: desafio completo dá XP do passe")
+	check(not RecessPass.claim_challenge(0), "passe: desafio não dá XP duas vezes")
+	SaveManager.section("pass").clear()
 
 
 func _test_pipa() -> void:

@@ -46,3 +46,28 @@ Quando for publicar a versão para todo mundo, a assinatura já estará valendo.
   antiga do jogo (instale a do Teste interno).
 - **O botão Comprar não faz nada**: a versão do jogo foi gerada antes do plugin novo.
   Confira se o "Plugin Android" no GitHub terminou com ✅ e exporte o jogo de novo.
+
+---
+
+# Diamantes, moedas e Pacote de Boas-vindas (produtos avulsos)
+
+São produtos **de compra única** (não são assinatura). Crie cada um assim:
+
+1. Play Console → app **Recess Club** → **Monetizar com o Google Play** → **Produtos** →
+   **Produtos no app** → **Criar produto**.
+2. Copie o **ID** exatamente como na tabela, coloque o nome e o preço (Brasil) e clique em
+   **Salvar** e depois **Ativar**.
+
+| ID do produto     | Nome                         | Preço    |
+|-------------------|------------------------------|----------|
+| `diamantes_60`    | 60 diamantes                 | R$ 4,99  |
+| `diamantes_150`   | 150 diamantes (+15 bônus)    | R$ 9,99  |
+| `diamantes_400`   | 400 diamantes (+60 bônus)    | R$ 24,99 |
+| `diamantes_900`   | 900 diamantes (+200 bônus)   | R$ 49,99 |
+| `moedas_2000`     | 2.000 moedas                 | R$ 4,99  |
+| `moedas_5000`     | 5.000 moedas                 | R$ 9,99  |
+| `moedas_15000`    | 15.000 moedas                | R$ 24,99 |
+| `pacote_inicial`  | Pacote de Boas-vindas        | R$ 7,99  |
+
+> Se mudar algum preço na Play Console, o jogo mostra automaticamente o preço novo.
+> O jogo sempre mostra "peça para um adulto" antes de abrir a compra.
