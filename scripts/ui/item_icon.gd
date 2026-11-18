@@ -86,9 +86,7 @@ func _draw() -> void:
 			if kind == "":
 				_none(s)
 			else:
-				var cfg: Array = CharacterVisual.AURAS.get(kind, [Color.WHITE, "star", 1.0])
-				var ik: String = {"star": "star", "heart": "heart", "fire": "sparkle", "snow": "sparkle", "rainbow": "star", "bolt": "bolt"}[cfg[1]]
-				var tex2 := EmoteFX.icon(ik, cfg[0])
+				var tex2 := CharacterVisual.aura_icon(kind)
 				for i in 6:
 					var a := _t * 1.6 + i * TAU / 6.0
 					var p := Vector2(cos(a) * s * 0.8, sin(a) * s * 0.35 - fmod(_t * 30.0 + i * 15.0, s * 1.2) + s * 0.4)
@@ -96,6 +94,8 @@ func _draw() -> void:
 				_mini_kid(s * 0.7, true)
 		"veiculo":
 			_vehicle(s, str(item.get("vehicle", "skate")))
+		"kart":
+			_kart(s, item.get("kart", {}))
 		"decoracao":
 			_decor(s, str(item.get("decor", "")))
 		"pacote":
@@ -235,6 +235,35 @@ func _vehicle(s: float, kind: String) -> void:
 			if kind == "patinete":
 				draw_line(Vector2(s * 0.75, -s * 0.05), Vector2(s * 0.6, -s * 0.9), Color("8a96a3"), 6.0)
 				draw_line(Vector2(s * 0.4, -s * 0.9), Vector2(s * 0.8, -s * 0.9), Color("1d1d1d"), 7.0)
+
+
+func _kart(s: float, k: Dictionary) -> void:
+	var col := Color(str(k.get("color", "e53935")))
+	var acc := Color(str(k.get("accent", "ffffff")))
+	var style := str(k.get("style", ""))
+	# visto de lado: corpo, bico, aerofólio, rodas e piloto
+	draw_circle(Vector2(-s * 0.55, s * 0.35), s * 0.24, Color("1d1d1d"))
+	draw_circle(Vector2(s * 0.6, s * 0.35), s * 0.24, Color("1d1d1d"))
+	_o(PackedVector2Array([Vector2(-s * 0.95, s * 0.15), Vector2(-s * 0.85, -s * 0.15), Vector2(s * 0.3, -s * 0.15), Vector2(s * 1.0, s * 0.05), Vector2(s * 1.0, s * 0.25), Vector2(-s * 0.95, s * 0.25)]), col)
+	_o(PackedVector2Array([Vector2(-s * 1.0, -s * 0.45), Vector2(-s * 0.7, -s * 0.45), Vector2(-s * 0.75, -s * 0.15), Vector2(-s * 0.9, -s * 0.15)]), col.darkened(0.3))
+	match style:
+		"listras":
+			draw_rect(Rect2(-s * 0.6, -s * 0.05, s * 1.5, s * 0.08), acc)
+		"xadrez":
+			for i in 6:
+				draw_rect(Rect2(-s * 0.6 + i * s * 0.22, -s * 0.12 + (i % 2) * s * 0.12, s * 0.12, s * 0.12), acc)
+		"chamas":
+			for i in 4:
+				draw_colored_polygon(PackedVector2Array([Vector2(s * 0.5 - i * s * 0.3, s * 0.2), Vector2(s * 0.25 - i * s * 0.3, -s * 0.1), Vector2(s * 0.1 - i * s * 0.3, s * 0.2)]), acc)
+		"estrelas":
+			for p in [Vector2(-s * 0.4, 0), Vector2(0.1 * s, s * 0.05), Vector2(s * 0.55, s * 0.08)]:
+				draw_circle(p, s * 0.07, acc)
+		"arco":
+			var rb := [Color("e53935"), Color("ff8a1f"), Color("ffd23f"), Color("27ae60"), Color("2f80ed")]
+			for i in rb.size():
+				draw_rect(Rect2(-s * 0.85, -s * 0.12 + i * s * 0.07, s * 1.8, s * 0.07), rb[i])
+	draw_circle(Vector2(-s * 0.15, -s * 0.38), s * 0.2, Color("e8b48f"))
+	draw_arc(Vector2(-s * 0.15, -s * 0.38), s * 0.22, PI, TAU, 12, col.darkened(0.2), s * 0.12)
 
 
 func _decor(s: float, kind: String) -> void:

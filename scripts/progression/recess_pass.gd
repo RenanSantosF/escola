@@ -15,20 +15,42 @@ const DAYS := 30
 ## Prêmio: {"coins": n} | {"item": id} | {"packs": {"figurinha": n, "gude": n}}
 const FREE := {
 	1: {"coins": 30}, 2: {"packs": {"figurinha": 1}}, 4: {"coins": 40}, 6: {"packs": {"gude": 1}}, 8: {"coins": 50},
-	10: {"item": "emo_clap"}, 12: {"coins": 60}, 14: {"packs": {"figurinha": 2}}, 16: {"coins": 70}, 18: {"packs": {"gude": 1}},
-	20: {"coins": 80}, 22: {"packs": {"figurinha": 2}}, 24: {"coins": 90}, 26: {"packs": {"gude": 2}}, 28: {"coins": 100},
-	30: {"item": "emo_celebrate"},
+	10: {"item": "emo_clap"}, 12: {"coins": 60}, 14: {"packs": {"figurinha": 2}}, 15: {"diamonds": 10}, 16: {"coins": 70},
+	18: {"packs": {"gude": 1}}, 20: {"coins": 80}, 22: {"packs": {"figurinha": 2}}, 24: {"coins": 90}, 25: {"diamonds": 10},
+	26: {"packs": {"gude": 2}}, 28: {"coins": 100}, 30: {"item": "emo_celebrate"},
 }
+## Trilha premium: um prêmio em TODO nível (e os melhores no fim, para valer a pena jogar).
 const PREMIUM := {
-	1: {"item": "emo_floss"}, 2: {"coins": 120}, 3: {"item": "skin_pirata"}, 4: {"packs": {"figurinha": 3}},
-	5: {"item": "emo_dance"}, 6: {"coins": 150}, 7: {"item": "aura_fogo"}, 8: {"packs": {"gude": 2}},
-	9: {"item": "emo_laugh"}, 10: {"item": "skin_dragao"}, 11: {"coins": 180}, 12: {"item": "emo_flex"},
-	13: {"packs": {"figurinha": 4}}, 14: {"item": "aura_coracoes"}, 15: {"item": "emo_heart"}, 16: {"coins": 200},
-	17: {"item": "skin_neon"}, 18: {"item": "aura_raio"}, 19: {"packs": {"gude": 3}}, 20: {"item": "emo_robot"},
-	21: {"coins": 250}, 22: {"item": "aura_estrelas"}, 23: {"packs": {"figurinha": 5}}, 24: {"item": "emo_spin"},
-	25: {"coins": 300}, 26: {"item": "aura_neve"}, 27: {"item": "tin_rosa"}, 28: {"coins": 400},
+	1: {"item": "emo_floss"}, 2: {"diamonds": 20}, 3: {"item": "skin_pirata"}, 4: {"coins": 150},
+	5: {"item": "emo_dance"}, 6: {"item": "kart_neon"}, 7: {"item": "aura_fogo"}, 8: {"diamonds": 25},
+	9: {"item": "emo_laugh"}, 10: {"item": "skin_dragao"}, 11: {"coins": 200}, 12: {"item": "emo_flex"},
+	13: {"packs": {"figurinha": 4}}, 14: {"item": "aura_coracoes"}, 15: {"item": "emo_heart"}, 16: {"diamonds": 30},
+	17: {"item": "skin_neon"}, 18: {"item": "aura_raio"}, 19: {"item": "emo_guitar"}, 20: {"item": "emo_robot"},
+	21: {"coins": 300}, 22: {"item": "aura_estrelas"}, 23: {"item": "kart_arco"}, 24: {"item": "emo_spin"},
+	25: {"diamonds": 40}, 26: {"item": "aura_neve"}, 27: {"item": "emo_backflip"}, 28: {"coins": 500},
 	29: {"item": "aura_arco"}, 30: {"item": "skin_unicornio"},
 }
+
+## DESAFIOS DA SEMANA: 6 por semana (iguais para todos), cada um dá XP do passe.
+## key "mg_x" = partidas jogadas de x; "mgw_x" = partidas vencidas; o resto = estatística.
+const CHALLENGE_POOL := [
+	{"key": "mg_kart", "target": 3, "desc": "Corra %d vezes no kart", "xp": 400},
+	{"key": "mgw_kart", "target": 1, "desc": "Ganhe %d corrida de kart", "xp": 500},
+	{"key": "mg_pipa", "target": 2, "desc": "Solte pipa %d vezes no Morro", "xp": 300},
+	{"key": "montanha_russa", "target": 2, "desc": "Ande %d vezes na montanha-russa", "xp": 300},
+	{"key": "acertos", "target": 15, "desc": "Acerte %d tarefas nas aulas", "xp": 450},
+	{"key": "mg_futebol", "target": 2, "desc": "Jogue %d partidas de futebol", "xp": 350},
+	{"key": "mg_queimada", "target": 2, "desc": "Jogue %d partidas de queimada", "xp": 350},
+	{"key": "mg_esconde", "target": 2, "desc": "Brinque %d vezes de esconde-esconde", "xp": 300},
+	{"key": "escorregadas", "target": 3, "desc": "Desça %d vezes o tobogã gigante", "xp": 250},
+	{"key": "jogos_mesa", "target": 3, "desc": "Jogue %d vezes nas mesas (xadrez, pingue-pongue...)", "xp": 300},
+	{"key": "vitorias", "target": 5, "desc": "Vença %d brincadeiras", "xp": 450},
+	{"key": "missoes", "target": 2, "desc": "Ajude %d colegas (missões)", "xp": 400},
+	{"key": "mg_basquete", "target": 2, "desc": "Jogue basquete %d vezes", "xp": 250},
+	{"key": "mg_gude", "target": 2, "desc": "Jogue bolinha de gude %d vezes", "xp": 250},
+	{"key": "dias", "target": 3, "desc": "Termine %d dias de aula", "xp": 500},
+]
+const CHALLENGES := 6
 
 
 static func data() -> Dictionary:
@@ -119,6 +141,9 @@ static func claim(track: String, t: int) -> String:
 	if r.has("coins"):
 		GameManager.add_rewards(0, int(r.coins))
 		txt = "+%d moedas" % int(r.coins)
+	elif r.has("diamonds"):
+		GameManager.add_diamonds(int(r.diamonds))
+		txt = "+%d diamantes" % int(r.diamonds)
 	elif r.has("item"):
 		var it := ShopCatalog.get_item(str(r.item))
 		var inv: Dictionary = SaveManager.section("inventory")
@@ -147,7 +172,7 @@ static func claim(track: String, t: int) -> String:
 
 ## Quantos prêmios esperando para pegar (bolinha vermelha na mochila).
 static func pending() -> int:
-	var n := 0
+	var n := challenges_ready()
 	for t in range(1, tier() + 1):
 		if can_claim("free", t):
 			n += 1
@@ -164,3 +189,70 @@ static func premium_items() -> Array:
 		if r.has("item"):
 			out.append(r.item)
 	return out
+
+
+
+# ------------------------------------------------------------------ desafios da semana
+
+static func week_id() -> String:
+	var unix := int(Time.get_unix_time_from_system())
+	# semanas começando na segunda-feira (01/01/1970 foi quinta)
+	return str((unix / 86400 + 3) / 7)
+
+
+static func stat(key: String) -> int:
+	var st: Dictionary = SaveManager.section("stats")
+	if key.begins_with("mgw_"):
+		var d: Variant = st.get("mg_" + key.substr(4))
+		return int((d as Dictionary).get("won", 0)) if d is Dictionary else 0
+	if key.begins_with("mg_"):
+		var d2: Variant = st.get(key)
+		return int((d2 as Dictionary).get("played", 0)) if d2 is Dictionary else 0
+	if key == "dias":
+		return int(SaveManager.section("progress").get("days_completed", 0))
+	return int(st.get(key, 0))
+
+
+## Os 6 desafios da semana (com o progresso guardado).
+static func challenges() -> Array:
+	var d := data()
+	var w := week_id()
+	if str(d.get("week", "")) != w or not (d.get("challenges") is Array):
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash("desafios-" + w)
+		var pool: Array = CHALLENGE_POOL.duplicate()
+		var list := []
+		for i in CHALLENGES:
+			var e: Dictionary = pool.pop_at(rng.randi() % pool.size()).duplicate()
+			e["base"] = stat(e.key)
+			e["claimed"] = false
+			list.append(e)
+		d["week"] = w
+		d["challenges"] = list
+	return d["challenges"]
+
+
+static func challenge_progress(e: Dictionary) -> int:
+	return clampi(stat(str(e.key)) - int(e.base), 0, int(e.target))
+
+
+static func claim_challenge(i: int) -> bool:
+	var list := challenges()
+	if i < 0 or i >= list.size():
+		return false
+	var e: Dictionary = list[i]
+	if bool(e.claimed) or challenge_progress(e) < int(e.target):
+		return false
+	e["claimed"] = true
+	add_xp(int(e.xp))
+	AudioManager.play_ui("celebrate", -4.0)
+	SaveManager.save_game()
+	return true
+
+
+static func challenges_ready() -> int:
+	var n := 0
+	for e in challenges():
+		if not bool(e.claimed) and challenge_progress(e) >= int(e.target):
+			n += 1
+	return n

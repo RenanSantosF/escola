@@ -101,6 +101,33 @@ func add_rewards(xp: int, coin_amount: int) -> void:
 	rewards_changed.emit(cur, int(p.coins), lv)
 
 
+## DIAMANTES: moeda especial (vem do Passe, de conquistas e da loja da Play Store).
+signal diamonds_changed(amount: int)
+
+
+func diamonds() -> int:
+	return int(SaveManager.section("player").get("diamonds", 0))
+
+
+func add_diamonds(amount: int) -> void:
+	var p: Dictionary = SaveManager.section("player")
+	p["diamonds"] = maxi(int(p.get("diamonds", 0)) + amount, 0)
+	diamonds_changed.emit(int(p.diamonds))
+	if amount > 0:
+		AudioManager.play_ui("coin", -3.0)
+	SaveManager.save_game()
+
+
+func spend_diamonds(amount: int) -> bool:
+	var p: Dictionary = SaveManager.section("player")
+	if int(p.get("diamonds", 0)) < amount:
+		return false
+	p["diamonds"] = int(p.diamonds) - amount
+	diamonds_changed.emit(int(p.diamonds))
+	SaveManager.save_game()
+	return true
+
+
 func spend_coins(amount: int) -> bool:
 	var p: Dictionary = SaveManager.section("player")
 	if int(p.get("coins", 0)) < amount:

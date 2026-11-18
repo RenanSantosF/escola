@@ -58,7 +58,7 @@ func begin() -> void:
 	var grid := 0
 	if multi:
 		grid = maxi(int(net.get("index", 0)), 0)
-	me = _add_racer(player, COLORS[grid % COLORS.size()], grid, false)
+	me = _add_racer(player, COLORS[grid % COLORS.size()], grid, false, player.visual.appearance.kart)
 	if not multi:
 		var bots: Array[NPC] = students(BOTS, KartTrack.pos_at(0.0))
 		take_npcs(bots)
@@ -84,7 +84,7 @@ func begin() -> void:
 
 
 ## Posição na largada: 2 por fila, atrás da faixa quadriculada.
-func _add_racer(who: Node3D, col: Color, grid: int, ai: bool) -> Dictionary:
+func _add_racer(who: Node3D, col: Color, grid: int, ai: bool, paint := "") -> Dictionary:
 	var row := grid / 2
 	var side := -1.0 if grid % 2 == 0 else 1.0
 	var r := {
@@ -93,7 +93,9 @@ func _add_racer(who: Node3D, col: Color, grid: int, ai: bool) -> Dictionary:
 		"name": "Você" if who == player else "", "color": col, "max": randf_range(22.0, 24.2) if ai else MAX_V,
 		"line": randf_range(-1.2, 1.2), "skill": randf_range(0.75, 1.0), "turbo_t": randf_range(8.0, 20.0),
 	}
-	var k := make_kart(col)
+	var k := make_kart_item(paint) if paint != "" else make_kart(col)
+	if paint != "":
+		r.color = Color(str(ShopCatalog.get_item(paint).get("kart", {}).get("color", col.to_html())))
 	world.add_child(k)
 	r["kart"] = k
 	r["wheels"] = k.get_meta("wheels")
@@ -104,8 +106,17 @@ func _add_racer(who: Node3D, col: Color, grid: int, ai: bool) -> Dictionary:
 	return r
 
 
+## Kart com a pintura de um item da loja (kart_dourado, kart_chamas...).
+static func make_kart_item(id: String) -> Node3D:
+	var k: Dictionary = ShopCatalog.get_item(id).get("kart", {})
+	if k.is_empty():
+		return make_kart(COLORS[0])
+	return make_kart(Color(str(k.get("color", "e53935"))), Color(str(k.get("accent", "ffffff"))), str(k.get("style", "")))
+
+
 ## Kart de brinquedo colorido (também usado para mostrar o kart de um colega online).
-static func make_kart(col: Color) -> Node3D:
+## style: "" | "listras" | "xadrez" | "chamas" | "estrelas" | "arco"
+static func make_kart(col: Color, accent := Color.WHITE, style := "") -> Node3D:
 	var root := Node3D.new()
 	root.name = "Kart"
 	var md := MeshData.new()
@@ -133,6 +144,34 @@ static func make_kart(col: Color) -> Node3D:
 	md.add_cylinder(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(0.22, 0.3, -1.02)), 0.06, 0.06, 0.12, 8)
 	md.cur_color = Color.WHITE
 	md.add_cylinder(Transform3D(Basis(Vector3.RIGHT, -0.35 + PI * 0.5), Vector3(0, 0.43, 1.0)), 0.13, 0.13, 0.02, 12)
+	# pintura especial
+	match style:
+		"listras":
+			md.cur_color = accent
+			for sx in [-0.14, 0.14]:
+				md.add_box(Transform3D(Basis(), Vector3(sx, 0.415, 0.72)), Vector3(0.09, 0.02, 0.56))
+				md.add_box(Transform3D(Basis(Vector3.RIGHT, -0.35), Vector3(sx, 0.43, 1.02)), Vector3(0.09, 0.02, 0.36))
+		"xadrez":
+			for i in 4:
+				for j in 2:
+					md.cur_color = accent if (i + j) % 2 == 0 else col
+					md.add_box(Transform3D(Basis(), Vector3(-0.3 + i * 0.2, 0.415, 0.6 + j * 0.2)), Vector3(0.2, 0.02, 0.2))
+		"chamas":
+			md.cur_color = accent
+			for sx in [-1.0, 1.0]:
+				for k in 4:
+					md.add_box(Transform3D(Basis(Vector3.FORWARD, 0.6 * sx), Vector3(sx * 0.61, 0.28 + (k % 2) * 0.04, 0.4 - k * 0.22)), Vector3(0.02, 0.1, 0.26 - k * 0.04))
+			md.cur_color = accent.lightened(0.3)
+			md.add_box(Transform3D(Basis(), Vector3(0, 0.415, 0.75)), Vector3(0.5, 0.02, 0.3))
+		"estrelas":
+			md.cur_color = accent
+			for p in [Vector3(-0.25, 0.415, 0.6), Vector3(0.2, 0.415, 0.8), Vector3(0.05, 0.415, 0.55), Vector3(0.6, 0.29, -0.2), Vector3(-0.6, 0.29, 0.2)]:
+				md.add_box(Transform3D(Basis(Vector3.UP, 0.78), p), Vector3(0.09, 0.025, 0.09))
+		"arco":
+			var rb := [Color("e53935"), Color("ff8a1f"), Color("ffd23f"), Color("27ae60"), Color("2f80ed"), Color("8e44ad")]
+			for i in rb.size():
+				md.cur_color = rb[i]
+				md.add_box(Transform3D(Basis(), Vector3(-0.375 + i * 0.15, 0.415, 0.72)), Vector3(0.15, 0.02, 0.56))
 	var mat := StandardMaterial3D.new()
 	mat.vertex_color_use_as_albedo = true
 	mat.roughness = 0.45

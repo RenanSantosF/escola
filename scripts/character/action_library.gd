@@ -396,6 +396,22 @@ static func _build_dances() -> void:
 		[0.25, {"LeftUpperArm": Vector3(-60, 0, 40), "RightUpperArm": Vector3(-60, 0, -40), "LeftLowerArm": Vector3(-100, 0, 0), "RightLowerArm": Vector3(-100, 0, 0), "Head": Vector3(0, 0, 8), "mouth": 1.8}],
 		[0.75, {"LeftUpperArm": Vector3(-62, 0, 38), "RightUpperArm": Vector3(-62, 0, -38), "LeftLowerArm": Vector3(-104, 0, 0), "RightLowerArm": Vector3(-104, 0, 0), "Head": Vector3(0, 0, -8), "mouth": 1.8}],
 		[1.0, {}]]}
+	# Mortal para trás
+	_defs["backflip"] = {"duration": 1.3, "keys": [
+		[0.0, {}],
+		[0.18, {"hips": Vector3(0, -0.16, 0), "LeftUpperLeg": Vector3(-50, 0, 0), "RightUpperLeg": Vector3(-50, 0, 0), "LeftLowerLeg": Vector3(90, 0, 0), "RightLowerLeg": Vector3(90, 0, 0)}],
+		[0.4, _merge(_merge(la.call(160), ra.call(160)), {"hips": Vector3(0, 0.55, 0), "Hips": Vector3(-150, 0, 0), "LeftUpperLeg": Vector3(-90, 0, 0), "RightUpperLeg": Vector3(-90, 0, 0), "LeftLowerLeg": Vector3(110, 0, 0), "RightLowerLeg": Vector3(110, 0, 0)})],
+		[0.62, {"hips": Vector3(0, 0.45, 0), "Hips": Vector3(-300, 0, 0), "LeftUpperLeg": Vector3(-60, 0, 0), "RightUpperLeg": Vector3(-60, 0, 0)}],
+		[0.8, _merge(_merge(la.call(150), ra.call(150)), {"hips": Vector3(0, -0.1, 0), "Hips": Vector3(-359, 0, 0), "LeftLowerLeg": Vector3(40, 0, 0), "RightLowerLeg": Vector3(40, 0, 0), "mouth": 2.4})],
+		[1.0, {}]]}
+	# Guitarra imaginária
+	var gk := [[0.0, {}]]
+	for i in 7:
+		gk.append([0.08 + i * 0.12, {"LeftUpperArm": Vector3(-40, 30, 40), "LeftLowerArm": Vector3(-60, 0, 0),
+			"RightUpperArm": Vector3(-20, 0, -30), "RightLowerArm": Vector3(-70 if i % 2 == 0 else -40, 0, 0),
+			"Head": Vector3(15 if i % 2 == 0 else -5, 0, 0), "Spine": Vector3(8, 0, 0), "hips": Vector3(0, -0.06, 0), "mouth": 2.2}])
+	gk.append([1.0, {}])
+	_defs["air_guitar"] = {"duration": 2.2, "keys": gk}
 	# Pose de campeão (flexiona os braços)
 	_defs["flex"] = {"duration": 1.8, "keys": [
 		[0.0, {}],

@@ -232,7 +232,7 @@ func _on_remote_anim(r: Dictionary, before: String, now: String) -> void:
 	elif now == "kart":
 		vis.play("sit_down")
 		if not r.has("kart"):
-			var k := KartRace.make_kart(Color("ff8a1f"))
+			var k := KartRace.make_kart_item(vis.appearance.kart if vis.appearance else "kart_padrao")
 			k.top_level = true
 			r.root.add_child(k)
 			r["kart"] = k

@@ -46,7 +46,7 @@ const { QuestionBank } = require('./questions');
 
 const NEAR_DIST = 18; // metros do canal "Perto de mim"
 const EMOTES = new Set(['wave', 'celebrate', 'clap', 'sad', 'stretch', 'scratch_head', 'look_around', 'raise_hand',
-  'dance', 'robot', 'floss', 'spin_jump', 'laugh', 'heart_hands', 'flex']);
+  'dance', 'robot', 'floss', 'spin_jump', 'laugh', 'heart_hands', 'flex', 'backflip', 'air_guitar']);
 const fs = require('fs');
 const path = require('path');
 

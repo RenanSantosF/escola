@@ -12,7 +12,7 @@ const TABS := [["brincadeiras", "Brincadeiras"], ["passe", "Passe do Recreio"], 
 var progression: Progression
 var minigames: Node
 var _tab := "loja"
-var _cat := "camiseta"
+var _cat := "destaques"
 var _selected := ""
 var _content: VBoxContainer
 var _side: VBoxContainer
@@ -117,6 +117,14 @@ func _ready() -> void:
 	UITheme.dark_text(_ad_action)
 	_ad_action.visible = false
 	_side.add_child(_ad_action)
+	# compras com dinheiro de verdade: atualiza a tela e avisa
+	Billing.delivered.connect(func(_t):
+		if visible:
+			_refresh())
+	Billing.purchase_failed.connect(func(t): GameManager.show_toast(t))
+	Billing.premium_changed.connect(func(_on):
+		if visible:
+			_refresh())
 
 
 var from_lobby := false  ## aberto pelo menu (antes de entrar na escola)
@@ -166,7 +174,7 @@ func _refresh() -> void:
 	_tab_buttons["passe"].text = "Passe (%d!)" % pend if pend > 0 else "Passe do Recreio"
 	for c in _content.get_children():
 		c.queue_free()
-	_coins.text = "Moedas: %d  ·  Nível %d" % [GameManager.coins(), GameManager.level()]
+	_coins.text = "Nível %d" % GameManager.level()
 	var show_preview := _tab in ["loja", "visual"]
 	if _tab == "brincadeiras" and not GameManager.overlay_open:
 		pass
@@ -232,11 +240,21 @@ func _build_items(shop: bool) -> void:
 				_refresh())
 			gh.add_child(gb)
 	# categorias (chips grandes)
-	var cats := HFlowContainer.new()
-	cats.add_theme_constant_override("h_separation", 8)
-	cats.add_theme_constant_override("v_separation", 8)
-	_content.add_child(cats)
-	for c in ShopCatalog.CATEGORIES:
+	# categorias numa fileira só, rolando para o lado (sobra espaço para os itens)
+	var cat_scroll := ScrollContainer.new()
+	cat_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	cat_scroll.custom_minimum_size = Vector2(0, 62)
+	cat_scroll.scroll_deadzone = 12
+	_content.add_child(cat_scroll)
+	var cats := HBoxContainer.new()
+	cats.add_theme_constant_override("separation", 8)
+	cat_scroll.add_child(cats)
+	if not shop and _cat in ["destaques", "diamantes"]:
+		_cat = "skin"
+	var cat_list: Array = ShopCatalog.CATEGORIES.duplicate()
+	if shop:
+		cat_list = [["destaques", "Destaques"], ["diamantes", "Diamantes e moedas"]] + cat_list
+	for c in cat_list:
 		if not shop and c[0] in ["gude", "figurinha", "decoracao", "pacote"]:
 			continue
 		var b := Button.new()
@@ -250,6 +268,10 @@ func _build_items(shop: bool) -> void:
 		var col := UITheme.TEAL if on else Color("eef3fa")
 		if cid == "skin" and not on:
 			col = Color("e9ddff")
+		elif cid == "destaques" and not on:
+			col = Color("ffe08a")
+		elif cid == "diamantes" and not on:
+			col = Color("bfe9ff")
 		for st in ["normal", "hover", "pressed", "focus"]:
 			var sb := UITheme.box(col, 26, UITheme.DARK if on else Color(0, 0, 0, 0), 3 if on else 0, 4)
 			sb.content_margin_left = 14
@@ -263,6 +285,12 @@ func _build_items(shop: bool) -> void:
 			_selected = ""
 			_refresh())
 		cats.add_child(b)
+	if shop and _cat == "destaques":
+		_build_featured()
+		return
+	if shop and _cat == "diamantes":
+		_build_money_store()
+		return
 	var grid := GridContainer.new()
 	var avail := get_viewport_rect().size.x - 196.0 - 300.0 - 80.0
 	grid.columns = clampi(int(avail / 214.0), 2, 5)
@@ -292,6 +320,8 @@ func _build_shop_header() -> void:
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	head.add_child(t)
 	head.add_child(_coin_pill(GameManager.coins(), 30))
+	var dp := _diamond_pill(GameManager.diamonds(), 30)
+	head.add_child(dp)
 	# premiado opcional: vídeo -> moedas (só aparece com vídeo pronto; 3 por dia)
 	if AdsManager.can_offer("moedas_extra"):
 		var left := AdsManager.uses_left("moedas_extra")
@@ -378,6 +408,32 @@ func _label(text: String, size: int, col: Color) -> Label:
 	return l
 
 
+func _diamond_pill(amount: int, size := 24) -> Control:
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	var sb := UITheme.box(UITheme.DARK, 24, Color("59c4f5"), 3, 0)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 16
+	for st in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(st, sb)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	h.offset_left = 12
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	b.add_child(h)
+	var di := DiamondIcon.new()
+	di.radius = size * 0.5
+	h.add_child(di)
+	h.add_child(_label("%d  +" % amount, size, Color("bfe9ff")))
+	b.custom_minimum_size = Vector2(130 + str(amount).length() * 16, size + 18)
+	b.pressed.connect(func():
+		_cat = "diamantes"
+		_refresh())
+	return b
+
+
 func _coin_pill(amount: int, size := 24) -> Control:
 	var p := PanelContainer.new()
 	var sb := UITheme.box(UITheme.DARK, 24, Color("ffcf3f"), 3, 0)
@@ -456,6 +512,11 @@ func _card(item: Dictionary, owned: bool, shop := true) -> Control:
 		foot.add_child(_tag("NO PASSE", Color("9b59ff")))
 	elif locked:
 		foot.add_child(_tag("NÍVEL %d" % item.lvl, Color("8a8f99")))
+	elif ShopCatalog.diamonds_of(item) > 0:
+		var di := DiamondIcon.new()
+		di.radius = 13
+		foot.add_child(di)
+		foot.add_child(_label(str(ShopCatalog.diamonds_of(item)), 26, Color("1f6fb0")))
 	elif int(item.price) == 0:
 		foot.add_child(_tag("GRÁTIS", UITheme.GREEN))
 	else:
@@ -573,7 +634,7 @@ func _on_action() -> void:
 		var err := progression.buy(_selected)
 		if err != "":
 			GameManager.show_toast(err)
-		elif item.has("look"):
+		elif item.has("look") or item.has("kart"):
 			progression.equip(_selected)
 	_refresh()
 
@@ -594,6 +655,190 @@ func _row(text: String, sub: String, col := Color("fff8e7")) -> void:
 	v.add_child(b)
 	p.add_child(v)
 	_content.add_child(p)
+
+
+# ------------------------------------------------------------ destaques e loja de diamantes
+
+func _section(t: String, col := Color("ffcf3f")) -> void:
+	var l := UITheme.title_label(t, 30, col)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	l.add_theme_constant_override("outline_size", 8)
+	l.add_theme_color_override("font_outline_color", UITheme.DARK)
+	_content.add_child(l)
+
+
+func _grid_of(ids: Array) -> void:
+	var grid := GridContainer.new()
+	var avail := get_viewport_rect().size.x - 196.0 - 300.0 - 80.0
+	grid.columns = clampi(int(avail / 214.0), 2, 5)
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	_content.add_child(grid)
+	for id in ids:
+		var it := ShopCatalog.get_item(id)
+		if not it.is_empty():
+			grid.add_child(_card(it, Progression.owns(id), true))
+
+
+## Vitrine principal: pacote de boas-vindas, lendários de diamante, novidades e passe.
+func _build_featured() -> void:
+	if not StoreOffers.starter_bought():
+		_content.add_child(_starter_banner())
+	# chamada do passe
+	var pb := UITheme.make_button("PASSE DO RECREIO: skins, emojis animados, karts e diamantes  >", func(): open_tab("passe"), 200)
+	pb.custom_minimum_size = Vector2(0, 64)
+	pb.add_theme_stylebox_override("normal", UITheme.box(Color("9b59ff"), 20, Color("6a2fd6"), 0, 6))
+	pb.add_theme_color_override("font_color", Color.WHITE)
+	pb.add_theme_font_size_override("font_size", 21)
+	_content.add_child(pb)
+	_section("Lendários de diamante", Color("7fe3ff"))
+	_grid_of(["skin_princesa", "skin_cavaleiro", "skin_craque_neon", "aura_dourada", "emo_backflip", "kart_galaxia"])
+	_section("Novidades")
+	_grid_of(["skin_tigre", "skin_rock", "skin_surfista", "cam_estrela", "cam_raio", "kart_chamas", "emo_dance", "emo_robot"])
+	# rodízio diário: 4 itens diferentes por dia
+	_section("Seleção do dia")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("selecao-" + Time.get_date_string_from_system())
+	var pool := ShopCatalog.ITEMS.filter(func(i): return (int(i.get("price", 0)) >= 100 or ShopCatalog.diamonds_of(i) > 0) and not i.get("pass", false) and not i.get("consumable", false))
+	var pick := []
+	while pick.size() < 4 and not pool.is_empty():
+		var it: Dictionary = pool.pop_at(rng.randi() % pool.size())
+		pick.append(it.id)
+	_grid_of(pick)
+
+
+func _starter_banner() -> Control:
+	var st: Dictionary = StoreOffers.STARTER
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(0, 170)
+	for k in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(k, UITheme.box(Color("ff8a1f"), 24, Color("ffd23f"), 5, 8))
+	var h := HBoxContainer.new()
+	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	h.offset_left = 14
+	h.offset_right = -14
+	h.offset_top = 10
+	h.offset_bottom = -10
+	h.add_theme_constant_override("separation", 14)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(h)
+	var ic := ItemIcon.new(ShopCatalog.get_item(str(st.item)))
+	ic.custom_minimum_size = Vector2(190, 140)
+	h.add_child(ic)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(v)
+	var t := _label("PACOTE DE BOAS-VINDAS (só 1 vez!)", 24, Color.WHITE)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(t)
+	var d := _label("Skin lendária Cavaleiro Dourado + %d diamantes + %d moedas" % [int(st.diamonds), int(st.coins)], 20, Color("fff3b0"))
+	d.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(d)
+	var pr := _label(Billing.price_of(str(st.id)), 34, Color.WHITE)
+	pr.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	v.add_child(pr)
+	b.pressed.connect(func(): _confirm_money(str(st.id), "Pacote de Boas-vindas"))
+	return b
+
+
+## Diamantes e moedas com dinheiro de verdade + troca de diamantes por moedas.
+func _build_money_store() -> void:
+	var warn := _label("Compras com dinheiro de verdade: peça para um ADULTO. A compra é feita pela Play Store, com a senha do responsável.", 18, Color("c0392b"))
+	warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_content.add_child(warn)
+	if not StoreOffers.starter_bought():
+		_content.add_child(_starter_banner())
+	_section("Diamantes", Color("7fe3ff"))
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 12)
+	row.add_theme_constant_override("v_separation", 12)
+	_content.add_child(row)
+	for o in StoreOffers.DIAMONDS:
+		row.add_child(_money_card(o, true))
+	_section("Moedas")
+	var row2 := HFlowContainer.new()
+	row2.add_theme_constant_override("h_separation", 12)
+	row2.add_theme_constant_override("v_separation", 12)
+	_content.add_child(row2)
+	for o in StoreOffers.COINS:
+		row2.add_child(_money_card(o, false))
+	_section("Trocar diamantes por moedas")
+	var row3 := HFlowContainer.new()
+	row3.add_theme_constant_override("h_separation", 12)
+	_content.add_child(row3)
+	for i in StoreOffers.EXCHANGE.size():
+		var e: Array = StoreOffers.EXCHANGE[i]
+		var idx := i
+		var eb := UITheme.make_button("%d diamantes  >  %d moedas" % [int(e[0]), int(e[1])], func():
+			if StoreOffers.exchange(idx):
+				GameManager.show_toast("Trocou! +%d moedas" % int(e[1]))
+			else:
+				GameManager.show_toast("Diamantes insuficientes.")
+			_refresh(), 300)
+		eb.disabled = GameManager.diamonds() < int(e[0])
+		row3.add_child(eb)
+
+
+func _money_card(o: Dictionary, dia: bool) -> Control:
+	var b := Button.new()
+	UITheme.dark_text(b)
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(200, 210)
+	var col := Color("bfe9ff") if dia else Color("fff1b8")
+	for k in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(k, UITheme.box(col, 22, Color("2f9be0") if dia else Color("f5b400"), 4, 6))
+	var v := VBoxContainer.new()
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.offset_top = 10
+	v.offset_bottom = -10
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(v)
+	if str(o.get("tag", "")) != "":
+		var tg := _tag(str(o.tag), Color("ff4d6d"))
+		v.add_child(tg)
+	var cc := CenterContainer.new()
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(cc)
+	var hb := HBoxContainer.new()
+	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cc.add_child(hb)
+	var n := 1 + mini(int(o.get("diamonds", o.get("coins", 0))) / 300, 3) if dia else 1 + mini(int(o.get("coins", 0)) / 5000, 3)
+	for i in n:
+		if dia:
+			var di := DiamondIcon.new()
+			di.radius = 22
+			hb.add_child(di)
+		else:
+			var ci := CoinIcon.new()
+			ci.radius = 20
+			hb.add_child(ci)
+	var amount := int(o.get("diamonds", 0)) if dia else int(o.get("coins", 0))
+	v.add_child(_label(str(amount), 36, UITheme.DARK))
+	if int(o.get("bonus", 0)) > 0:
+		v.add_child(_label("+%d de bônus" % int(o.bonus), 18, Color("1f9e4a")))
+	v.add_child(_label(Billing.price_of(str(o.id)), 26, Color("1f6fb0") if dia else Color("b7791f")))
+	b.pressed.connect(func(): _confirm_money(str(o.id), ("%d diamantes" % (amount + int(o.get("bonus", 0)))) if dia else "%d moedas" % amount))
+	return b
+
+
+## Confirmação antes de abrir a compra da Play Store.
+func _confirm_money(id: String, what: String) -> void:
+	var dlg := ConfirmationDialog.new()
+	dlg.title = "Comprar com dinheiro de verdade"
+	dlg.dialog_text = "%s por %s.\n\nPeça para um adulto confirmar.\nA compra é feita pela Play Store." % [what, Billing.price_of(id)]
+	dlg.ok_button_text = "Comprar"
+	dlg.cancel_button_text = "Agora não"
+	add_child(dlg)
+	dlg.confirmed.connect(func():
+		Billing.buy(id)
+		dlg.queue_free())
+	dlg.canceled.connect(dlg.queue_free)
+	dlg.popup_centered()
 
 
 # ------------------------------------------------------------ passe do recreio
@@ -640,7 +885,7 @@ func _build_pass() -> void:
 		buy.add_theme_color_override("font_color", Color.WHITE)
 		head.add_child(buy)
 	if not RecessPass.is_premium():
-		var why := _label("Com o passe: 4 skins exclusivas, 7 emojis ANIMADOS, 6 efeitos e mais de 1.800 moedas!", 20, Color("7b3fe0"))
+		var why := _label("Com o passe: 4 skins exclusivas, 9 emojis ANIMADOS, 6 efeitos, 2 karts exclusivos, 115 diamantes e 1.150 moedas!", 20, Color("7b3fe0"))
 		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_content.add_child(why)
 	# trilhas: premium em cima, grátis embaixo (rola para o lado)
@@ -668,8 +913,58 @@ func _build_pass() -> void:
 	get_tree().process_frame.connect(func():
 		if is_instance_valid(sc):
 			sc.scroll_horizontal = maxi((first_open - 2) * 170, 0), CONNECT_ONE_SHOT)
+	_build_challenges()
 	if Billing.can_test() and not RecessPass.is_premium():
 		_content.add_child(_label("(versão de desenvolvimento: \"Comprar\" ativa o passe de teste)", 14, Color("8a8f99")))
+
+
+## Desafios da semana: cada um dá XP do passe (é jogando que se libera os prêmios).
+func _build_challenges() -> void:
+	_section("Desafios da semana (dão XP do passe)", Color("c9a8ff"))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	_content.add_child(grid)
+	var list := RecessPass.challenges()
+	for i in list.size():
+		var e: Dictionary = list[i]
+		var prog := RecessPass.challenge_progress(e)
+		var done: bool = prog >= int(e.target)
+		var p := PanelContainer.new()
+		p.custom_minimum_size = Vector2(330, 0)
+		p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		p.add_theme_stylebox_override("panel", UITheme.box(Color("efe4ff") if not bool(e.claimed) else Color("dcdce4"), 16, Color("9b59ff") if done and not bool(e.claimed) else Color(0, 0, 0, 0), 3, 3))
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 8)
+		p.add_child(h)
+		var v := VBoxContainer.new()
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(v)
+		var l := _label(str(e.desc) % int(e.target), 18, UITheme.DARK)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(l)
+		var bar := ProgressBar.new()
+		bar.max_value = float(e.target)
+		bar.value = float(prog)
+		bar.show_percentage = false
+		bar.custom_minimum_size = Vector2(0, 14)
+		bar.add_theme_stylebox_override("background", UITheme.box(Color("d9d2ea"), 7))
+		bar.add_theme_stylebox_override("fill", UITheme.box(Color("9b59ff"), 7))
+		v.add_child(bar)
+		var info := _label("%d/%d  ·  +%d XP" % [prog, int(e.target), int(e.xp)], 15, Color("5b6b8c"))
+		info.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		v.add_child(info)
+		if bool(e.claimed):
+			h.add_child(_tag("FEITO", Color("8a8f99")))
+		elif done:
+			var idx := i
+			var cb := UITheme.make_button("Pegar XP", func():
+				if RecessPass.claim_challenge(idx):
+					GameManager.show_toast("+%d XP do passe!" % int(e.xp))
+				_refresh(), 140)
+			h.add_child(cb)
 
 
 func _pass_cell(track: String, tier_i: int) -> Control:
@@ -695,6 +990,8 @@ func _pass_cell(track: String, tier_i: int) -> Control:
 		txt = str(icon_item.get("name", ""))
 	elif r.has("coins"):
 		txt = "%d moedas" % int(r.coins)
+	elif r.has("diamonds"):
+		txt = "%d diamantes" % int(r.diamonds)
 	else:
 		var pk: Dictionary = r.packs
 		txt = "%d pacote(s)" % int(pk.values()[0])
@@ -704,6 +1001,11 @@ func _pass_cell(track: String, tier_i: int) -> Control:
 		ic.position = Vector2(8, 8)
 		ic.size = Vector2(144, 96)
 		b.add_child(ic)
+	elif r.has("diamonds"):
+		var di := DiamondIcon.new()
+		di.radius = 32
+		di.position = Vector2(46, 20)
+		b.add_child(di)
 	else:
 		var ci := CoinIcon.new()
 		ci.radius = 30

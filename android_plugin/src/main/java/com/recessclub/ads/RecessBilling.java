@@ -10,6 +10,7 @@ import com.android.billingclient.api.BillingClient;
 import com.android.billingclient.api.BillingClientStateListener;
 import com.android.billingclient.api.BillingFlowParams;
 import com.android.billingclient.api.BillingResult;
+import com.android.billingclient.api.ConsumeParams;
 import com.android.billingclient.api.PendingPurchasesParams;
 import com.android.billingclient.api.ProductDetails;
 import com.android.billingclient.api.Purchase;
@@ -22,9 +23,12 @@ import org.godotengine.godot.plugin.GodotPlugin;
 import org.godotengine.godot.plugin.SignalInfo;
 import org.godotengine.godot.plugin.UsedByGodot;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -36,6 +40,8 @@ public class RecessBilling extends GodotPlugin implements PurchasesUpdatedListen
     private static final String TAG = "RecessBilling";
     private BillingClient client;
     private ProductDetails details;
+    /** Produtos avulsos (diamantes, moedas): id -> detalhes. */
+    private final Map<String, ProductDetails> inapp = new HashMap<>();
 
     public RecessBilling(Godot godot) {
         super(godot);
@@ -131,6 +137,60 @@ public class RecessBilling extends GodotPlugin implements PurchasesUpdatedListen
                 .setProductDetails(details).setOfferToken(offers.get(0).getOfferToken()).build();
         BillingFlowParams fp = BillingFlowParams.newBuilder().setProductDetailsParamsList(Collections.singletonList(pd)).build();
         a.runOnUiThread(() -> client.launchBillingFlow(a, fp));
+    }
+
+    /** Produtos avulsos, ids separados por vírgula. Responde product_info para cada um. */
+    @UsedByGodot
+    public void query_inapp(String idsCsv) {
+        if (client == null || !client.isReady()) return;
+        List<QueryProductDetailsParams.Product> list = new ArrayList<>();
+        for (String id : idsCsv.split(",")) {
+            if (id.trim().isEmpty()) continue;
+            list.add(QueryProductDetailsParams.Product.newBuilder().setProductId(id.trim())
+                    .setProductType(BillingClient.ProductType.INAPP).build());
+        }
+        if (list.isEmpty()) return;
+        client.queryProductDetailsAsync(QueryProductDetailsParams.newBuilder().setProductList(list).build(), (r, found) -> {
+            if (r.getResponseCode() != BillingClient.BillingResponseCode.OK) return;
+            for (ProductDetails d : found) {
+                inapp.put(d.getProductId(), d);
+                ProductDetails.OneTimePurchaseOfferDetails o = d.getOneTimePurchaseOfferDetails();
+                emit("product_info", d.getProductId(), o != null ? o.getFormattedPrice() : "");
+            }
+        });
+    }
+
+    @UsedByGodot
+    public void purchase_inapp(String productId) {
+        Activity a = getActivity();
+        ProductDetails d = inapp.get(productId);
+        if (client == null || !client.isReady() || a == null || d == null) {
+            emit("purchase_failed", -1, "loja indisponível");
+            return;
+        }
+        BillingFlowParams.ProductDetailsParams pd = BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(d).build();
+        BillingFlowParams fp = BillingFlowParams.newBuilder().setProductDetailsParamsList(Collections.singletonList(pd)).build();
+        a.runOnUiThread(() -> client.launchBillingFlow(a, fp));
+    }
+
+    /** Diamantes/moedas já entregues: consome a compra (pode comprar de novo). */
+    @UsedByGodot
+    public void consume(String token) {
+        if (client == null || !client.isReady()) return;
+        client.consumeAsync(ConsumeParams.newBuilder().setPurchaseToken(token).build(),
+                (r, t) -> Log.d(TAG, "consume " + r.getResponseCode()));
+    }
+
+    /** Compras avulsas que ficaram sem entregar (o app fechou no meio). */
+    @UsedByGodot
+    public void query_inapp_purchases() {
+        if (client == null || !client.isReady()) return;
+        client.queryPurchasesAsync(QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build(),
+                (r, list) -> {
+                    if (r.getResponseCode() == BillingClient.BillingResponseCode.OK) {
+                        for (Purchase p : list) report(p);
+                    }
+                });
     }
 
     @UsedByGodot

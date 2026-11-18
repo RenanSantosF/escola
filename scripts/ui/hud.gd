@@ -300,7 +300,7 @@ func set_meter(value: float) -> void:
 func _update_wallet() -> void:
 	var p: Dictionary = SaveManager.section("player")
 	var lv := int(p.get("level", 1))
-	_wallet.text = "Nível %d   ·   %d moedas" % [lv, int(p.get("coins", 0))]
+	_wallet.text = "Nível %d   ·   %d moedas   ·   %d diamantes" % [lv, int(p.get("coins", 0)), int(p.get("diamonds", 0))]
 
 
 func show_banner(title: String, subtitle := "", hold := 2.2) -> void:

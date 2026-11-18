@@ -17,6 +17,18 @@ func _ready() -> void:
 	GameManager.add_rewards(5000, 3000)
 	var pm: ProfileMenu = main.hud.profile_menu if "profile_menu" in main.hud else get_tree().root.find_children("*", "ProfileMenu", true, false)[0]
 	pm.open_tab("loja")
+	pm._cat = "destaques"
+	pm._refresh()
+	await _snap("loja_destaques")
+	pm._cat = "diamantes"
+	pm._refresh()
+	await _snap("loja_diamantes")
+	pm._cat = "kart"
+	pm._refresh()
+	await _snap("loja_karts")
+	var sc0 := ItemShowcase.open(pm, pm, "skin_princesa")
+	await _snap("vitrine_princesa", 50)
+	sc0.queue_free()
 	pm._cat = "emote"
 	pm._refresh()
 	await _snap("loja_emojis")

@@ -159,13 +159,23 @@ func _build_info() -> void:
 		var eq: bool = menu.progression.is_equipped(item_id) if menu and menu.progression else false
 		status.text = "Este item é seu!"
 		status.add_theme_color_override("font_color", UITheme.GREEN)
-		_act_btn.text = "Vestindo" if eq else ("Usar" if it.has("look") or it.has("vehicle") else "Já é seu")
-		_act_btn.disabled = eq or not (it.has("look") or it.has("vehicle"))
+		var usable: bool = it.has("look") or it.has("vehicle") or it.has("kart")
+		_act_btn.text = ("Usando" if eq else ("Usar" if usable else "Já é seu"))
+		_act_btn.disabled = eq or not usable
 	elif it.get("pass", false):
 		var t := _pass_tier(item_id)
 		status.text = "Ganhe no PASSE DO RECREIO" + (" (nível %d)" % t if t > 0 else "")
 		status.add_theme_color_override("font_color", Color("9b59ff"))
 		_act_btn.text = "Ver o Passe"
+	elif ShopCatalog.diamonds_of(it) > 0:
+		var dia := ShopCatalog.diamonds_of(it)
+		status.text = "%d diamantes" % dia
+		status.add_theme_color_override("font_color", Color("1f6fb0"))
+		if GameManager.diamonds() >= dia:
+			_act_btn.text = "Comprar com diamantes"
+		else:
+			status.text += "  (você tem %d)" % GameManager.diamonds()
+			_act_btn.text = "Conseguir diamantes"
 	else:
 		var price := ShopCatalog.price_of(it)
 		var lvl_ok := GameManager.level() >= int(it.get("lvl", 1))
@@ -199,6 +209,7 @@ func _auto_desc(it: Dictionary) -> String:
 		"penteado": return "Mude o visual do cabelo."
 		"decoracao": return "Enfeite para a sua carteira da sala."
 		"veiculo": return "Ande pelo pátio bem mais rápido!"
+		"kart": return "Pintura do seu kart na Corrida de Kart (os colegas online também veem)."
 	return ""
 
 
@@ -261,6 +272,14 @@ func _on_act() -> void:
 		queue_free()
 		if menu:
 			menu.open_tab("passe")
+		return
+	if ShopCatalog.diamonds_of(it) > 0 and not Progression.owns(item_id) and GameManager.diamonds() < ShopCatalog.diamonds_of(it):
+		done.emit()
+		queue_free()
+		if menu:
+			menu.open_tab("loja")
+			menu._cat = "diamantes"
+			menu._refresh()
 		return
 	if menu:
 		menu._selected = item_id

@@ -11,6 +11,7 @@ const FX := {
 	"laugh": ["laugh", Color("ffd23f"), "shake"], "heart_hands": ["heart", Color("ff3b6b"), "pulse"],
 	"flex": ["crown", Color("ffcf3f"), "pop"], "celebrate": ["star", Color("ffd23f"), "pop"],
 	"clap": ["sparkle", Color("ffe680"), "pulse"],
+	"backflip": ["star", Color("ff8a1f"), "spin"], "air_guitar": ["notes", Color("4fc3ff"), "bounce"],
 }
 static var _tex := {}
 
@@ -147,6 +148,10 @@ static func icon(kind: String, c: Color) -> ImageTexture:
 			_poly(img, cr2, c)
 			for o in [Vector2(-18, 14), Vector2(0, 14), Vector2(18, 14)]:
 				_disk(img, C + o, 5, Color("e53935"))
+		"bubble":
+			_ring(img, C, 40, 6, Color(c.r, c.g, c.b, 0.95))
+			_ring(img, C + Vector2(0, 40), 40, 6, Color(c.r, c.g, c.b, 0.95))
+			_disk(img, C + Vector2(-14, -16), 7, Color(1, 1, 1, 0.9))
 		"rainbow":
 			var cols := [Color("e53935"), Color("ff8a1f"), Color("ffd23f"), Color("27ae60"), Color("2f80ed"), Color("8e44ad")]
 			for i in cols.size():

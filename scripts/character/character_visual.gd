@@ -52,7 +52,17 @@ const AURAS := {
 	"estrelas": [Color("ffd23f"), "star", 1.0], "coracoes": [Color("ff3b6b"), "heart", 0.8],
 	"fogo": [Color("ff7a1a"), "fire", 1.6], "neve": [Color("dff3ff"), "snow", -0.5],
 	"arco_iris": [Color.WHITE, "rainbow", 1.0], "raio": [Color("4fc3ff"), "bolt", 1.2],
+	"dourada": [Color("ffcf3f"), "sparkle", 1.2], "bolhas": [Color("bfe9ff"), "bubble", 0.6],
+	"notas": [Color("ff6fae"), "notes", 0.9],
 }
+
+
+## Figura das partículas de cada aura.
+static func aura_icon(kind: String) -> ImageTexture:
+	var cfg: Array = AURAS.get(kind, [Color.WHITE, "star", 1.0])
+	var ik: String = {"star": "star", "heart": "heart", "fire": "sparkle", "snow": "sparkle", "rainbow": "star", "bolt": "bolt",
+		"sparkle": "sparkle", "bubble": "bubble", "notes": "notes"}.get(cfg[1], "star")
+	return EmoteFX.icon(ik, cfg[0])
 
 
 func _update_aura() -> void:
@@ -106,8 +116,7 @@ func _update_aura() -> void:
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.vertex_color_use_as_albedo = true
-	var icon_kind: String = {"star": "star", "heart": "heart", "fire": "sparkle", "snow": "sparkle", "rainbow": "star", "bolt": "bolt"}[cfg[1]]
-	m.albedo_texture = EmoteFX.icon(icon_kind, cfg[0])
+	m.albedo_texture = aura_icon(kind)
 	q.material = m
 	_aura.draw_pass_1 = q
 	_aura.position = Vector3(0, 0.1, 0)

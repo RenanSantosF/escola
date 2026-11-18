@@ -71,8 +71,9 @@ func setup(p: PlayerController, w: SchoolWorld, m: NPCManager, day: SchoolDay, m
 		inv.owned.append("skin_nenhuma")
 	if not "emo_wave" in inv.owned:
 		inv.owned.append("emo_wave")
-	if not "aura_nenhuma" in inv.owned:
-		inv.owned.append("aura_nenhuma")
+	for base_id in ["aura_nenhuma", "kart_padrao"]:
+		if not base_id in inv.owned:
+			inv.owned.append(base_id)
 	day.phase_changed.connect(func(ph):
 		if ph == SchoolDay.Phase.ARRIVAL:
 			ensure_daily(day.day))
@@ -127,6 +128,16 @@ func buy(id: String) -> String:
 		return "Você já tem este item."
 	if item.get("pass", false):
 		return "Exclusivo do Passe do Recreio!"
+	var dia := ShopCatalog.diamonds_of(item)
+	if dia > 0:
+		if not GameManager.spend_diamonds(dia):
+			return "Diamantes insuficientes."
+		Telemetry.track("purchase", {"item": id, "name": str(item.get("name", id)), "price": 0, "diamonds": dia, "category": str(item.cat)})
+		inventory().owned.append(id)
+		AudioManager.play_ui("celebrate", -4.0)
+		inventory_changed.emit()
+		SaveManager.save_game()
+		return ""
 	var price := ShopCatalog.price_of(item)
 	if not GameManager.spend_coins(price):
 		return "Moedas insuficientes."
@@ -196,6 +207,11 @@ func _grant_bundle(item: Dictionary) -> void:
 
 func equip(id: String) -> void:
 	var item := ShopCatalog.get_item(id)
+	if item.has("kart") and owns(id):
+		inventory().equipped["kart"] = id
+		apply_wardrobe()
+		inventory_changed.emit()
+		return
 	if item.has("vehicle") and owns(id):
 		inventory().equipped["veiculo"] = id
 		player.set_vehicle(item.vehicle)
@@ -226,16 +242,28 @@ static func appearance_with(extra_ids: Array = []) -> CharacterAppearance:
 	if not saved.is_empty():
 		d.merge(saved, true)
 	var eq: Dictionary = inventory().get("equipped", {})
+	d["shirt_pattern"] = ""
 	for slot in eq.keys():
 		if slot != "skin":
-			d.merge(ShopCatalog.get_item(eq[slot]).get("look", {}), true)
+			_merge_look(d, ShopCatalog.get_item(eq[slot]).get("look", {}))
 	var skin_look: Dictionary = ShopCatalog.get_item(str(eq.get("skin", ""))).get("look", {})
 	var preview_clothes := extra_ids.any(func(x): return ShopCatalog.get_item(x).cat in ["camiseta", "calca", "calcado", "mochila", "bone"])
 	if not preview_clothes:
-		d.merge(skin_look, true)
+		_merge_look(d, skin_look)
 	for id in extra_ids:
-		d.merge(ShopCatalog.get_item(id).get("look", {}), true)
+		_merge_look(d, ShopCatalog.get_item(id).get("look", {}))
+	d["kart"] = str(eq.get("kart", "kart_padrao"))
+	for id in extra_ids:
+		if ShopCatalog.get_item(id).has("kart"):
+			d["kart"] = id
 	return CharacterAppearance.from_dict(d)
+
+
+## Camiseta nova sem estampa tira a estampa da anterior.
+static func _merge_look(d: Dictionary, look: Dictionary) -> void:
+	if look.has("shirt_color") and not look.has("shirt_pattern"):
+		d["shirt_pattern"] = ""
+	d.merge(look, true)
 
 
 func apply_wardrobe() -> void:

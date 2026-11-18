@@ -41,6 +41,10 @@ var build := 1.0  # 0.9 magro .. 1.15 forte
 var girl := false
 ## Aura (efeito lendário/do passe): "", "estrelas", "coracoes", "fogo", "neve", "arco_iris", "raio".
 var aura := ""
+## Estampa da camiseta: "", "listras", "xadrez", "faixa", "raio", "degrade", "estrela".
+var shirt_pattern := ""
+## Pintura do kart (id do item da loja).
+var kart := "kart_padrao"
 
 
 func to_dict() -> Dictionary:
@@ -52,7 +56,7 @@ func to_dict() -> Dictionary:
 		"sock_color": sock_color.to_html(false), "shoe_color": shoe_color.to_html(false),
 		"shoe_sole": shoe_sole.to_html(false), "backpack": backpack,
 		"backpack_color": backpack_color.to_html(false), "cap": cap, "cap_color": cap_color.to_html(false),
-		"glasses": glasses, "height_scale": height_scale, "build": build, "girl": girl, "aura": aura,
+		"glasses": glasses, "height_scale": height_scale, "build": build, "girl": girl, "aura": aura, "shirt_pattern": shirt_pattern, "kart": kart,
 	}
 
 
