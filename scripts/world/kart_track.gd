@@ -78,7 +78,10 @@ static func _build_points() -> void:
 			var t := float(j) / k
 			var t2 := t * t
 			var t3 := t2 * t
-			out.append(0.5 * ((2.0 * p1) + (-p0 + p2) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2 + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3))
+			var q: Vector3 = 0.5 * ((2.0 * p1) + (-p0 + p2) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2 + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3)
+			# a curva suave às vezes "afunda" um pouco: nunca abaixo do chão
+			q.y = maxf(q.y, maxf(ParkHill.height(q.x, q.z), 0.0))
+			out.append(q)
 	_pts = out
 	_cum.resize(out.size() + 1)
 	var acc := 0.0
@@ -139,7 +142,12 @@ static func curve_at(s: float) -> float:
 
 
 static func width_at(s: float) -> float:
-	return WIDTH_BRIDGE if pos_at(s).y > BRIDGE_Y - 0.5 else WIDTH
+	return _width_y(pos_at(s).y)
+
+
+## Largura conforme a altura: estreita aos poucos ao subir para o viaduto.
+static func _width_y(y: float) -> float:
+	return lerpf(WIDTH, WIDTH_BRIDGE, clampf((y - (BRIDGE_Y - 2.0)) / 1.5, 0.0, 1.0))
 
 
 ## Ponto no mundo para (s, d): d > 0 = para a direita.
@@ -168,49 +176,74 @@ static func build(b: SchoolBuilder) -> void:
 	var deco := b.chunk("kart_deco", 160.0)
 	road.cast_shadows = false
 	var n := pts.size()
+	# bordas da pista em cada ponto (faixa contínua: sem frestas nas curvas)
+	var rights: Array[Vector3] = []
+	var widths: Array[float] = []
+	for i in n:
+		var d := (pts[(i + 1) % n] - pts[(i - 1 + n) % n])
+		d.y = 0.0
+		d = d.normalized()
+		rights.append(Vector3(-d.z, 0, d.x))
+		widths.append(_width_y(pts[i].y))
+	var up := Vector3.UP
 	var s := 0.0
 	for i in n:
+		var j := (i + 1) % n
 		var a := pts[i]
-		var c := pts[(i + 1) % n]
+		var c := pts[j]
+		var ra: Vector3 = rights[i]
+		var rc: Vector3 = rights[j]
+		var wa: float = widths[i] * 0.5
+		var wc: float = widths[j] * 0.5
 		var seg := a.distance_to(c)
 		var mid := (a + c) * 0.5
 		var dir := (c - a).normalized()
 		var yaw := atan2(dir.x, dir.z)
 		var pitch := -atan2(dir.y, Vector2(dir.x, dir.z).length())
 		var basis := Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
-		var right := basis.x
 		var bridge := a.y > BRIDGE_Y - 0.5
-		var w := WIDTH_BRIDGE if bridge else WIDTH
-		# asfalto (mais claro na largada) e faixas laterais zebradas
+		var lift := Vector3(0, 0.1, 0)
+		# asfalto (duas tonalidades) e zebras vermelho/branco nas bordas
 		var asphalt := Color("4b4f57") if (i / 3) % 2 == 0 else Color("50545c")
-		road.box_xf("asphalt", Transform3D(basis, mid + Vector3(0, 0.035, 0)), Vector3(w, 0.06, seg + 0.08), asphalt)
+		road.quad("asphalt", a - ra * wa + lift, a + ra * wa + lift, c + rc * wc + lift, c - rc * wc + lift, asphalt, up)
 		var zebra := Color("e53935") if (i / 2) % 2 == 0 else Color("f4f7fa")
+		var zl := Vector3(0, 0.12, 0)
 		for sd: float in [-1.0, 1.0]:
-			road.box_xf("plain", Transform3D(basis, mid + right * sd * (w * 0.5 - 0.35) + Vector3(0, 0.075, 0)), Vector3(0.7, 0.04, seg + 0.08), zebra)
+			road.quad("plain", a + ra * sd * wa + zl, a + ra * sd * (wa - 0.7) + zl, c + rc * sd * (wc - 0.7) + zl, c + rc * sd * wc + zl, zebra, up)
 		# faixa central tracejada
-		if (i / 2) % 3 == 0:
-			road.box_xf("plain", Transform3D(basis, mid + Vector3(0, 0.07, 0)), Vector3(0.18, 0.03, seg * 0.9), Color("f2d64b"))
+		if i % 3 == 0:
+			road.box_xf("plain", Transform3D(basis, mid + Vector3(0, 0.11, 0)), Vector3(0.18, 0.03, seg * 0.9), Color("f2d64b"))
 		if bridge:
 			# viaduto: laje grossa + guard-rail dos dois lados
-			road.box_xf("concrete", Transform3D(basis, mid + Vector3(0, -0.45, 0)), Vector3(w + 0.6, 0.8, seg + 0.08), Color("b7bcc4"))
+			road.box_xf("concrete", Transform3D(basis, mid + Vector3(0, -0.45, 0)), Vector3(wa * 2.0 + 0.6, 0.8, seg + 0.3), Color("b7bcc4"))
 			for sd: float in [-1.0, 1.0]:
-				road.box_xf("metal", Transform3D(basis, mid + right * sd * (w * 0.5 + 0.15) + Vector3(0, 0.55, 0)), Vector3(0.12, 0.22, seg + 0.08), Color("dfe6ee"))
-				road.box_xf("paint", Transform3D(basis, mid + right * sd * (w * 0.5 + 0.15) + Vector3(0, 0.25, 0)), Vector3(0.25, 0.4, seg + 0.08), Color("2f5fa8") if (i / 4) % 2 == 0 else Color("ffd23f"))
+				road.box_xf("metal", Transform3D(basis, mid + rights[i] * sd * (wa + 0.15) + Vector3(0, 0.55, 0)), Vector3(0.12, 0.22, seg + 0.3), Color("dfe6ee"))
+				road.box_xf("paint", Transform3D(basis, mid + rights[i] * sd * (wa + 0.15) + Vector3(0, 0.25, 0)), Vector3(0.25, 0.4, seg + 0.3), Color("2f5fa8") if (i / 4) % 2 == 0 else Color("ffd23f"))
 		else:
-			# muretas com pneus nas bordas
+			# muretas contínuas (faces de dentro, de fora e de cima)
+			var mc := Color("ecf0f1") if (i / 3) % 2 == 0 else Color("e53935")
 			for sd: float in [-1.0, 1.0]:
-				road.box_xf("concrete", Transform3D(basis, mid + right * sd * (w * 0.5 + 0.35) + Vector3(0, 0.35, 0)), Vector3(0.3, 0.7, seg + 0.08), Color("ecf0f1") if (i / 3) % 2 == 0 else Color("e53935"))
-			# aterro embaixo das partes altas (morrinhos e rampa)
-			if a.y > 0.25:
-				road.box_xf("grass", Transform3D(basis, mid + Vector3(0, -a.y * 0.5 + 0.02, 0)), Vector3(w + 1.4, a.y, seg + 0.1), Color("7cb36b"))
+				var ia := a + ra * sd * (wa + 0.2)
+				var ic := c + rc * sd * (wc + 0.2)
+				var oa := a + ra * sd * (wa + 0.5)
+				var oc := c + rc * sd * (wc + 0.5)
+				var hh := Vector3(0, 0.75, 0)
+				road.quad("concrete", ia, ic, ic + hh, ia + hh, mc, -ra * sd)
+				road.quad("concrete", oa, oa + hh, oc + hh, oc, mc, ra * sd)
+				road.quad("concrete", ia + hh, ic + hh, oc + hh, oa + hh, mc.lightened(0.1), up)
+				# barranco gramado embaixo das partes altas (morrinhos e rampa)
+				if a.y > 0.15 or c.y > 0.15:
+					var fa := Vector3(oa.x, 0.0, oa.z) + ra * sd * (a.y * 1.3)
+					var fc := Vector3(oc.x, 0.0, oc.z) + rc * sd * (c.y * 1.3)
+					road.quad("grass", oa, fa, fc, oc, Color("7cb36b"), (ra * sd + up).normalized())
 		# pilares do viaduto/rampa (a cada ~12 m)
 		if a.y > 1.2 and int(s / 12.0) != int((s + seg) / 12.0):
 			var px := Vector3(mid.x, 0.0, mid.z)
 			var gate := absf(mid.x) < 7.5 and absf(mid.z - 75.0) < 6.0
 			var car_gate := mid.x > 38.0 and mid.x < 49.0 and absf(mid.z - 75.0) < 6.0
-			if not gate and not car_gate:
+			if bridge and not gate and not car_gate:
 				for sd: float in [-1.0, 1.0]:
-					var pp: Vector3 = px + right * sd * (w * 0.5 - 1.0)
+					var pp: Vector3 = px + rights[i] * sd * (wa - 1.0)
 					deco.cylinder("concrete", pp + Vector3(0, (a.y - 0.8) * 0.5, 0), 0.35, 0.4, a.y - 0.8, Color("c8cdd4"), 10)
 					deco.collider(pp + Vector3(0, (a.y - 0.8) * 0.5, 0), Vector3(0.8, a.y - 0.8, 0.8))
 		s += seg

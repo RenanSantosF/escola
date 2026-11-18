@@ -2257,6 +2257,14 @@ func _test_portas() -> void:
 	check(mid_out.z < 46.2 or mid_out.y > 1.0, "escada externa do Bloco C: não dá para entrar por baixo/dentro dela", str(mid_out.snapped(Vector3.ONE * 0.1)))
 	var top_in := await _walk_through(Vector3(-66.3, 0.1, 23.6), Vector3(-80, 0, 23.6), 4.0)
 	check(top_in.y > 3.3, "escada interna do Bloco C: sobe", str(top_in.snapped(Vector3.ONE * 0.1)))
+	# e DESCE (saindo do Laboratório de Química pelo corredor do 1º andar)
+	var down_in := await _walk_through(Vector3(-75.0, 3.95, 23.6), Vector3(-60, 0, 23.6), 4.5)
+	check(down_in.y < 0.6, "escada interna do Bloco C: desce do 1º andar", str(down_in.snapped(Vector3.ONE * 0.1)))
+	# do meio do Laboratório de Química (1º andar) até o térreo pela escada interna
+	var p1 := await _walk_through(Vector3(-81.5, 3.95, 31.5), Vector3(-70.0, 3.95, 31.5), 3.0)
+	var p2 := await _walk_through(p1 + Vector3(0, 0.1, 0), Vector3(p1.x, p1.y, 20.0), 2.5)
+	var p3 := await _walk_through(p2 + Vector3(0, 0.1, 0), Vector3(-60.0, 0.0, p2.z), 5.0)
+	check(p3.y < 0.6, "escada interna: do Lab. de Química até o térreo andando", "%s -> %s -> %s" % [str(p1.snapped(Vector3.ONE * 0.1)), str(p2.snapped(Vector3.ONE * 0.1)), str(p3.snapped(Vector3.ONE * 0.1))])
 
 
 
@@ -2635,14 +2643,25 @@ func _test_passe_loja() -> void:
 	# preços: emojis animados caros na loja
 	var anim := ShopCatalog.EMOTES.filter(func(e): return e.get("animated", false) and not e.get("pass", false))
 	check(not anim.is_empty() and anim.all(func(e): return int(e.price) >= 800), "loja: emojis animados são caros fora do passe")
-	# vitrine grande
-	main.profile_menu.open_tab("loja")
-	var sc := ItemShowcase.open(main.profile_menu, main.profile_menu, "skin_galaxia")
-	await _frames(3)
-	check(sc._stage != null and sc._stage.size.x > 400.0, "loja: vitrine em tela cheia com o personagem grande (%.0f px)" % sc._stage.size.x)
-	sc._cmp_btn.pressed.emit()
-	check(sc._before, "loja: botão antes/depois")
-	sc.queue_free()
+	# loja nova: tocar no item mostra o personagem usando ao lado (sem abrir outra tela)
+	var pmn: ProfileMenu = main.profile_menu
+	pmn.open_tab("loja")
+	pmn._cat = "skin"
+	pmn._refresh()
+	await _frames(2)
+	var cards := pmn._content.find_children("*", "Button", true, false).filter(func(b): return b.custom_minimum_size == Vector2(192, 214))
+	check(cards.size() > 3, "loja: cartões de skins")
+	if not cards.is_empty():
+		(cards[1] as Button).pressed.emit()
+		await _frames(3)
+	check(pmn._selected != "" and pmn._side_panel.visible and pmn._stage.visible, "loja: item escolhido aparece na vitrine do lado (%s)" % pmn._selected)
+	check(pmn.find_children("*", "ItemShowcase", true, false).is_empty(), "loja: não abre outra tela para ver o item")
+	check(pmn._item_name.text != "" and pmn._action.visible, "loja: nome e botão de comprar/usar na vitrine")
+	pmn._cat = "kart"
+	pmn._selected = "kart_campeao"
+	pmn._refresh()
+	await _frames(2)
+	check(pmn._kart_stage.visible and not pmn._stage.visible and pmn._action.text == "Ver no Passe", "loja: kart do passe aparece girando na vitrine, botão leva ao passe")
 	main.profile_menu.open_tab("passe")
 	await _frames(2)
 	check(main.profile_menu._content.find_children("*", "ItemIcon", true, false).size() > 10, "passe: tela do passe com os prêmios desenhados")
@@ -2665,6 +2684,25 @@ func _test_kart() -> void:
 			outside += 1
 	check(ymax > 7.0 and ymin < 0.5, "kart: tem subida e descida (viaduto de %.1f m)" % ymax)
 	check(outside > KartTrack.points().size() * 0.6, "kart: dá a volta POR FORA do muro da escola (terreno aumentado)")
+	# nenhum pedaço da pista ou do trilho da montanha-russa dentro do chão
+	var buried := 0
+	var sk := 0.0
+	while sk < KartTrack.length():
+		var kp := KartTrack.pos_at(sk)
+		for dd in [-5.0, 0.0, 5.0]:
+			var q: Vector3 = kp + KartTrack.right_at(sk) * dd
+			if maxf(ParkHill.height(q.x, q.z), 0.0) > kp.y + 0.02:
+				buried += 1
+		sk += 2.0
+	check(buried == 0, "kart: a pista nunca fica dentro do chão (%d pontos)" % buried)
+	var under := 0
+	var sc := 0.0
+	while sc < CoasterTrack.length():
+		var f := CoasterTrack.frame_at(sc)
+		if f.origin.y - 0.3 < maxf(ParkHill.height(f.origin.x, f.origin.z), 0.0) + 0.15:
+			under += 1
+		sc += 1.0
+	check(under == 0, "montanha-russa: o trilho nunca passa dentro do morro (%d pontos)" % under)
 	var res := []
 	var rc := func(r): res.append(r)
 	mm.game_finished.connect(rc)
@@ -3209,9 +3247,14 @@ func _test_montanha_russa(coaster: CoasterRide) -> void:
 	coaster._local_offset += coaster.state().left + 0.1
 	await _frames(3)
 	check(coaster.riding and not coaster.queued, "montanha-russa: o trem chegou e quem estava na fila embarcou")
-	check(coaster._cam_btn != null, "montanha-russa: botão de 1ª pessoa aparece")
+	check(coaster._cam_btn != null and coaster.first_person, "montanha-russa: já começa em 1ª pessoa (com botão para ver de fora)")
+	var ev := InputEventScreenDrag.new()
+	ev.relative = Vector2(-120, 0)
+	coaster._unhandled_input(ev)
+	check(absf(coaster._look_yaw) > 0.3, "montanha-russa: arrastar o dedo gira a câmera para olhar em volta")
 	coaster._cam_btn.pressed.emit()
-	check(coaster.first_person, "montanha-russa: 1ª pessoa ligada")
+	check(not coaster.first_person, "montanha-russa: botão troca para ver de fora")
+	coaster._cam_btn.pressed.emit()
 	# pula para o meio do looping: a criança fica de cabeça para baixo junto
 	var inv: Array = CoasterTrack.inversions[0]
 	var tau := 0.0

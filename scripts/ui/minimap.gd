@@ -17,6 +17,7 @@ var view_radius := 34.0
 var full := false
 var _font: Font
 var _zones: Array = []
+var _track_pts := PackedVector2Array()
 var _shapes: Array = []
 var _lot := Rect2(-90, -75, 180, 150)
 var _timer := 0.0
@@ -66,6 +67,7 @@ func _capture_aerial() -> void:
 	cam.size = area.size.y
 	cam.near = 1.0
 	cam.far = 400.0
+	cam.cull_mask = 0xFFFFF & ~SchoolWorld.MAP_HIDDEN_LAYER  # sem a pista do kart (vira linha no mapa)
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color("5f9e4f")
@@ -150,6 +152,7 @@ func _draw() -> void:
 		draw_texture_rect_region(_aerial, bg, src)
 	else:
 		_draw_zones(center, scale, bg)
+	_draw_kart_track(center, scale)
 	# vinheta suave nas bordas do minimapa
 	if not full:
 		draw_rect(bg, Color(0.05, 0.08, 0.18, 0.12))
@@ -207,6 +210,21 @@ func _draw() -> void:
 		var tw2 := _font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
 		draw_string_outline(_font, Vector2((size.x - tw2) * 0.5, size.y - 16), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, 6, Color(0, 0, 0, 0.7))
 		draw_string(_font, Vector2((size.x - tw2) * 0.5, size.y - 16), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
+
+
+## Pista do kart: uma faixa cinza contínua com bordas brancas (a volta inteira).
+func _draw_kart_track(center: Vector2, scale: float) -> void:
+	if _track_pts.is_empty():
+		var pts := KartTrack.points()
+		for i in range(0, pts.size(), 2):
+			_track_pts.append(Vector2(pts[i].x, pts[i].z))
+		_track_pts.append(_track_pts[0])
+	var line := PackedVector2Array()
+	for p in _track_pts:
+		line.append(_w2m(p, center, scale))
+	var w := maxf(KartTrack.WIDTH * scale, 3.0)
+	draw_polyline(line, Color(1, 1, 1, 0.9), w + 3.0, true)
+	draw_polyline(line, Color("50545c"), w, true)
 
 
 func _draw_zones(center: Vector2, scale: float, bg: Rect2) -> void:

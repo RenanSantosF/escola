@@ -17,6 +17,20 @@ const TEAL := Color("1fb5a3")
 const SKY := Color("4cc9f0")
 const MIST := Color("eef3fa")
 const LINE := Color("c9d4e8")
+## Visual novo (menu, mochila, loja e opções): claro, limpo e moderno.
+const BG := Color("f2f4fa")         # fundo das telas
+const CARD := Color("ffffff")       # cartões
+const CARD_2 := Color("f5f7fc")     # cartão secundário / botão claro
+const STROKE := Color("e3e7f1")     # contorno discreto
+const INK := Color("141a2e")        # texto principal
+const INK_2 := Color("5b6582")      # texto secundário
+const ACCENT := Color("4f46e5")     # cor principal (índigo)
+const ACCENT_SOFT := Color("eceefe")
+const GOOD := Color("16a34a")
+const GOLD := Color("f59e0b")
+const PASS_A := Color("7c3aed")     # passe: roxo -> rosa
+const PASS_B := Color("ec4899")
+const PLAY := Color("22c55e")       # botão JOGAR
 
 static var _theme: Theme
 static var _bold: FontVariation
@@ -37,21 +51,21 @@ static func get_theme() -> Theme:
 	t.default_font_size = 26
 	t.set_font("font", "Button", bold_font())
 	t.set_font("font", "Label", ThemeDB.fallback_font)
-	t.set_color("font_color", "Label", DARK)
-	t.set_font_size("font_size", "Button", 28)
+	t.set_color("font_color", "Label", INK)
+	t.set_font_size("font_size", "Button", 26)
 	t.set_color("font_color", "Button", Color.WHITE)
 	t.set_color("font_hover_color", "Button", Color.WHITE)
 	t.set_color("font_pressed_color", "Button", Color.WHITE)
 	t.set_color("font_focus_color", "Button", Color.WHITE)
 	t.set_color("font_disabled_color", "Button", Color("6b7690"))
-	# botões com cantos discretos (nada de "pílula" exagerada)
-	t.set_stylebox("normal", "Button", box(TEAL, 10, TEAL.darkened(0.35), 0, 4))
-	t.set_stylebox("hover", "Button", box(TEAL.lightened(0.1), 10, TEAL.darkened(0.35), 0, 4))
-	t.set_stylebox("pressed", "Button", box(TEAL.darkened(0.15), 10, TEAL.darkened(0.35), 0, 1))
-	t.set_stylebox("focus", "Button", box(Color(0, 0, 0, 0), 10, Color.WHITE, 2, 0))
-	t.set_stylebox("disabled", "Button", box(Color("d5dbe6"), 10, Color("aab3c5"), 0, 3))
-	t.set_stylebox("panel", "PanelContainer", box(MIST, 14, LINE, 2, 0))
-	t.set_stylebox("panel", "Panel", box(MIST, 14, LINE, 2, 0))
+	# botões lisos, cantos discretos (10 px), sombra suave
+	t.set_stylebox("normal", "Button", flat(ACCENT, 10))
+	t.set_stylebox("hover", "Button", flat(ACCENT.lightened(0.08), 10))
+	t.set_stylebox("pressed", "Button", flat(ACCENT.darkened(0.12), 10, false))
+	t.set_stylebox("focus", "Button", box(Color(0, 0, 0, 0), 10, Color(ACCENT, 0.0), 0, 0))
+	t.set_stylebox("disabled", "Button", flat(Color("dfe3ee"), 10, false))
+	t.set_stylebox("panel", "PanelContainer", card())
+	t.set_stylebox("panel", "Panel", card())
 	# Sliders grandes para o dedo
 	var track := StyleBoxFlat.new()
 	track.bg_color = Color("d5dceb")
@@ -65,17 +79,22 @@ static func get_theme() -> Theme:
 	t.set_stylebox("grabber_area_highlight", "HSlider", fill)
 	t.set_icon("grabber", "HSlider", _circle_tex(34, BLUE))
 	t.set_icon("grabber_highlight", "HSlider", _circle_tex(38, BLUE.lightened(0.2)))
-	t.set_font_size("font_size", "CheckButton", 26)
+	t.set_font_size("font_size", "CheckButton", 21)
+	t.set_font("font", "CheckButton", ThemeDB.fallback_font)
+	t.set_icon("checked", "CheckButton", _switch_tex(true))
+	t.set_icon("unchecked", "CheckButton", _switch_tex(false))
+	t.set_icon("checked_disabled", "CheckButton", _switch_tex(true))
+	t.set_icon("unchecked_disabled", "CheckButton", _switch_tex(false))
 	var flat := box(Color(1, 1, 1, 0.0), 14)
 	var flat_h := box(Color(0, 0, 0, 0.05), 14)
 	for st in ["normal", "pressed", "focus", "disabled"]:
 		t.set_stylebox(st, "CheckButton", flat)
 	t.set_stylebox("hover", "CheckButton", flat_h)
 	t.set_stylebox("hover_pressed", "CheckButton", flat_h)
-	t.set_color("font_color", "CheckButton", DARK)
-	t.set_color("font_hover_color", "CheckButton", DARK)
-	t.set_color("font_pressed_color", "CheckButton", DARK)
-	t.set_color("font_hover_pressed_color", "CheckButton", DARK)
+	t.set_color("font_color", "CheckButton", INK)
+	t.set_color("font_hover_color", "CheckButton", INK)
+	t.set_color("font_pressed_color", "CheckButton", INK)
+	t.set_color("font_hover_pressed_color", "CheckButton", INK)
 	t.set_font_size("font_size", "OptionButton", 26)
 	_theme = t
 	return t
@@ -98,6 +117,88 @@ static func box(bg: Color, radius: int, border := Color(0, 0, 0, 0), border_w :=
 	return s
 
 
+## Fundo liso com sombra suave (botões do visual novo).
+static func flat(bg: Color, radius := 10, shadow := true) -> StyleBoxFlat:
+	var s := box(bg, radius)
+	if shadow:
+		s.shadow_color = Color(0, 0, 0, 0.12)
+		s.shadow_size = 6
+		s.shadow_offset = Vector2(0, 3)
+	return s
+
+
+## Cartão branco com contorno discreto e sombra leve.
+static func card(bg := CARD, radius := 14, stroke := STROKE) -> StyleBoxFlat:
+	var s := box(bg, radius, stroke, 1, 0)
+	s.shadow_color = Color(0.08, 0.1, 0.25, 0.07)
+	s.shadow_size = 10
+	s.shadow_offset = Vector2(0, 4)
+	s.content_margin_left = 18
+	s.content_margin_right = 18
+	s.content_margin_top = 14
+	s.content_margin_bottom = 14
+	return s
+
+
+## Botão principal (cor cheia) / secundário (claro, texto escuro).
+static func style_button(b: Button, col := ACCENT, light := false, radius := 10) -> void:
+	var fg := INK if light else Color.WHITE
+	b.add_theme_stylebox_override("normal", flat(col, radius))
+	b.add_theme_stylebox_override("hover", flat(col.lightened(0.06) if not light else col.darkened(0.03), radius))
+	b.add_theme_stylebox_override("pressed", flat(col.darkened(0.1), radius, false))
+	b.add_theme_stylebox_override("focus", box(Color(0, 0, 0, 0), radius))
+	b.add_theme_stylebox_override("disabled", flat(Color("e6e9f1"), radius, false))
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		b.add_theme_color_override(c, fg)
+	b.add_theme_color_override("font_disabled_color", Color("98a1b8"))
+
+
+## "Chip" de categoria/aba: ativo = índigo; inativo = claro.
+static func chip(text: String, active: bool, cb: Callable, fs := 20) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(0, 48)
+	b.add_theme_font_size_override("font_size", fs)
+	style_button(b, ACCENT if active else CARD, not active, 10)
+	if not active:
+		for st in ["normal", "hover"]:
+			var sb := card(CARD, 10)
+			sb.shadow_size = 0
+			sb.content_margin_top = 8
+			sb.content_margin_bottom = 8
+			b.add_theme_stylebox_override(st, sb)
+	b.pressed.connect(func():
+		AudioManager.play_ui("ui_click")
+		cb.call())
+	return b
+
+
+## Interruptor (liga/desliga) desenhado: trilho arredondado + bolinha.
+static func _switch_tex(on: bool) -> ImageTexture:
+	var w := 64
+	var h := 36
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var track := ACCENT if on else Color("d4d9e6")
+	var r := h * 0.5
+	var knob_c := Vector2(w - r, r) if on else Vector2(r, r)
+	for y in h:
+		for x in w:
+			var p := Vector2(x + 0.5, y + 0.5)
+			# trilho: retângulo com pontas redondas
+			var cx := clampf(p.x, r, w - r)
+			var d := p.distance_to(Vector2(cx, r))
+			var a := clampf(r - d, 0.0, 1.0)
+			var col := Color(track, a)
+			var kd := p.distance_to(knob_c)
+			var ka := clampf(r - 3.0 - kd, 0.0, 1.0)
+			if ka > 0.0:
+				col = col.lerp(Color.WHITE, ka)
+				col.a = maxf(col.a, ka)
+			img.set_pixel(x, y, col)
+	return ImageTexture.create_from_image(img)
+
+
 static func _circle_tex(size: int, col: Color) -> ImageTexture:
 	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
 	var c := (size - 1) * 0.5
@@ -118,6 +219,17 @@ static func title_label(text: String, size := 40, col := DARK) -> Label:
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", col)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return l
+
+
+## Rótulo comum (texto normal) com tamanho e cor.
+static func text_label(text: String, size := 20, col := INK_2, wrap := false) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", col)
+	if wrap:
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
 
 

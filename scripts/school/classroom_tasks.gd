@@ -91,6 +91,13 @@ const BANK := {
 	],
 	"Física": [
 		[1, 4, "O que faz as coisas caírem no chão?", "Gravidade", "Vento", "Luz", "Música"],
+		[1, 4, "O que acontece com uma bola chutada para cima?", "Ela cai de volta", "Ela fica no ar", "Ela some", "Ela vira pássaro"],
+		[1, 4, "Para ver no escuro precisamos de...", "Luz", "Barulho", "Água", "Areia"],
+		[1, 4, "O que empurra o barquinho de papel no lago?", "O vento", "A lua", "A sombra", "O silêncio"],
+		[1, 5, "O que é mais pesado?", "Uma pedra grande", "Uma pena", "Uma folha", "Um balão"],
+		[2, 5, "A sombra aparece quando algo bloqueia a...", "Luz", "Chuva", "Música", "Terra"],
+		[2, 5, "Escorregar no tobogã é mais rápido porque ele é...", "Inclinado", "Colorido", "Comprido", "Molhado de tinta"],
+		[3, 6, "Como o som chega até nossos ouvidos?", "Pelo ar", "Pela luz", "Pela sombra", "Pelo cheiro"],
 		[3, 6, "Um ímã atrai objetos de...", "Ferro", "Madeira", "Plástico", "Papel"],
 		[4, 7, "O que viaja mais rápido?", "A luz", "O som", "Um carro", "Uma bicicleta"],
 		[5, 8, "Um carro anda 60 km em 1 hora. Sua velocidade é...", "60 km/h", "30 km/h", "120 km/h", "1 km/h"],
@@ -101,6 +108,14 @@ const BANK := {
 	],
 	"Química": [
 		[2, 5, "A água pode ser sólida, líquida e...", "Gasosa", "Elástica", "Magnética", "Colorida"],
+		[1, 4, "O gelo é água no estado...", "Sólido", "Líquido", "Gasoso", "Quente"],
+		[1, 4, "Se deixar o gelo no sol, ele...", "Derrete", "Cresce", "Fica mais frio", "Vira pedra"],
+		[1, 4, "Misturando açúcar na água, o açúcar...", "Se dissolve", "Pega fogo", "Vira gelo", "Fica azul"],
+		[1, 5, "A fumaça da panela de água fervendo é...", "Vapor de água", "Gelo", "Areia", "Leite"],
+		[2, 5, "Água e óleo se misturam?", "Não, o óleo fica separado", "Sim, viram uma coisa só", "Viram gelo", "Viram sal"],
+		[2, 5, "O que faz o bolo crescer no forno?", "O fermento", "O sal", "A colher", "O prato"],
+		[3, 6, "O ferro que fica na chuva cria...", "Ferrugem", "Flores", "Gelo", "Areia"],
+		[3, 6, "Para separar areia da água podemos...", "Coar com um filtro", "Soprar", "Congelar a areia", "Pintar a água"],
 		[4, 7, "A fórmula da água é...", "H2O", "CO2", "O2", "NaCl"],
 		[5, 8, "Água com óleo forma uma mistura...", "Heterogênea", "Homogênea", "Invisível", "Sólida"],
 		[5, 8, "O limão é...", "Ácido", "Básico", "Neutro", "Metal"],
@@ -224,8 +239,6 @@ func make_lesson(count: int, allow_find := true, subject := "") -> Array:
 		plan = ["math", "math", "match", "order", "problem", "quiz", "math", "quiz"]
 	elif subject == "Português":
 		plan = ["word", "quiz", "order", "match", "word", "quiz"]
-	elif subject in ["Física", "Química"]:
-		plan = ["quiz", "quiz", "match", "problem", "quiz"]
 	if allow_find:
 		plan.append("find")
 	plan.shuffle()

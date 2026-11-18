@@ -122,6 +122,19 @@ static func _build() -> void:
 		pts.append(p)
 		ups.append(nd[1] if nd[1] != null else Vector3.ZERO)
 	var n := pts.size()
+	# o trilho nunca passa dentro do morro: sobe o que for preciso, com rampa suave
+	var lift_need := PackedFloat32Array()
+	lift_need.resize(n)
+	for i in n:
+		var p := pts[i]
+		var clear := 1.4 if (ups[i] != Vector3.ZERO and ups[i].y < 0.2) else 1.0
+		lift_need[i] = maxf(_ground(p.x, p.z) + clear - p.y, 0.0)
+	for i in n:
+		var best := 0.0
+		for k in range(-14, 15):
+			var j := clampi(i + k, 0, n - 1)
+			best = maxf(best, lift_need[j] * (0.5 + 0.5 * cos(PI * absf(k) / 15.0)))
+		pts[i].y += best
 	for i in n:
 		if ups[i] != Vector3.ZERO:
 			continue

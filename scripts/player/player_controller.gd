@@ -95,6 +95,13 @@ func _ready() -> void:
 	GameManager.player = self
 
 
+## Saiu da cena (ex.: o jogo recarregou depois de entrar na conta): ninguém
+## pode continuar usando este jogador apagado.
+func _exit_tree() -> void:
+	if GameManager.player == self:
+		GameManager.player = null
+
+
 func _physics_process(delta: float) -> void:
 	_bonk_cd = maxf(_bonk_cd - delta, 0.0)
 	var move := _read_move_input() if input_enabled and GameManager.is_playing() and not movement_locked else Vector2.ZERO

@@ -67,10 +67,10 @@ static func subjects_shared(day_key: int, turma: int) -> Array:
 	return [a, b]
 
 
-## Conteúdo das perguntas: Física e Química só a partir do nível 5 (antes vira Ciências).
+## Conteúdo das perguntas: sempre a MESMA matéria da aula (no Laboratório de
+## Química a aula é de Química). Para os pequenos, Física e Química têm
+## perguntas fáceis do dia a dia (gelo, misturas, sombra, ímã).
 static func content_subject(subj: String) -> String:
-	if subj in ["Física", "Química"] and level() < 5:
-		return "Ciências"
 	return subj
 
 

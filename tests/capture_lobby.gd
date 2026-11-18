@@ -52,6 +52,33 @@ func _ready() -> void:
 		{"id": "4", "name": "Duda_Lua", "status": "outgoing"}]
 	om._build_list()
 	await _snap("lobby_amigos")
+	om.visible = false
+	main._menu_box.visible = true
+	var pm2 = main.profile_menu
+	pm2.from_lobby = true
+	pm2.open_tab("loja")
+	pm2._cat = "destaques"
+	pm2._refresh()
+	await _secs(0.8)
+	await _snap("loja_destaques")
+	pm2._cat = "skin"
+	pm2._selected = "skin_tigre"
+	pm2._refresh()
+	await _secs(1.0)
+	await _snap("loja_skin")
+	pm2._cat = "kart"
+	pm2._selected = "kart_turbo"
+	pm2._refresh()
+	await _secs(1.0)
+	await _snap("loja_kart")
+	pm2._tab = "passe"
+	pm2._refresh()
+	await _secs(0.6)
+	await _snap("passe")
+	pm2.close_menu()
+	main._open_menu_settings()
+	await _secs(0.6)
+	await _snap("opcoes")
 	get_tree().quit()
 
 

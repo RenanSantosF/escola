@@ -6,8 +6,18 @@ extends Control
 
 signal closed
 
-const TABS := [["brincadeiras", "Brincadeiras"], ["passe", "Passe do Recreio"], ["loja", "Loja"], ["visual", "Guarda-roupa"], ["colecoes", "Coleções"], ["missoes", "Missões"],
-	["conquistas", "Conquistas"], ["amigos", "Amigos"], ["ficha", "Ficha"]]
+const TABS := [["loja", "Loja"], ["visual", "Guarda-roupa"], ["passe", "Passe"], ["brincadeiras", "Brincadeiras"], ["colecoes", "Coleções"],
+	["missoes", "Missões"], ["conquistas", "Conquistas"], ["amigos", "Amigos"], ["ficha", "Ficha"]]
+const SIDE_W := 360.0
+## Loja com poucas abas: as roupas ficam juntas (com subtítulos) e o resto em "Extras".
+const SHOP_GROUPS := [
+	["destaques", "Destaques", []], ["skin", "Skins", ["skin"]],
+	["roupas", "Roupas", ["camiseta", "calca", "calcado", "mochila", "bone"]],
+	["cabelo", "Cabelo e acessórios", ["penteado", "acessorio"]],
+	["aura", "Efeitos", ["aura"]], ["emote", "Emojis", ["emote"]], ["kart", "Karts", ["kart"]],
+	["extras", "Extras", ["pacote", "veiculo", "decoracao", "gude", "figurinha"]],
+	["diamantes", "Diamantes", []],
+]
 
 var progression: Progression
 var minigames: Node
@@ -23,6 +33,10 @@ var _info: Label
 var _action: Button
 var _ad_action: Button  ## "Ganhar com vídeo (1/3)" (só aparece com vídeo pronto)
 var _tab_buttons := {}
+var _wallet: HBoxContainer
+var _side_panel: PanelContainer
+var _kart_stage: KartStage
+var _item_name: Label
 
 
 func _ready() -> void:
@@ -30,91 +44,106 @@ func _ready() -> void:
 	theme = UITheme.get_theme()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	visible = false
-	var bg := TextureRect.new()
-	var gt := GradientTexture2D.new()
-	var g := Gradient.new()
-	g.set_color(0, Color("1b2a6b", 0.96))
-	g.set_color(1, Color("5a2d91", 0.96))
-	gt.gradient = g
-	gt.fill_from = Vector2(0, 0)
-	gt.fill_to = Vector2(1, 1)
-	bg.texture = gt
-	bg.stretch_mode = TextureRect.STRETCH_SCALE
+	var bg := ColorRect.new()
+	bg.color = UITheme.BG
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for s in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + s, 18)
+		margin.add_theme_constant_override("margin_" + s, 20)
 	add_child(margin)
-	var root := HBoxContainer.new()
-	root.add_theme_constant_override("separation", 14)
-	margin.add_child(root)
-	# abas
-	var tabs := VBoxContainer.new()
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 14)
+	margin.add_child(col)
+	# barra de cima: voltar | abas | moedas e diamantes
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 12)
+	col.add_child(top)
+	var close := Button.new()
+	close.text = "‹  Voltar"
+	close.focus_mode = Control.FOCUS_NONE
+	close.custom_minimum_size = Vector2(130, 52)
+	close.add_theme_font_size_override("font_size", 20)
+	UITheme.style_button(close, UITheme.CARD, true)
+	close.pressed.connect(func():
+		AudioManager.play_ui("ui_click")
+		close_menu())
+	top.add_child(close)
+	var tab_scroll := ScrollContainer.new()
+	tab_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	tab_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tab_scroll.custom_minimum_size = Vector2(0, 56)
+	tab_scroll.scroll_deadzone = 12
+	top.add_child(tab_scroll)
+	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 8)
-	root.add_child(tabs)
+	tab_scroll.add_child(tabs)
 	for t in TABS:
-		var b := Button.new()
-		UITheme.dark_text(b)
-		b.text = t[1]
-		b.custom_minimum_size = Vector2(196, 58)
-		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_size_override("font_size", 25)
 		var tid: String = t[0]
-		b.pressed.connect(func():
-			AudioManager.play_ui("ui_click")
+		var b := UITheme.chip(t[1], false, func():
 			_tab = tid
 			_selected = ""
-			_refresh())
+			_refresh(), 20)
+		b.custom_minimum_size = Vector2(0, 52)
 		tabs.add_child(b)
 		_tab_buttons[tid] = b
-	var close := UITheme.make_button("Fechar", close_menu, 190)
-	close.add_theme_stylebox_override("normal", UITheme.box(Color("e05a4a"), 18, Color("a33a2c"), 0, 6))
-	tabs.add_child(close)
-	# conteúdo
+	_coins = UITheme.title_label("", 22, UITheme.INK)
+	var wallet := HBoxContainer.new()
+	wallet.add_theme_constant_override("separation", 8)
+	top.add_child(wallet)
+	_wallet = wallet
+	# corpo: conteúdo (cartão branco com rolagem) + vitrine fixa ao lado
+	var body := HBoxContainer.new()
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation", 16)
+	col.add_child(body)
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(panel)
+	panel.add_theme_stylebox_override("panel", UITheme.card(UITheme.CARD, 16))
+	body.add_child(panel)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.scroll_deadzone = 12  # arrastar o dedo rola; toque curto seleciona
 	panel.add_child(scroll)
 	_content = VBoxContainer.new()
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_content.add_theme_constant_override("separation", 10)
+	_content.add_theme_constant_override("separation", 14)
 	scroll.add_child(_content)
-	# lateral: prévia + moedas + ação
+	# vitrine: o personagem (ou o kart) usando o item escolhido, nome, preço e botão
+	var side_panel := PanelContainer.new()
+	side_panel.custom_minimum_size = Vector2(SIDE_W, 0)
+	side_panel.add_theme_stylebox_override("panel", UITheme.card(UITheme.CARD, 16))
+	body.add_child(side_panel)
+	_side_panel = side_panel
 	_side = VBoxContainer.new()
-	_side.custom_minimum_size = Vector2(280, 0)
 	_side.add_theme_constant_override("separation", 10)
-	root.add_child(_side)
-	_coins = UITheme.title_label("", 23, Color("ffe08a"))
-	_side.add_child(_coins)
-	# palco do personagem: arraste para girar, pinça para aproximar, toque = graça
+	side_panel.add_child(_side)
 	_stage = CharacterStage.new()
-	_stage.custom_minimum_size = Vector2(300, 400)
+	_stage.custom_minimum_size = Vector2(SIDE_W - 36, 330)
+	_stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_stage.auto_emotes = false
-	_stage.podium_color = Color("b46bff")
+	_stage.podium_color = UITheme.ACCENT
 	_side.add_child(_stage)
-	var hint := Label.new()
-	hint.text = "Arraste para girar  ·  pinça para aproximar"
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.add_theme_font_size_override("font_size", 15)
-	hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.75))
-	_side.add_child(hint)
-	_info = Label.new()
-	_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_info.add_theme_color_override("font_color", Color.WHITE)
-	_info.add_theme_font_size_override("font_size", 22)
-	_info.custom_minimum_size = Vector2(300, 60)
+	_kart_stage = KartStage.new()
+	_kart_stage.custom_minimum_size = Vector2(SIDE_W - 36, 330)
+	_kart_stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_kart_stage.visible = false
+	_side.add_child(_kart_stage)
+	_item_name = UITheme.title_label("", 26, UITheme.INK)
+	_item_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_side.add_child(_item_name)
+	_info = UITheme.text_label("", 17, UITheme.INK_2, true)
 	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_info.custom_minimum_size = Vector2(SIDE_W - 36, 0)
 	_side.add_child(_info)
-	_action = UITheme.make_button("", _on_action, 300)
+	_action = UITheme.make_button("", _on_action, SIDE_W - 36)
+	_action.custom_minimum_size = Vector2(SIDE_W - 36, 60)
 	_side.add_child(_action)
-	_ad_action = UITheme.make_button("", _on_ad_action, 300)
-	_ad_action.add_theme_stylebox_override("normal", UITheme.box(Color("9be37a"), 18, Color("5aa83a"), 0, 6))
-	UITheme.dark_text(_ad_action)
+	_ad_action = UITheme.make_button("", _on_ad_action, SIDE_W - 36)
+	_ad_action.custom_minimum_size = Vector2(SIDE_W - 36, 52)
+	UITheme.style_button(_ad_action, UITheme.CARD_2, true)
+	_ad_action.add_theme_font_size_override("font_size", 19)
 	_ad_action.visible = false
 	_side.add_child(_ad_action)
 	# compras com dinheiro de verdade: atualiza a tela e avisa
@@ -166,22 +195,27 @@ func _process(delta: float) -> void:
 
 
 func _refresh() -> void:
+	var pend := RecessPass.pending()
 	for t in _tab_buttons.keys():
 		var on: bool = t == _tab
-		var base := UITheme.YELLOW if t != "passe" else Color("c9a8ff")
-		_tab_buttons[t].add_theme_stylebox_override("normal", UITheme.box(UITheme.ORANGE if on else base, 18, UITheme.DARK.lerp(UITheme.YELLOW, 0.5), 0, 6))
-	var pend := RecessPass.pending()
-	_tab_buttons["passe"].text = "Passe (%d!)" % pend if pend > 0 else "Passe do Recreio"
+		var b: Button = _tab_buttons[t]
+		UITheme.style_button(b, UITheme.ACCENT if on else UITheme.CARD, not on, 10)
+		if not on:
+			for st in ["normal", "hover"]:
+				var sb := UITheme.card(UITheme.CARD, 10)
+				sb.shadow_size = 0
+				sb.content_margin_top = 8
+				sb.content_margin_bottom = 8
+				b.add_theme_stylebox_override(st, sb)
+	_tab_buttons["passe"].text = "Passe  •  %d" % pend if pend > 0 else "Passe"
 	for c in _content.get_children():
 		c.queue_free()
-	_coins.text = "Nível %d" % GameManager.level()
+	_fill_wallet()
 	var show_preview := _tab in ["loja", "visual"]
-	if _tab == "brincadeiras" and not GameManager.overlay_open:
-		pass
-	_side.get_child(1).visible = show_preview
-	_side.get_child(2).visible = show_preview
+	_side_panel.visible = show_preview
 	_action.visible = false
 	_info.text = ""
+	_item_name.text = ""
 	match _tab:
 		"loja", "visual":
 			_build_items(_tab == "loja")
@@ -203,198 +237,137 @@ func _refresh() -> void:
 	UITheme.scroll_friendly(_content)
 
 
+## Moedas e diamantes no canto de cima (toque nos diamantes = loja de diamantes).
+func _fill_wallet() -> void:
+	for c in _wallet.get_children():
+		c.queue_free()
+	for k in ["coins", "diamonds"]:
+		var p := Button.new()
+		p.focus_mode = Control.FOCUS_NONE
+		p.custom_minimum_size = Vector2(0, 52)
+		var sb := UITheme.card(UITheme.CARD, 12)
+		sb.shadow_size = 0
+		sb.content_margin_top = 6
+		sb.content_margin_bottom = 6
+		sb.content_margin_left = 12
+		sb.content_margin_right = 14
+		for st in ["normal", "hover", "pressed", "focus"]:
+			p.add_theme_stylebox_override(st, sb)
+		var h := HBoxContainer.new()
+		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_theme_constant_override("separation", 6)
+		h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		h.offset_left = 12
+		h.offset_right = -12
+		h.alignment = BoxContainer.ALIGNMENT_CENTER
+		p.add_child(h)
+		if k == "coins":
+			var ci := CoinIcon.new()
+			ci.radius = 13
+			ci.custom_minimum_size = Vector2(28, 28)
+			h.add_child(ci)
+		else:
+			var di := DiamondIcon.new()
+			di.radius = 12
+			h.add_child(di)
+		var n := str(GameManager.coins()) if k == "coins" else str(GameManager.diamonds())
+		var l := UITheme.title_label(n, 22, UITheme.INK)
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(l)
+		var font: Font = UITheme.bold_font()
+		p.custom_minimum_size.x = 70.0 + font.get_string_size(n, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
+		if k == "diamonds":
+			p.pressed.connect(func():
+				_tab = "loja"
+				_cat = "diamantes"
+				_selected = ""
+				_refresh())
+		_wallet.add_child(p)
+
+
 func _title(t: String) -> void:
-	var l := UITheme.title_label(t, 38)
+	var l := UITheme.title_label(t, 32, UITheme.INK)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_content.add_child(l)
 
 
 func _build_items(shop: bool) -> void:
-	if shop:
-		_build_shop_header()
-	else:
-		_title("Seu guarda-roupa")
+	if not shop:
+		_title("Guarda-roupa")
 		# menino ou menina
 		var gh := HBoxContainer.new()
 		gh.add_theme_constant_override("separation", 8)
 		_content.add_child(gh)
-		var cur_girl: bool = GameManager.player.visual.appearance.girl if GameManager.player else false
+		var cur_girl: bool = GameManager.player.visual.appearance.girl if GameManager.player else bool(SaveManager.section("player").get("appearance", {}).get("girl", false))
 		for opt in [["Menino", false], ["Menina", true]]:
-			var g_on: bool = opt[1] == cur_girl
-			var gb := Button.new()
-			UITheme.dark_text(gb)
-			gb.text = opt[0]
-			gb.focus_mode = Control.FOCUS_NONE
-			gb.custom_minimum_size = Vector2(150, 50)
-			gb.add_theme_font_size_override("font_size", 21)
-			for st in ["normal", "hover", "pressed", "focus"]:
-				gb.add_theme_stylebox_override(st, UITheme.box(UITheme.TEAL if g_on else Color("e3e8f2"), 8, Color(0, 0, 0, 0), 0, 3))
-			gb.add_theme_color_override("font_color", Color.WHITE if g_on else UITheme.DARK)
 			var girl: bool = opt[1]
-			gb.pressed.connect(func():
-				var a: CharacterAppearance = GameManager.player.visual.appearance
-				a.set_girl(girl)
-				GameManager.player.set_appearance(a)
+			gh.add_child(UITheme.chip(opt[0], girl == cur_girl, func():
+				if GameManager.player:
+					var a: CharacterAppearance = GameManager.player.visual.appearance
+					a.set_girl(girl)
+					GameManager.player.set_appearance(a)
 				if NetworkManager.is_online():
 					NetworkManager.send_look()
-				_refresh())
-			gh.add_child(gb)
-	# categorias (chips grandes)
-	# categorias numa fileira só, rolando para o lado (sobra espaço para os itens)
+				_refresh(), 19))
+	# grupos (poucas abas, numa fileira só)
 	var cat_scroll := ScrollContainer.new()
 	cat_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	cat_scroll.custom_minimum_size = Vector2(0, 62)
+	cat_scroll.custom_minimum_size = Vector2(0, 54)
 	cat_scroll.scroll_deadzone = 12
 	_content.add_child(cat_scroll)
 	var cats := HBoxContainer.new()
 	cats.add_theme_constant_override("separation", 8)
 	cat_scroll.add_child(cats)
-	if not shop and _cat in ["destaques", "diamantes"]:
-		_cat = "skin"
-	var cat_list: Array = ShopCatalog.CATEGORIES.duplicate()
-	if shop:
-		cat_list = [["destaques", "Destaques"], ["diamantes", "Diamantes e moedas"]] + cat_list
-	for c in cat_list:
-		if not shop and c[0] in ["gude", "figurinha", "decoracao", "pacote"]:
-			continue
-		var b := Button.new()
-		UITheme.dark_text(b)
-		b.text = c[1]
-		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_size_override("font_size", 21)
-		b.custom_minimum_size = Vector2(0, 50)
-		var cid: String = c[0]
-		var on := cid == _cat
-		var col := UITheme.TEAL if on else Color("eef3fa")
-		if cid == "skin" and not on:
-			col = Color("e9ddff")
-		elif cid == "destaques" and not on:
-			col = Color("ffe08a")
-		elif cid == "diamantes" and not on:
-			col = Color("bfe9ff")
-		for st in ["normal", "hover", "pressed", "focus"]:
-			var sb := UITheme.box(col, 26, UITheme.DARK if on else Color(0, 0, 0, 0), 3 if on else 0, 4)
-			sb.content_margin_left = 14
-			sb.content_margin_right = 14
-			b.add_theme_stylebox_override(st, sb)
-		b.add_theme_color_override("font_color", Color.WHITE if on else UITheme.DARK)
-		b.add_theme_color_override("font_hover_color", Color.WHITE if on else UITheme.DARK)
-		b.pressed.connect(func():
-			AudioManager.play_ui("ui_click")
-			_cat = cid
+	var groups := SHOP_GROUPS.filter(func(g): return shop or not (g[0] in ["destaques", "diamantes"]))
+	if not groups.any(func(g): return g[0] == _cat):
+		_cat = str(groups[0][0])
+	for g in groups:
+		var gid: String = g[0]
+		cats.add_child(UITheme.chip(g[1], gid == _cat, func():
+			_cat = gid
 			_selected = ""
-			_refresh())
-		cats.add_child(b)
+			_refresh(), 19))
 	if shop and _cat == "destaques":
 		_build_featured()
 		return
 	if shop and _cat == "diamantes":
 		_build_money_store()
 		return
-	var grid := GridContainer.new()
-	var avail := get_viewport_rect().size.x - 196.0 - 300.0 - 80.0
-	grid.columns = clampi(int(avail / 214.0), 2, 5)
-	grid.add_theme_constant_override("h_separation", 12)
-	grid.add_theme_constant_override("v_separation", 12)
-	_content.add_child(grid)
+	var subcats: Array = []
+	for g in groups:
+		if g[0] == _cat:
+			subcats = g[2]
 	var any := false
-	for item in ShopCatalog.by_cat(_cat):
-		var owned := Progression.owns(item.id)
-		if not shop and not owned:
+	for sc in subcats:
+		var items := ShopCatalog.by_cat(str(sc)).filter(func(it): return shop or Progression.owns(it.id))
+		if not shop:
+			items = items.filter(func(it): return not (str(sc) in ["gude", "figurinha", "decoracao", "pacote"]))
+		if items.is_empty():
 			continue
-		grid.add_child(_card(item, owned, shop))
-		any = true
+		if subcats.size() > 1:
+			var nm := ""
+			for c in ShopCatalog.CATEGORIES:
+				if c[0] == sc:
+					nm = c[1]
+			var sl := UITheme.title_label(nm, 22, UITheme.INK_2)
+			sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			_content.add_child(sl)
+		var grid := GridContainer.new()
+		grid.columns = _grid_cols()
+		grid.add_theme_constant_override("h_separation", 14)
+		grid.add_theme_constant_override("v_separation", 14)
+		_content.add_child(grid)
+		for item in items:
+			grid.add_child(_card(item, Progression.owns(item.id), shop))
+			any = true
 	if not any:
 		_row("Nada aqui ainda", "Compre itens na Loja para usar no guarda-roupa.")
 
 
-## Faixa do topo da loja: moedas + ofertas do dia + oferta relâmpago.
-func _build_shop_header() -> void:
-	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 12)
-	_content.add_child(head)
-	var t := UITheme.title_label("Loja do Recreio", 42, Color("ffcf3f"))
-	t.add_theme_constant_override("outline_size", 10)
-	t.add_theme_color_override("font_outline_color", UITheme.DARK)
-	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	head.add_child(t)
-	head.add_child(_coin_pill(GameManager.coins(), 30))
-	var dp := _diamond_pill(GameManager.diamonds(), 30)
-	head.add_child(dp)
-	# premiado opcional: vídeo -> moedas (só aparece com vídeo pronto; 3 por dia)
-	if AdsManager.can_offer("moedas_extra"):
-		var left := AdsManager.uses_left("moedas_extra")
-		var vb: Button
-		vb = UITheme.make_button("Ver vídeo: +%d moedas (%d hoje)" % [AdsManager.reward_coins(), left], func():
-			vb.disabled = true
-			AdsManager.show_rewarded("moedas_extra", func():
-				GameManager.add_rewards(0, AdsManager.reward_coins())
-				GameManager.show_toast("Você ganhou %d moedas!" % AdsManager.reward_coins())
-				AudioManager.play_ui("coin")
-				if visible:
-					_refresh()), 300)
-		vb.custom_minimum_size = Vector2(300, 60)
-		vb.add_theme_stylebox_override("normal", UITheme.box(Color("9be37a"), 18, Color("5aa83a"), 0, 6))
-		UITheme.dark_text(vb)
-		head.add_child(vb)
-	# ofertas
-	var deals := ShopCatalog.deals()
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	_content.add_child(row)
-	for id in deals.keys():
-		var it := ShopCatalog.get_item(id)
-		if it.is_empty():
-			continue
-		row.add_child(_deal_card(it, int(deals[id])))
-
-
-func _deal_card(item: Dictionary, off: int) -> Control:
-	var flash := off >= 50
-	var b := Button.new()
-	UITheme.dark_text(b)
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(196 if flash else 148, 132)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var c1 := Color("ff4d6d") if flash else Color("2f8be0")
-	for st in ["normal", "hover", "pressed", "focus"]:
-		var sb := UITheme.box(c1, 20, Color.WHITE if item.id == _selected else c1.darkened(0.3), 4, 6)
-		b.add_theme_stylebox_override(st, sb)
-	var v := VBoxContainer.new()
-	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	v.offset_left = 10
-	v.offset_right = -10
-	v.offset_top = 6
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(v)
-	var tag := _label(("RELÂMPAGO -%d%%" % off) if flash else ("OFERTA -%d%%" % off), 16, Color("fff3b0"))
-	v.add_child(tag)
-	var nm := _label(item.name, 18, Color.WHITE)
-	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	nm.clip_text = true
-	v.add_child(nm)
-	var pr := HBoxContainer.new()
-	pr.alignment = BoxContainer.ALIGNMENT_CENTER
-	pr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var old := _label(str(item.price), 16, Color(1, 1, 1, 0.65))
-	pr.add_child(old)
-	pr.add_child(_label(" > ", 16, Color.WHITE))
-	var ci := CoinIcon.new()
-	ci.radius = 11
-	pr.add_child(ci)
-	pr.add_child(_label(" " + str(ShopCatalog.price_of(item)), 24, Color.WHITE))
-	v.add_child(pr)
-	if flash:
-		var s := ShopCatalog.seconds_to_midnight()
-		v.add_child(_label("Acaba em %02d:%02d" % [s / 3600, (s % 3600) / 60], 15, Color("fff3b0")))
-	b.pressed.connect(func():
-		AudioManager.play_ui("ui_click")
-		_cat = item.cat
-		_selected = item.id
-		_refresh())
-	return b
+## Quantas colunas de cartões cabem (a vitrine fica ao lado).
+func _grid_cols() -> int:
+	var avail := get_viewport_rect().size.x - SIDE_W - 120.0
+	return clampi(int(avail / 206.0), 2, 6)
 
 
 func _label(text: String, size: int, col: Color) -> Label:
@@ -455,86 +428,69 @@ func _coin_pill(amount: int, size := 24) -> Control:
 func _card(item: Dictionary, owned: bool, shop := true) -> Control:
 	var b := Button.new()
 	UITheme.dark_text(b)
-	b.custom_minimum_size = Vector2(200, 228)
+	b.custom_minimum_size = Vector2(192, 214)
 	b.focus_mode = Control.FOCUS_NONE
 	var locked := GameManager.level() < int(item.lvl)
-	var rar := ShopCatalog.rarity_of(item)
-	var rcol: Color = ShopCatalog.RARITY[rar][1]
 	var sel: bool = item.id == _selected
-	var bg := Color("fffaf0") if not locked else Color("e3e0d8")
 	for st in ["normal", "hover", "pressed", "focus"]:
-		var sb := UITheme.box(bg, 20, Color.WHITE if sel else rcol, 6 if sel else 4, 6)
-		if sel:
-			sb.shadow_color = Color(1, 0.85, 0.2, 0.7)
-			sb.shadow_size = 10
+		var sb := UITheme.card(UITheme.CARD if st != "hover" else Color("fafbff"), 14, UITheme.ACCENT if sel else UITheme.STROKE)
+		sb.set_border_width_all(3 if sel else 1)
+		sb.shadow_size = 0 if not sel else 10
 		b.add_theme_stylebox_override(st, sb)
-	# ícone desenhado do item (fundo da raridade, brilho nos épicos/lendários)
+	# desenho do item (fundo da cor da raridade)
 	var icon := ItemIcon.new(item)
-	icon.position = Vector2(6, 6)
-	icon.size = Vector2(188, 124)
+	icon.position = Vector2(8, 8)
+	icon.size = Vector2(176, 122)
 	b.add_child(icon)
 	if locked:
 		var lk := ColorRect.new()
-		lk.color = Color(0, 0, 0, 0.35)
+		lk.color = Color(1, 1, 1, 0.55)
 		lk.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		lk.position = icon.position
 		lk.size = icon.size
 		b.add_child(lk)
-	var rl := _label(ShopCatalog.RARITY[rar][0].to_upper(), 14, Color.WHITE)
-	rl.position = Vector2(12, 10)
-	rl.add_theme_constant_override("outline_size", 6)
-	rl.add_theme_color_override("font_outline_color", rcol.darkened(0.4))
-	b.add_child(rl)
-	if item.get("animated", false) or item.get("pass", false):
-		var tg := _tag("PASSE" if item.get("pass", false) else "ANIMADO", Color("9b59ff") if item.get("pass", false) else Color("ff4d6d"))
-		tg.position = Vector2(118, 8)
-		b.add_child(tg)
-	var nm := _label(item.name, 18, UITheme.DARK)
+	var nm := _label(item.name, 18, UITheme.INK)
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	nm.position = Vector2(8, 132)
-	nm.size = Vector2(184, 50)
+	nm.position = Vector2(10, 134)
+	nm.size = Vector2(172, 44)
 	nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	b.add_child(nm)
-	# preço / estado
+	# preço ou estado (uma coisa só, bem legível)
 	var foot := HBoxContainer.new()
 	foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	foot.alignment = BoxContainer.ALIGNMENT_CENTER
-	foot.position = Vector2(8, 186)
-	foot.size = Vector2(184, 34)
+	foot.position = Vector2(8, 178)
+	foot.size = Vector2(176, 30)
 	foot.add_theme_constant_override("separation", 6)
 	b.add_child(foot)
 	var off := ShopCatalog.discount_of(item.id)
 	if progression.is_equipped(item.id):
-		foot.add_child(_tag("VESTINDO", UITheme.GREEN))
+		foot.add_child(_tag("USANDO", UITheme.GOOD))
 	elif owned and not item.get("consumable", false):
-		foot.add_child(_tag("É SEU", Color("2f8be0")))
+		foot.add_child(_tag("É SEU", UITheme.ACCENT))
 	elif item.get("pass", false):
-		foot.add_child(_tag("NO PASSE", Color("9b59ff")))
+		foot.add_child(_tag("PASSE", UITheme.PASS_A))
 	elif locked:
-		foot.add_child(_tag("NÍVEL %d" % item.lvl, Color("8a8f99")))
+		foot.add_child(_tag("NÍVEL %d" % item.lvl, Color("98a1b8")))
 	elif ShopCatalog.diamonds_of(item) > 0:
 		var di := DiamondIcon.new()
-		di.radius = 13
+		di.radius = 12
 		foot.add_child(di)
-		foot.add_child(_label(str(ShopCatalog.diamonds_of(item)), 26, Color("1f6fb0")))
+		foot.add_child(_label(str(ShopCatalog.diamonds_of(item)), 22, UITheme.INK))
 	elif int(item.price) == 0:
-		foot.add_child(_tag("GRÁTIS", UITheme.GREEN))
+		foot.add_child(_tag("GRÁTIS", UITheme.GOOD))
 	else:
 		var ci := CoinIcon.new()
-		ci.radius = 12
+		ci.radius = 11
 		foot.add_child(ci)
-		foot.add_child(_label(str(ShopCatalog.price_of(item)), 26, UITheme.DARK))
+		foot.add_child(_label(str(ShopCatalog.price_of(item)), 22, UITheme.INK))
 		if off > 0:
-			foot.add_child(_tag("-%d%%" % off, Color("ff4d6d")))
-		if item.has("bundle") or item.has("bundle_packs"):
-			foot.add_child(_tag("-%d" % maxi(ShopCatalog.bundle_value(item) - int(item.price), 0), UITheme.ORANGE))
+			foot.add_child(_tag("-%d%%" % off, Color("ef4444")))
 	b.pressed.connect(func():
 		AudioManager.play_ui("ui_click")
+		# escolher = já mostra na vitrine do lado (sem abrir outra tela)
 		_selected = item.id
-		_refresh()
-		# vitrine grande: personagem usando o item (antes/depois)
-		var sc := ItemShowcase.open(self, self, item.id)
-		sc.done.connect(func(): _refresh()))
+		_refresh())
 	return b
 
 
@@ -554,25 +510,40 @@ func _tag(text: String, col: Color) -> Control:
 func _update_preview() -> void:
 	if _stage == null:
 		return
+	var item := ShopCatalog.get_item(_selected) if _selected != "" else {}
+	var is_kart := item.has("kart")
+	_kart_stage.visible = is_kart
+	_stage.visible = not is_kart
+	if is_kart:
+		_kart_stage.set_item(_selected)
 	var extra := []
-	if _selected != "" and ShopCatalog.get_item(_selected).has("look"):
+	if item.has("look"):
 		extra.append(_selected)
 	# trocou o que está vestindo: gira com brilhinho e aproxima no que mudou
 	var key := ",".join(extra)
 	var changed := key != _last_look
 	_last_look = key
 	_stage.set_appearance(Progression.appearance_with(extra), changed and key != "")
-	if changed and _selected != "":
-		var cat := str(ShopCatalog.get_item(_selected).get("cat", ""))
+	if changed and _selected != "" and item.has("look"):
+		var cat := str(item.get("cat", ""))
 		_stage.focus("head" if cat in ["bone", "penteado", "acessorio"] else "body")
 		if cat == "calcado":
 			_stage.play("hop_two")
 		elif cat in ["camiseta", "skin", "mochila"]:
 			_stage.play("celebrate")
+	if item.has("emote"):
+		_stage.play(str(item.emote))
 	if _selected == "" or not (_tab in ["loja", "visual"]):
+		_item_name.text = "Seu personagem"
+		_info.text = "Toque num item para ver em você. Arraste para girar."
+		_ad_action.visible = false
 		return
-	var item := ShopCatalog.get_item(_selected)
 	var owned := Progression.owns(_selected)
+	_item_name.text = str(item.name)
+	var rar := ShopCatalog.rarity_of(item)
+	var lines := [str(ShopCatalog.RARITY[rar][0])]
+	if item.has("desc"):
+		lines.append(str(item.desc))
 	var need := ShopCatalog.ad_cost(_selected)
 	_ad_action.visible = need > 0 and not owned and GameManager.level() >= int(item.lvl) and AdsManager.can_offer("item_video")
 	if _ad_action.visible:
@@ -580,28 +551,39 @@ func _update_preview() -> void:
 		_ad_action.text = ("Ganhar com vídeo" if need == 1 else "Ganhar com vídeos (%d/%d)" % [AdsManager.item_views(_selected), need])
 	_action.visible = true
 	_action.disabled = false
+	UITheme.style_button(_action, UITheme.ACCENT)
 	if owned and not item.get("consumable", false):
-		_action.text = "Equipado" if progression.is_equipped(_selected) else "Equipar"
-		_action.disabled = progression.is_equipped(_selected) or not (item.has("look") or item.has("vehicle"))
-		_info.text = item.name + ("\n(fica na sua carteira da sala)" if item.cat == "decoracao" else "") + ("\n" + str(item.desc) if item.has("desc") else "")
+		_action.text = "Usando" if progression.is_equipped(_selected) else "Usar"
+		_action.disabled = progression.is_equipped(_selected) or not (item.has("look") or item.has("vehicle") or item.has("kart"))
+		if item.cat == "decoracao":
+			lines.append("Fica na sua carteira da sala.")
 		if item.cat == "emote":
 			_action.text = "Já é seu"
 			_action.disabled = true
-			_info.text += "\nUse no botão de emoji (carinha) da tela."
+			lines.append("Use no botão de emoji (carinha) da tela.")
+	elif item.get("pass", false):
+		_action.text = "Ver no Passe"
+		UITheme.style_button(_action, UITheme.PASS_A)
+		lines.append("Exclusivo do Passe do Recreio.")
 	else:
-		var price := ShopCatalog.price_of(item)
-		var off := ShopCatalog.discount_of(item.id)
-		_action.text = "Comprar por %d" % price
-		_action.disabled = GameManager.level() < int(item.lvl) or GameManager.coins() < price
-		var lines := [item.name]
-		if item.has("desc"):
-			lines.append(str(item.desc))
-		lines.append(("De %d por %d moedas (-%d%%)" % [item.price, price, off]) if off > 0 else "Preço: %d moedas" % price)
-		if GameManager.level() < int(item.lvl):
-			lines.append("Libera no nível %d" % item.lvl)
-		elif GameManager.coins() < price:
-			lines.append("Faltam %d moedas" % (price - GameManager.coins()))
-		_info.text = "\n".join(lines)
+		var dia := ShopCatalog.diamonds_of(item)
+		if dia > 0:
+			_action.text = "Comprar por %d diamantes" % dia
+			_action.disabled = GameManager.level() < int(item.lvl) or GameManager.diamonds() < dia
+			if GameManager.diamonds() < dia:
+				lines.append("Faltam %d diamantes" % (dia - GameManager.diamonds()))
+		else:
+			var price := ShopCatalog.price_of(item)
+			var off := ShopCatalog.discount_of(item.id)
+			_action.text = "Comprar por %d moedas" % price
+			_action.disabled = GameManager.level() < int(item.lvl) or GameManager.coins() < price
+			if off > 0:
+				lines.append("De %d por %d (-%d%%)" % [item.price, price, off])
+			if GameManager.level() < int(item.lvl):
+				lines.append("Libera no nível %d" % item.lvl)
+			elif GameManager.coins() < price:
+				lines.append("Faltam %d moedas" % (price - GameManager.coins()))
+	_info.text = "\n".join(lines)
 
 
 func _on_ad_action() -> void:
@@ -628,6 +610,11 @@ func _on_action() -> void:
 	if _selected == "":
 		return
 	var item := ShopCatalog.get_item(_selected)
+	if item.get("pass", false) and not Progression.owns(_selected):
+		_tab = "passe"
+		_selected = ""
+		_refresh()
+		return
 	if Progression.owns(_selected) and not item.get("consumable", false):
 		progression.equip(_selected)
 	else:
@@ -639,9 +626,11 @@ func _on_action() -> void:
 	_refresh()
 
 
-func _row(text: String, sub: String, col := Color("fff8e7")) -> void:
+func _row(text: String, sub: String, col := UITheme.CARD_2) -> void:
 	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", UITheme.box(col, 14))
+	var sb := UITheme.card(col if col != Color("fff8e7") else UITheme.CARD_2, 12)
+	sb.shadow_size = 0
+	p.add_theme_stylebox_override("panel", sb)
 	var v := VBoxContainer.new()
 	var a := Label.new()
 	a.text = text
@@ -659,20 +648,17 @@ func _row(text: String, sub: String, col := Color("fff8e7")) -> void:
 
 # ------------------------------------------------------------ destaques e loja de diamantes
 
-func _section(t: String, col := Color("ffcf3f")) -> void:
-	var l := UITheme.title_label(t, 30, col)
+func _section(t: String, _col := Color.WHITE) -> void:
+	var l := UITheme.title_label(t, 26, UITheme.INK)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	l.add_theme_constant_override("outline_size", 8)
-	l.add_theme_color_override("font_outline_color", UITheme.DARK)
 	_content.add_child(l)
 
 
 func _grid_of(ids: Array) -> void:
 	var grid := GridContainer.new()
-	var avail := get_viewport_rect().size.x - 196.0 - 300.0 - 80.0
-	grid.columns = clampi(int(avail / 214.0), 2, 5)
-	grid.add_theme_constant_override("h_separation", 12)
-	grid.add_theme_constant_override("v_separation", 12)
+	grid.columns = _grid_cols()
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 14)
 	_content.add_child(grid)
 	for id in ids:
 		var it := ShopCatalog.get_item(id)
@@ -680,33 +666,20 @@ func _grid_of(ids: Array) -> void:
 			grid.add_child(_card(it, Progression.owns(id), true))
 
 
-## Vitrine principal: pacote de boas-vindas, lendários de diamante, novidades e passe.
+## Destaques: só o essencial (pacote de boas-vindas, passe, em alta e karts do passe).
 func _build_featured() -> void:
 	if not StoreOffers.starter_bought():
 		_content.add_child(_starter_banner())
-	# chamada do passe
-	var pb := UITheme.make_button("PASSE DO RECREIO: skins, emojis animados, karts e diamantes  >", func(): open_tab("passe"), 200)
-	pb.custom_minimum_size = Vector2(0, 64)
-	pb.add_theme_stylebox_override("normal", UITheme.box(Color("9b59ff"), 20, Color("6a2fd6"), 0, 6))
-	pb.add_theme_color_override("font_color", Color.WHITE)
-	pb.add_theme_font_size_override("font_size", 21)
+	var pb := LobbyPassCard.new()
+	pb.custom_minimum_size = Vector2(0, 300)
+	pb.pressed.connect(func():
+		_tab = "passe"
+		_refresh())
 	_content.add_child(pb)
-	_section("Lendários de diamante", Color("7fe3ff"))
-	_grid_of(["skin_princesa", "skin_cavaleiro", "skin_craque_neon", "aura_dourada", "emo_backflip", "aura_notas"])
-	_section("Novidades")
-	_grid_of(["skin_tigre", "skin_rock", "skin_surfista", "cam_estrela", "cam_raio", "cam_xadrez", "emo_dance", "emo_robot"])
-	_section("Karts com design (só no Passe)", Color("9b59ff"))
+	_section("Em alta")
+	_grid_of(["skin_princesa", "skin_tigre", "aura_dourada", "emo_backflip", "skin_rock", "emo_dance"])
+	_section("Karts com design · só no Passe")
 	_grid_of(["kart_turbo", "kart_foguete", "kart_campeao", "kart_neon"])
-	# rodízio diário: 4 itens diferentes por dia
-	_section("Seleção do dia")
-	var rng := RandomNumberGenerator.new()
-	rng.seed = hash("selecao-" + Time.get_date_string_from_system())
-	var pool := ShopCatalog.ITEMS.filter(func(i): return (int(i.get("price", 0)) >= 100 or ShopCatalog.diamonds_of(i) > 0) and not i.get("pass", false) and not i.get("legacy", false) and not i.get("consumable", false))
-	var pick := []
-	while pick.size() < 4 and not pool.is_empty():
-		var it: Dictionary = pool.pop_at(rng.randi() % pool.size())
-		pick.append(it.id)
-	_grid_of(pick)
 
 
 func _starter_banner() -> Control:
@@ -715,7 +688,9 @@ func _starter_banner() -> Control:
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(0, 170)
 	for k in ["normal", "hover", "pressed", "focus"]:
-		b.add_theme_stylebox_override(k, UITheme.box(Color("ff8a1f"), 24, Color("ffd23f"), 5, 8))
+		var sb := UITheme.card(Color("fff7ed"), 16, Color("fdba74"))
+		sb.shadow_size = 0
+		b.add_theme_stylebox_override(k, sb)
 	var h := HBoxContainer.new()
 	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	h.offset_left = 14
@@ -732,15 +707,15 @@ func _starter_banner() -> Control:
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(v)
-	var t := _label("PACOTE DE BOAS-VINDAS (só 1 vez!)", 24, Color.WHITE)
+	var t := _label("Pacote de boas-vindas · só 1 vez", 24, UITheme.INK)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(t)
-	var d := _label("Skin lendária Cavaleiro Dourado + %d diamantes + %d moedas" % [int(st.diamonds), int(st.coins)], 20, Color("fff3b0"))
+	var d := _label("Skin lendária Cavaleiro Dourado + %d diamantes + %d moedas" % [int(st.diamonds), int(st.coins)], 19, UITheme.INK_2)
 	d.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(d)
-	var pr := _label(Billing.price_of(str(st.id)), 34, Color.WHITE)
+	var pr := _label(Billing.price_of(str(st.id)), 32, Color("ea580c"))
 	pr.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	v.add_child(pr)
 	b.pressed.connect(func(): _confirm_money(str(st.id), "Pacote de Boas-vindas"))
@@ -852,12 +827,10 @@ func _build_pass() -> void:
 	var tv := VBoxContainer.new()
 	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(tv)
-	var t := UITheme.title_label("Passe do Recreio", 42, Color("c9a8ff"))
+	var t := UITheme.title_label("Passe do Recreio", 34, UITheme.INK)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	t.add_theme_constant_override("outline_size", 10)
-	t.add_theme_color_override("font_outline_color", UITheme.DARK)
 	tv.add_child(t)
-	var sub := _label("%s  ·  acaba em %d dia(s)  ·  nível %d de %d" % [RecessPass.season_name(), RecessPass.days_left(), RecessPass.tier(), RecessPass.TIERS], 20, UITheme.DARK)
+	var sub := _label("%s  ·  acaba em %d dia(s)  ·  nível %d de %d" % [RecessPass.season_name(), RecessPass.days_left(), RecessPass.tier(), RecessPass.TIERS], 19, UITheme.INK_2)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	tv.add_child(sub)
 	# barra de progresso do nível
@@ -866,9 +839,9 @@ func _build_pass() -> void:
 	bar.max_value = 1.0
 	bar.value = RecessPass.tier_progress()
 	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(0, 22)
-	bar.add_theme_stylebox_override("background", UITheme.box(Color("d9d2ea"), 11))
-	bar.add_theme_stylebox_override("fill", UITheme.box(Color("c9a8ff"), 11))
+	bar.custom_minimum_size = Vector2(0, 12)
+	bar.add_theme_stylebox_override("background", UITheme.box(Color("ede9fe"), 6))
+	bar.add_theme_stylebox_override("fill", UITheme.box(UITheme.PASS_A, 6))
 	tv.add_child(bar)
 	var xpl := _label("Ganhe XP jogando (aulas, brincadeiras, missões): %d / %d XP para o próximo nível" % [RecessPass.xp() % RecessPass.TIER_XP, RecessPass.TIER_XP], 16, Color("5b6b8c"))
 	xpl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -883,8 +856,7 @@ func _build_pass() -> void:
 				_refresh(), 260)
 		buy.custom_minimum_size = Vector2(260, 72)
 		buy.add_theme_font_size_override("font_size", 22)
-		buy.add_theme_stylebox_override("normal", UITheme.box(Color("9b59ff"), 20, Color("6a2fd6"), 0, 6))
-		buy.add_theme_color_override("font_color", Color.WHITE)
+		UITheme.style_button(buy, UITheme.PASS_A)
 		head.add_child(buy)
 	if not RecessPass.is_premium():
 		var why := _label(RecessPass.premium_summary(), 20, Color("7b3fe0"))

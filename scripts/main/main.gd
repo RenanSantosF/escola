@@ -35,8 +35,11 @@ func _ready() -> void:
 		NetworkManager.check_version()
 		QuestionDB.refresh(self)  # perguntas novas do banco de dados do servidor
 	# abertura FT (1,8 s): espera acabar antes de carregar a escola (fica lisa)
-	if FTSplash.playing:
-		await FTSplash.finished
+	# (a abertura se apaga sozinha depois de tocar: ao recarregar a cena — por
+	# exemplo depois de entrar na conta — ela já não existe mais)
+	var splash := get_node_or_null("/root/FTSplash")
+	if splash != null and is_instance_valid(splash) and bool(splash.get("playing")):
+		await splash.finished
 	_build_loading()
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -84,6 +87,7 @@ func _ready() -> void:
 	ui_layer.add_child(hud)
 	hud.bind(player, camera_rig, world)
 	hud.main_menu_cb = _back_to_menu
+	hud.unstuck_cb = _unstuck
 
 	school_day = SchoolDay.new()
 	school_day.name = "SchoolDay"
@@ -161,6 +165,30 @@ func _ready() -> void:
 	# Atalho para testes automatizados: --autoplay inicia direto.
 	if "--autoplay" in OS.get_cmdline_user_args():
 		_start_game()
+
+
+## Botão "Estou preso!": vai para o ponto de caminho livre mais perto
+## (a pelo menos 1 m de onde travou, no mesmo andar).
+func _unstuck() -> void:
+	if player == null or nav == null or player.minigame != null:
+		return
+	var here := player.global_position
+	var best := Vector3.INF
+	var bd := INF
+	for q in nav.points:
+		var d := Vector2(q.x - here.x, q.z - here.z).length()
+		if d < 1.0 or absf(q.y - here.y) > 2.0:
+			continue
+		if d < bd:
+			bd = d
+			best = q
+	if best == Vector3.INF:
+		best = world.spawn_point().origin
+	if player.mode == PlayerController.Mode.SITTING:
+		player.force_stand()
+	player.global_position = best + Vector3(0, 0.15, 0)
+	player.velocity = Vector3.ZERO
+	GameManager.show_toast("Pronto, você está livre!")
 
 
 func _on_progress(f: float, text: String) -> void:
@@ -252,6 +280,8 @@ var _tap_hint: Control
 var _lvl_badge: Label
 var _xp_bar: ProgressBar
 var _coins_lbl: Label
+var _diamonds_lbl: Label
+var _pass_card: LobbyPassCard
 
 
 func _soft_box(col: Color, radius: int) -> StyleBoxFlat:
@@ -268,14 +298,24 @@ func _soft_box(col: Color, radius: int) -> StyleBoxFlat:
 	return sb
 
 
+## Pílula branca (moedas/diamantes do topo).
+func _pill_box() -> StyleBoxFlat:
+	var sb := UITheme.card(UITheme.CARD, 12)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 16
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	return sb
+
+
 func _round_btn(icon: String, text: String, col: Color, cb: Callable, d := 96) -> LobbyButton:
 	var b := LobbyButton.new()
 	b.round_icon = true
 	b.icon_name = icon
 	b.text = text
 	b.color = col
-	b.font_size = 22
-	b.custom_minimum_size = Vector2(d, d + (40 if text != "" else 6))
+	b.font_size = 17
+	b.custom_minimum_size = Vector2(d, d + (34 if text != "" else 6))
 	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.pressed.connect(cb)
@@ -285,9 +325,11 @@ func _round_btn(icon: String, text: String, col: Color, cb: Callable, d := 96) -
 ## Balãozinho de fala (dica do lobby).
 func _bubble(text: String) -> Control:
 	var p := PanelContainer.new()
-	var sb := _soft_box(Color.WHITE, 22)
+	var sb := UITheme.card(UITheme.CARD, 12)
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
 	p.add_theme_stylebox_override("panel", sb)
-	var l := UITheme.title_label(text, 22, Color("ff4d6d"))
+	var l := UITheme.title_label(text, 20, UITheme.ACCENT)
 	p.add_child(l)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var tw := p.create_tween().set_loops()
@@ -358,35 +400,34 @@ func _build_menu() -> void:
 	_menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_menu.theme = UITheme.get_theme()
 	ui_layer.add_child(_menu)
-	# ---- lobby: céu animado, logo, o personagem no palco e botões grandes
+	# ---- lobby (visual novo): personagem à esquerda, PASSE em destaque à
+	# direita, atalhos embaixo à esquerda e JOGAR no canto de baixo à direita
 	_menu.add_child(LobbyBackground.new())
 	var lobby := Control.new()
 	lobby.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	lobby.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_menu.add_child(lobby)
 	_menu_box = lobby  # o lobby inteiro aparece/some junto
-	# logo
+	# logo (pequeno, em cima no meio)
 	var logo := LobbyLogo.new()
 	logo.title = GAME_TITLE.to_upper()
 	logo.ribbon = GAME_SUB.to_upper()
 	logo.anchor_left = 0.5
 	logo.anchor_right = 0.5
-	logo.offset_left = -330
-	logo.offset_right = 330
-	logo.offset_top = 6
-	logo.offset_bottom = 170
-	logo.font_size = 80
+	logo.offset_left = -250
+	logo.offset_right = 250
+	logo.offset_top = 10
+	logo.offset_bottom = 124
+	logo.font_size = 56
 	lobby.add_child(logo)
 	# personagem no palco (arrasta para girar, toque para uma graça)
 	_lobby_stage = CharacterStage.new()
-	_lobby_stage.anchor_left = 0.5
-	_lobby_stage.anchor_right = 0.5
-	_lobby_stage.anchor_top = 0.5
-	_lobby_stage.anchor_bottom = 0.5
-	_lobby_stage.offset_left = -210
-	_lobby_stage.offset_right = 210
-	_lobby_stage.offset_top = -150
-	_lobby_stage.offset_bottom = 225
+	_lobby_stage.anchor_left = 0.12
+	_lobby_stage.anchor_right = 0.6
+	_lobby_stage.anchor_top = 0.13
+	_lobby_stage.anchor_bottom = 1.0
+	_lobby_stage.offset_bottom = -6
+	_lobby_stage.podium_color = Color("c7cdfb")
 	lobby.add_child(_lobby_stage)
 	_lobby_stage.tapped.connect(func():
 		if is_instance_valid(_tap_hint):
@@ -394,149 +435,153 @@ func _build_menu() -> void:
 			tw.tween_property(_tap_hint, "modulate:a", 0.0, 0.3)
 			tw.tween_callback(_tap_hint.queue_free))
 	_tap_hint = _bubble("Toque em mim!")
-	_tap_hint.anchor_left = 0.5
-	_tap_hint.anchor_top = 0.5
-	_tap_hint.offset_left = 120
-	_tap_hint.offset_top = -120
+	_tap_hint.anchor_left = 0.36
+	_tap_hint.anchor_top = 0.3
+	_tap_hint.offset_left = 90
 	lobby.add_child(_tap_hint)
 	# cartão do jogador (canto de cima à esquerda)
 	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", _soft_box(Color(1, 1, 1, 0.92), 26))
-	card.position = Vector2(22, 18)
+	card.add_theme_stylebox_override("panel", UITheme.card(UITheme.CARD, 14))
+	card.position = Vector2(24, 20)
 	lobby.add_child(card)
 	var ch := HBoxContainer.new()
-	ch.add_theme_constant_override("separation", 12)
+	ch.add_theme_constant_override("separation", 14)
 	card.add_child(ch)
 	_lvl_badge = Label.new()
-	_lvl_badge.custom_minimum_size = Vector2(64, 64)
+	_lvl_badge.custom_minimum_size = Vector2(56, 56)
 	_lvl_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_lvl_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_lvl_badge.add_theme_font_override("font", UITheme.bold_font())
-	_lvl_badge.add_theme_font_size_override("font_size", 30)
+	_lvl_badge.add_theme_font_size_override("font_size", 26)
 	_lvl_badge.add_theme_color_override("font_color", Color.WHITE)
 	var lb := StyleBoxFlat.new()
-	lb.bg_color = Color("ff7a1a")
-	lb.set_corner_radius_all(32)
-	lb.border_color = Color("ffd23f")
-	lb.set_border_width_all(4)
+	lb.bg_color = UITheme.ACCENT
+	lb.set_corner_radius_all(12)
 	_lvl_badge.add_theme_stylebox_override("normal", lb)
 	ch.add_child(_lvl_badge)
 	var cv2 := VBoxContainer.new()
-	cv2.add_theme_constant_override("separation", 2)
+	cv2.add_theme_constant_override("separation", 4)
 	ch.add_child(cv2)
-	_hello_lbl = UITheme.title_label("", 26, UITheme.DARK)
+	_hello_lbl = UITheme.title_label("", 24, UITheme.INK)
 	_hello_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	cv2.add_child(_hello_lbl)
 	_xp_bar = ProgressBar.new()
-	_xp_bar.custom_minimum_size = Vector2(220, 16)
+	_xp_bar.custom_minimum_size = Vector2(210, 10)
 	_xp_bar.show_percentage = false
-	_xp_bar.add_theme_stylebox_override("background", UITheme.box(Color("dfe6f3"), 8))
-	_xp_bar.add_theme_stylebox_override("fill", UITheme.box(Color("6be36b"), 8))
+	_xp_bar.add_theme_stylebox_override("background", UITheme.box(UITheme.ACCENT_SOFT, 5))
+	_xp_bar.add_theme_stylebox_override("fill", UITheme.box(UITheme.ACCENT, 5))
 	cv2.add_child(_xp_bar)
-	_stats_lbl = Label.new()
-	_stats_lbl.add_theme_font_size_override("font_size", 16)
-	_stats_lbl.add_theme_color_override("font_color", Color(UITheme.DARK, 0.7))
+	_stats_lbl = UITheme.text_label("", 16, UITheme.INK_2)
 	cv2.add_child(_stats_lbl)
-	# moedas + configurações (canto de cima à direita)
+	# moedas, diamantes e configurações (canto de cima à direita)
 	var tr := HBoxContainer.new()
-	tr.add_theme_constant_override("separation", 14)
+	tr.add_theme_constant_override("separation", 10)
 	tr.anchor_left = 1.0
 	tr.anchor_right = 1.0
-	tr.offset_left = -330
-	tr.offset_right = -22
-	tr.offset_top = 18
+	tr.offset_left = -440
+	tr.offset_right = -24
+	tr.offset_top = 22
 	tr.alignment = BoxContainer.ALIGNMENT_END
 	lobby.add_child(tr)
 	var coins := PanelContainer.new()
-	coins.add_theme_stylebox_override("panel", _soft_box(Color(1, 1, 1, 0.92), 30))
+	coins.add_theme_stylebox_override("panel", _pill_box())
 	coins.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	var crow := HBoxContainer.new()
 	crow.add_theme_constant_override("separation", 8)
 	coins.add_child(crow)
 	var ci := CoinIcon.new()
-	ci.custom_minimum_size = Vector2(36, 36)
+	ci.radius = 14
+	ci.custom_minimum_size = Vector2(30, 30)
 	crow.add_child(ci)
-	_coins_lbl = UITheme.title_label("0", 28, Color("b7791f"))
+	_coins_lbl = UITheme.title_label("0", 24, UITheme.INK)
 	crow.add_child(_coins_lbl)
 	tr.add_child(coins)
-	tr.add_child(_round_btn("gear", "", Color("5b6b8c"), _open_menu_settings, 76))
-	# lado esquerdo: Visual e Amigos; lado direito: Conquistas e Créditos
-	var left := VBoxContainer.new()
-	left.add_theme_constant_override("separation", 40)
-	left.anchor_top = 0.5
-	left.anchor_bottom = 0.5
-	left.offset_left = 70
-	left.offset_right = 182
-	left.offset_top = -150
-	lobby.add_child(left)
-	left.add_child(_round_btn("shirt", "Visual", Color("ff4d9a"), _open_lobby_look, 112))
-	left.add_child(_round_btn("friends", "Amigos", Color("3e8bff"), _on_friends_pressed, 112))
-	var right := VBoxContainer.new()
-	right.add_theme_constant_override("separation", 40)
-	right.anchor_left = 1.0
-	right.anchor_right = 1.0
-	right.anchor_top = 0.5
-	right.anchor_bottom = 0.5
-	right.offset_left = -182
-	right.offset_right = -70
-	right.offset_top = -150
-	lobby.add_child(right)
-	right.add_child(_round_btn("star", "Conquistas", Color("ffb020"), func(): _open_lobby_tab("conquistas"), 112))
-	right.add_child(_round_btn("bag", "Mochila", Color("8b5cf6"), func(): _open_lobby_tab("colecoes"), 112))
-	# JOGAR (embaixo, no meio): o único botão grande da tela
+	var dias := PanelContainer.new()
+	dias.add_theme_stylebox_override("panel", _pill_box())
+	dias.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var drow := HBoxContainer.new()
+	drow.add_theme_constant_override("separation", 8)
+	dias.add_child(drow)
+	var di := DiamondIcon.new()
+	di.radius = 13
+	drow.add_child(di)
+	_diamonds_lbl = UITheme.title_label("0", 24, UITheme.INK)
+	drow.add_child(_diamonds_lbl)
+	tr.add_child(dias)
+	var gear := _round_btn("gear", "", UITheme.INK_2, _open_menu_settings, 52)
+	gear.custom_minimum_size = Vector2(52, 52)
+	tr.add_child(gear)
+	# PASSE DO RECREIO em destaque (direita)
+	_pass_card = LobbyPassCard.new()
+	_pass_card.anchor_left = 1.0
+	_pass_card.anchor_right = 1.0
+	_pass_card.offset_left = -444
+	_pass_card.offset_right = -24
+	_pass_card.offset_top = 96
+	_pass_card.offset_bottom = 420
+	_pass_card.pressed.connect(func(): _open_lobby_tab("passe"))
+	lobby.add_child(_pass_card)
+	# atalhos (embaixo à esquerda): ladrilhos com ícone e nome
+	var nav := HBoxContainer.new()
+	nav.add_theme_constant_override("separation", 16)
+	nav.anchor_top = 1.0
+	nav.anchor_bottom = 1.0
+	nav.offset_left = 24
+	nav.offset_top = -134
+	nav.offset_bottom = -16
+	lobby.add_child(nav)
+	nav.add_child(_round_btn("bag", "Loja", Color("f59e0b"), func(): _open_lobby_tab("loja"), 84))
+	nav.add_child(_round_btn("shirt", "Visual", Color("ec4899"), _open_lobby_look, 84))
+	nav.add_child(_round_btn("friends", "Amigos", Color("3b82f6"), _on_friends_pressed, 84))
+	nav.add_child(_round_btn("star", "Conquistas", Color("8b5cf6"), func(): _open_lobby_tab("conquistas"), 84))
+	# JOGAR (canto de baixo à direita): o botão principal, cantos discretos
 	var play := LobbyButton.new()
 	play.text = "JOGAR"
 	play.sub = "entrar na escola"
 	play.icon_name = "play"
-	play.color = Color("22c55e")
+	play.color = UITheme.PLAY
 	play.primary = true
-	play.font_size = 46
-	play.anchor_left = 0.5
-	play.anchor_right = 0.5
+	play.font_size = 42
+	play.anchor_left = 1.0
+	play.anchor_right = 1.0
 	play.anchor_top = 1.0
 	play.anchor_bottom = 1.0
-	play.offset_left = -200
-	play.offset_right = 200
-	play.offset_top = -132
-	play.offset_bottom = -22
+	play.offset_left = -444
+	play.offset_right = -24
+	play.offset_top = -136
+	play.offset_bottom = -24
 	play.pressed.connect(_on_play_quick)
 	lobby.add_child(play)
 	_lobby_status = Label.new()
-	_lobby_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lobby_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_lobby_status.add_theme_font_override("font", UITheme.bold_font())
-	_lobby_status.add_theme_font_size_override("font_size", 24)
-	_lobby_status.add_theme_color_override("font_color", Color.WHITE)
-	_lobby_status.add_theme_color_override("font_outline_color", Color(0.06, 0.1, 0.3))
-	_lobby_status.add_theme_constant_override("outline_size", 8)
-	_lobby_status.anchor_left = 0.5
-	_lobby_status.anchor_right = 0.5
+	_lobby_status.add_theme_font_size_override("font_size", 20)
+	_lobby_status.add_theme_color_override("font_color", UITheme.INK)
+	_lobby_status.anchor_left = 1.0
+	_lobby_status.anchor_right = 1.0
 	_lobby_status.anchor_top = 1.0
 	_lobby_status.anchor_bottom = 1.0
-	_lobby_status.offset_left = -300
-	_lobby_status.offset_right = 300
+	_lobby_status.offset_left = -640
+	_lobby_status.offset_right = -24
 	_lobby_status.offset_top = -172
-	_lobby_status.offset_bottom = -136
+	_lobby_status.offset_bottom = -142
 	lobby.add_child(_lobby_status)
 	var credits_btn := Button.new()
 	credits_btn.text = "Créditos"
 	credits_btn.flat = true
 	credits_btn.focus_mode = Control.FOCUS_NONE
-	credits_btn.add_theme_font_size_override("font_size", 18)
-	credits_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
-	credits_btn.anchor_left = 0.0
-	credits_btn.anchor_top = 1.0
-	credits_btn.anchor_bottom = 1.0
-	credits_btn.offset_left = 22
-	credits_btn.offset_top = -52
-	credits_btn.offset_bottom = -14
+	credits_btn.add_theme_font_size_override("font_size", 16)
+	for c in ["font_color", "font_hover_color", "font_pressed_color"]:
+		credits_btn.add_theme_color_override(c, UITheme.INK_2)
+	credits_btn.position = Vector2(24, 150)
 	credits_btn.pressed.connect(_open_credits)
 	lobby.add_child(credits_btn)
 
 	var ver := Label.new()
 	ver.text = "v%s" % ProjectSettings.get_setting("application/config/version")
-	ver.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
-	ver.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	ver.position = Vector2(-110, -44)
+	ver.add_theme_font_size_override("font_size", 14)
+	ver.add_theme_color_override("font_color", Color(UITheme.INK_2, 0.7))
+	ver.position = Vector2(112, 160)
 	_menu.add_child(ver)
 
 	var center := CenterContainer.new()
@@ -691,6 +736,10 @@ func _refresh_hello() -> void:
 		_xp_bar.value = xp
 	if _coins_lbl:
 		_coins_lbl.text = str(GameManager.coins())
+	if _diamonds_lbl:
+		_diamonds_lbl.text = str(GameManager.diamonds())
+	if _pass_card:
+		_pass_card.refresh()
 	# o boneco do palco com o visual de agora
 	if _lobby_stage:
 		_lobby_stage.set_appearance(Progression.appearance_with())

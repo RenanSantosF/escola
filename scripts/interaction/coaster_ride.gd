@@ -18,7 +18,11 @@ var cars: Array[Node3D] = []
 var riding := false
 var queued := false
 var seat := -1
-var first_person := false
+var first_person := true
+## Olhar em volta (arrastando o dedo na tela): giro e inclinação da câmera.
+var _look_yaw := 0.0
+var _look_pitch := 0.0
+var _drag_t := 0.0
 var _player: PlayerController
 var _cam_btn: Button
 var _cam_xf := Transform3D()
@@ -212,13 +216,15 @@ func _board() -> void:
 	p.velocity = Vector3.ZERO
 	p.visual.play("sit_down")
 	_yay = false
-	first_person = false
+	first_person = true  # começa em 1ª pessoa (como se estivesse sentado no carrinho)
+	_look_yaw = 0.0
+	_look_pitch = 0.0
 	_add_cam_button()
-	_cam_xf = _third_xf()
+	_cam_xf = _first_xf()
 	if p.camera_rig:
 		p.camera_rig.set_override(_cam_xf)
 	AudioManager.play_ui("ui_confirm", -4.0)
-	GameManager.show_toast("Trava de segurança fechada! O trem sai em %ds." % ceili(state().left))
+	GameManager.show_toast("Trava fechada! O trem sai em %ds. Arraste o dedo para olhar em volta." % ceili(state().left))
 
 
 func _unload() -> void:
@@ -257,8 +263,10 @@ func _add_cam_button() -> void:
 	var hud := get_tree().get_first_node_in_group("hud") as Control
 	if hud == null:
 		return
-	_cam_btn = UITheme.make_button("Ver em 1ª pessoa", func():
+	_cam_btn = UITheme.make_button("Ver de fora", func():
 		first_person = not first_person
+		_look_yaw = 0.0
+		_look_pitch = 0.0
 		_cam_btn.text = "Ver de fora" if first_person else "Ver em 1ª pessoa", 300)
 	_cam_btn.focus_mode = Control.FOCUS_NONE
 	_cam_btn.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -273,10 +281,32 @@ func _remove_cam_button() -> void:
 	_cam_btn = null
 
 
+## Arrastar na tela gira a câmera (1ª pessoa: olha em volta; de fora: dá a volta no trem).
+func _unhandled_input(event: InputEvent) -> void:
+	if not riding:
+		return
+	var rel := Vector2.ZERO
+	if event is InputEventScreenDrag:
+		rel = (event as InputEventScreenDrag).relative
+	elif event is InputEventMouseMotion and ((event as InputEventMouseMotion).button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
+		rel = (event as InputEventMouseMotion).relative
+	if rel == Vector2.ZERO:
+		return
+	_look_yaw = _look_yaw - rel.x * 0.006
+	if first_person:
+		_look_yaw = clampf(_look_yaw, -2.6, 2.6)
+	_look_pitch = clampf(_look_pitch - rel.y * 0.005, -1.0, 0.9)
+	_drag_t = 2.0
+
+
 func _first_xf() -> Transform3D:
 	var sx := seat_xf(seat)
+	var up := sx.basis.y.normalized()
 	var eye := sx * Vector3(0, 1.15, 0.12)
-	return Transform3D(Basis(), eye).looking_at(eye + sx.basis.z * 6.0, sx.basis.y)
+	var fwd := sx.basis.z.normalized().rotated(up, _look_yaw)
+	var right := fwd.cross(up).normalized()
+	fwd = fwd.rotated(right, -_look_pitch)
+	return Transform3D(Basis(), eye).looking_at(eye + fwd * 6.0, up)
 
 
 func _third_xf() -> Transform3D:
@@ -285,10 +315,12 @@ func _third_xf() -> Transform3D:
 	var flat := Vector3(fwd.x, 0, fwd.z)
 	if flat.length() < 0.2:
 		flat = Vector3(0, 0, 1)
-	flat = flat.normalized()
+	flat = flat.normalized().rotated(Vector3.UP, _look_yaw)
 	var mid := car_xf(1).origin
-	var eye := mid - flat * 9.0 + Vector3.UP * 4.5
-	return Transform3D(Basis(), eye).looking_at(mid + flat * 4.0 + Vector3.UP * 0.5, Vector3.UP)
+	var eye := mid - flat * 9.0 + Vector3.UP * (4.5 + _look_pitch * 4.0)
+	# nunca embaixo da terra nem do trilho
+	eye.y = maxf(eye.y, maxf(ParkHill.height(eye.x, eye.z), 0.0) + 1.5)
+	return Transform3D(Basis(), eye).looking_at(mid + Vector3.UP * 0.5, Vector3.UP)
 
 
 # ------------------------------------------------------------------ quadro a quadro
@@ -317,6 +349,11 @@ func _process(delta: float) -> void:
 			GameManager.show_toast("UHUUUUL!")
 		elif v < 8.0:
 			_yay = false
+		# soltou o dedo: a câmera volta devagar para a frente
+		_drag_t -= delta
+		if _drag_t <= 0.0 and first_person:
+			_look_yaw = move_toward(_look_yaw, 0.0, delta * 1.2)
+			_look_pitch = move_toward(_look_pitch, 0.0, delta * 0.8)
 		if p.camera_rig:
 			var want := _first_xf() if first_person else _third_xf()
 			var k := 1.0 - exp(-(30.0 if first_person else 6.0) * delta)

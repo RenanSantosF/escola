@@ -86,6 +86,19 @@ func triangle(mat: String, a: Vector3, b: Vector3, c: Vector3, color: Color, dou
 		md.tri(i0, i1, i2)
 
 
+## Quadrilátero livre (a, b, c, d em volta), uma face (normal calculada) —
+## para faixas contínuas como a pista do kart (sem frestas nas curvas).
+func quad(mat: String, a: Vector3, b: Vector3, c: Vector3, d: Vector3, color: Color, normal := Vector3.ZERO, shadow := false) -> void:
+	var md := _md(mat, shadow)
+	md.cur_color = color
+	var nn := normal if normal != Vector3.ZERO else (b - a).cross(c - a).normalized()
+	var i0 := md.add_vertex(a, nn)
+	var i1 := md.add_vertex(b, nn)
+	var i2 := md.add_vertex(c, nn)
+	var i3 := md.add_vertex(d, nn)
+	md.quad(i0, i1, i2, i3)
+
+
 func collider(center: Vector3, size: Vector3, rot_y := 0.0) -> void:
 	colliders.append([Transform3D(Basis(Vector3.UP, rot_y), center), size])
 

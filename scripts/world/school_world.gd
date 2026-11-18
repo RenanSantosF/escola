@@ -1,5 +1,7 @@
 class_name SchoolWorld
 extends Node3D
+## Camada de desenho que a foto aérea do mapa não vê (pista do kart).
+const MAP_HIDDEN_LAYER := 2
 ## Raiz do mundo: ambiente (céu, sol, névoa), construção procedural da
 ## escola, objetos interativos, zonas (nome do local, telhados que somem
 ## ao entrar nos prédios) e aplicação das configurações gráficas.
@@ -106,6 +108,10 @@ func build(progress: Callable) -> void:
 		var wb: WorldBatcher = builder.chunks[key]
 		_chunk_nodes[key] = wb.build(geo)
 		_chunk_nodes[key].position.y = builder.chunk_offsets.get(key, 0.0)
+		if str(key).begins_with("kart_"):
+			# a pista do kart fica fora da "foto de satélite" do mapa (lá ela é desenhada como linha)
+			for gi in _chunk_nodes[key].find_children("*", "GeometryInstance3D", true, false):
+				(gi as GeometryInstance3D).layers = MAP_HIDDEN_LAYER
 		n += 1
 		if n % 12 == 0:
 			await get_tree().process_frame

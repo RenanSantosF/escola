@@ -18,6 +18,8 @@ var _settings: SettingsPanel
 var _map_dim: ColorRect
 var _toast_tween: Tween
 var main_menu_cb: Callable
+## "Estou preso!" no menu de pausa: leva o jogador a um lugar livre perto.
+var unstuck_cb: Callable
 var _banner: VBoxContainer
 var _banner_title: Label
 var _banner_sub: Label
@@ -568,6 +570,12 @@ func _build_pause() -> void:
 	_pause_box.add_child(UITheme.title_label("Menu", 44))
 	_pause_box.add_child(UITheme.make_button("Continuar", close_pause))
 	_pause_box.add_child(UITheme.make_button("Configurações", _open_settings))
+	var stuck := UITheme.make_button("Estou preso!", func():
+		close_pause()
+		if unstuck_cb.is_valid():
+			unstuck_cb.call())
+	UITheme.style_button(stuck, UITheme.CARD_2, true)
+	_pause_box.add_child(stuck)
 	_pause_box.add_child(UITheme.make_button("Menu principal", func():
 		SaveManager.save_game()
 		if main_menu_cb.is_valid():

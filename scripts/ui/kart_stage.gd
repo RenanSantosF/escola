@@ -40,12 +40,22 @@ func _ready() -> void:
 	cyl.height = 0.1
 	disk.mesh = cyl
 	var dm := StandardMaterial3D.new()
-	dm.albedo_color = Color("ffcf3f")
+	dm.albedo_color = Color("e0e4ff")
 	disk.material_override = dm
 	disk.position = Vector3(0, -0.06, 0)
 	_vp.add_child(disk)
 	_pivot = Node3D.new()
 	_vp.add_child(_pivot)
+	_pivot.add_child(KartRace.make_kart_item(item_id))
+
+
+## Troca o kart mostrado (vitrine lateral da loja).
+func set_item(id: String) -> void:
+	item_id = id
+	if _pivot == null:
+		return
+	for c in _pivot.get_children():
+		c.queue_free()
 	_pivot.add_child(KartRace.make_kart_item(item_id))
 
 
