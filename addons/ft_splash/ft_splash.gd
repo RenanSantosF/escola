@@ -101,7 +101,12 @@ class _Draw extends Control:
 			var arr := PackedVector2Array()
 			for p in pts:
 				arr.append(xf.call(p))
-			draw_colored_polygon(arr, c)
+			# no começo da animação a peça ainda tem área zero: não desenha (dá erro)
+			var area := 0.0
+			for i in arr.size():
+				area += arr[i].cross(arr[(i + 1) % arr.size()])
+			if absf(area) > 1.0:
+				draw_colored_polygon(arr, c)
 		# F: haste sobe, barras entram da esquerda
 		var fh := FTSplashMath.ease_out(_seg(t, 0.12, 0.5))
 		poly.call([Vector2(0, 124 - 124 * fh), Vector2(30, 124 - 124 * fh), Vector2(30, 124), Vector2(0, 124)], col)

@@ -45,6 +45,8 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var sz := size
+	if sz.x < 4.0 or sz.y < 4.0:
+		return
 	# céu: azul vivo em cima, azul-claro e um toque quente no horizonte
 	var top := Color("3d6dff")
 	var mid := Color("62c3ff")

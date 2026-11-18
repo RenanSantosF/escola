@@ -692,14 +692,16 @@ func _build_featured() -> void:
 	pb.add_theme_font_size_override("font_size", 21)
 	_content.add_child(pb)
 	_section("Lendários de diamante", Color("7fe3ff"))
-	_grid_of(["skin_princesa", "skin_cavaleiro", "skin_craque_neon", "aura_dourada", "emo_backflip", "kart_galaxia"])
+	_grid_of(["skin_princesa", "skin_cavaleiro", "skin_craque_neon", "aura_dourada", "emo_backflip", "aura_notas"])
 	_section("Novidades")
-	_grid_of(["skin_tigre", "skin_rock", "skin_surfista", "cam_estrela", "cam_raio", "kart_chamas", "emo_dance", "emo_robot"])
+	_grid_of(["skin_tigre", "skin_rock", "skin_surfista", "cam_estrela", "cam_raio", "cam_xadrez", "emo_dance", "emo_robot"])
+	_section("Karts com design (só no Passe)", Color("9b59ff"))
+	_grid_of(["kart_turbo", "kart_foguete", "kart_campeao", "kart_neon"])
 	# rodízio diário: 4 itens diferentes por dia
 	_section("Seleção do dia")
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("selecao-" + Time.get_date_string_from_system())
-	var pool := ShopCatalog.ITEMS.filter(func(i): return (int(i.get("price", 0)) >= 100 or ShopCatalog.diamonds_of(i) > 0) and not i.get("pass", false) and not i.get("consumable", false))
+	var pool := ShopCatalog.ITEMS.filter(func(i): return (int(i.get("price", 0)) >= 100 or ShopCatalog.diamonds_of(i) > 0) and not i.get("pass", false) and not i.get("legacy", false) and not i.get("consumable", false))
 	var pick := []
 	while pick.size() < 4 and not pool.is_empty():
 		var it: Dictionary = pool.pop_at(rng.randi() % pool.size())
@@ -885,7 +887,7 @@ func _build_pass() -> void:
 		buy.add_theme_color_override("font_color", Color.WHITE)
 		head.add_child(buy)
 	if not RecessPass.is_premium():
-		var why := _label("Com o passe: 4 skins exclusivas, 9 emojis ANIMADOS, 6 efeitos, 2 karts exclusivos, 115 diamantes e 1.150 moedas!", 20, Color("7b3fe0"))
+		var why := _label(RecessPass.premium_summary(), 20, Color("7b3fe0"))
 		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_content.add_child(why)
 	# trilhas: premium em cima, grátis embaixo (rola para o lado)

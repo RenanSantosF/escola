@@ -16,6 +16,7 @@ func _ready() -> void:
 	NPCManager.STUDENT_BOTS = true  # os testes antigos contam com alunos-bot andando
 	SchoolDay.SPECIAL_ROOMS = false  # e com as duas aulas na Sala 5
 	SchoolDay.RANDOM_SCHEDULE = false  # e com a grade antiga (turmas nas Salas 5, 6 e 4)
+	MinigameManager.FREE_PLAY = true  # brincadeiras de graça (a cobrança tem teste próprio)
 	SaveManager.reset()
 	_test_save_system()
 	_test_settings()
@@ -99,6 +100,7 @@ func _ready() -> void:
 	await _test_elevador_tobogã()
 	await _test_kart()
 	await _test_passe_loja()
+	await _test_brincadeira_paga()
 	await _test_pipa()
 	await _test_diamantes()
 	await _test_presente_dia()
@@ -2494,15 +2496,15 @@ func _test_diamantes() -> void:
 	await _frames(2)
 	check(player.visual.appearance.shirt_pattern == "", "estampa: trocar de camiseta tira a estampa")
 	# pintura do kart
-	prog.grant("kart_chamas")
-	prog.equip("kart_chamas")
-	check(player.visual.appearance.kart == "kart_chamas", "kart: pintura equipada vai para o visual")
+	prog.grant("kart_turbo")
+	prog.equip("kart_turbo")
+	check(player.visual.appearance.kart == "kart_turbo", "kart: kart do passe equipado vai para o visual")
 	# passe: diamantes e desafios
 	SaveManager.section("pass").clear()
 	RecessPass.grant_premium()
-	RecessPass.data()["xp"] = RecessPass.TIER_XP * 2
+	RecessPass.data()["xp"] = RecessPass.TIER_XP * 3
 	var dd := GameManager.diamonds()
-	check(RecessPass.claim("prem", 2) == "+20 diamantes" and GameManager.diamonds() == dd + 20, "passe: nível 2 premium dá 20 diamantes")
+	check(RecessPass.claim("prem", 3) == "+20 diamantes" and GameManager.diamonds() == dd + 20, "passe: nível 3 premium dá 20 diamantes")
 	var ch := RecessPass.challenges()
 	check(ch.size() == 6, "passe: 6 desafios da semana")
 	var e: Dictionary = ch[0]
@@ -2569,6 +2571,31 @@ func _test_pipa() -> void:
 	check(mm.active == null and player.camera_rig.override_active == false, "pipa: termina e devolve a câmera")
 
 
+func _test_brincadeira_paga() -> void:
+	await _recess()
+	await _clear_discipline()
+	var mm: MinigameManager = main.minigames
+	MinigameManager.FREE_PLAY = false
+	var p: Dictionary = SaveManager.section("player")
+	check(int(SaveManager.default_data().player.coins) == 0, "economia: começa sem moedas (as primeiras vêm da 1ª aula)")
+	p["coins"] = 2
+	player.force_stand()
+	await _frames(2)
+	check(not mm.start("kart") and mm.active == null, "brincadeira: sem moedas suficientes não começa (kart custa %d)" % MinigameManager.price_of("kart"))
+	p["coins"] = 20
+	check(mm.start("corda") and mm.active != null, "brincadeira: com moedas começa")
+	check(GameManager.coins() == 20 - MinigameManager.PRICES.corda, "brincadeira: pular corda custa %d moedas" % MinigameManager.PRICES.corda)
+	mm.active.end_game(0, "teste", 0, 0)
+	await _frames(3)
+	check(mm.active == null, "brincadeira: terminou")
+	check(MinigameManager.PRICES.corda < MinigameManager.PRICES.kart, "brincadeira: umas são mais baratas que outras")
+	var maxp := 0
+	for k in MinigameManager.PRICES.keys():
+		maxp = maxi(maxp, int(MinigameManager.PRICES[k]))
+	check(SchoolDay.COIN_RIGHT * SchoolDay.MIN_CORRECT[0] >= maxp * 4, "economia: uma aula boa paga pelo menos 4 brincadeiras das mais caras")
+	MinigameManager.FREE_PLAY = true
+
+
 func _test_passe_loja() -> void:
 	var prog: Progression = main.progression
 	SaveManager.section("pass").clear()
@@ -2576,13 +2603,17 @@ func _test_passe_loja() -> void:
 	GameManager.add_rewards(RecessPass.TIER_XP * 3, 0)
 	check(RecessPass.tier() == 3, "passe: XP do jogo também sobe o passe (nível %d)" % RecessPass.tier())
 	var c0 := GameManager.coins()
-	check(RecessPass.can_claim("free", 1) and RecessPass.claim("free", 1) != "" and GameManager.coins() == c0 + 30, "passe: pega prêmio grátis (30 moedas)")
-	check(not RecessPass.can_claim("free", 1), "passe: não pega o mesmo prêmio duas vezes")
+	check(RecessPass.can_claim("free", 3) and RecessPass.claim("free", 3) != "" and GameManager.coins() == c0 + 20, "passe: pega prêmio grátis (20 moedas)")
+	check(not RecessPass.can_claim("free", 3), "passe: não pega o mesmo prêmio duas vezes")
+	check(RecessPass.FREE.size() * 3 <= RecessPass.PREMIUM.size(), "passe: a trilha grátis dá bem menos prêmios (%d x %d)" % [RecessPass.FREE.size(), RecessPass.PREMIUM.size()])
+	check(str(RecessPass.FREE[RecessPass.TIERS].get("item", "")).begins_with("kart_"), "passe: grátis ganha kart com design só no ÚLTIMO nível")
 	check(not RecessPass.can_claim("prem", 1), "passe: trilha premium bloqueada sem comprar")
-	check(prog.buy("emo_floss") != "", "passe: item exclusivo não se compra com moedas")
+	check(prog.buy("emo_floss") != "" and prog.buy("kart_turbo") != "", "passe: item exclusivo (emoji, kart) não se compra com moedas")
+	check(ShopCatalog.ITEMS.all(func(i): return i.cat != "kart" or i.id == "kart_padrao" or (int(i.get("price", 0)) == 0 and ShopCatalog.diamonds_of(i) == 0)), "loja: karts não se compram (só no passe)")
 	RecessPass.grant_premium()
 	check(RecessPass.is_premium(), "passe: comprar ativa o premium (30 dias)")
-	check(RecessPass.claim("prem", 1) != "" and Progression.owns("emo_floss"), "passe: premium nível 1 dá o emoji animado Fio dental")
+	check(RecessPass.claim("prem", 1) != "" and Progression.owns("kart_turbo"), "passe: premium já dá um KART com design no nível 1")
+	check(RecessPass.claim("prem", 2) != "" and Progression.owns("emo_floss"), "passe: premium nível 2 dá o emoji animado Fio dental")
 	check(ShopCatalog.owned_emotes().any(func(e): return e[1] == "floss"), "passe: o emoji aparece no botão de emojis")
 	# emoji animado: a figura aparece em cima da cabeça
 	player.force_stand()
@@ -2591,7 +2622,7 @@ func _test_passe_loja() -> void:
 	await _frames(2)
 	check(player.visual.find_children("*", "EmoteFX", false, false).size() >= 1, "emoji animado: figura animada em cima da cabeça")
 	# efeito (aura) aparece no personagem
-	SaveManager.section("pass")["claimed_prem"].append_array([2, 3, 4, 5, 6])
+	SaveManager.section("pass")["claimed_prem"].append_array([3, 4, 5, 6])
 	RecessPass.data()["xp"] = RecessPass.TIER_XP * 8
 	check(RecessPass.claim("prem", 7) != "" and Progression.owns("aura_fogo"), "passe: nível 7 dá o efeito Chamas")
 	prog.equip("aura_fogo")
@@ -2646,12 +2677,67 @@ func _test_kart() -> void:
 	var s0: float = kr.me.s
 	await _wait(1.5)
 	check(kr.me.s > s0 + 15.0 and kr.me.v > 10.0, "kart: acelera sozinho (%.1f m/s)" % kr.me.v)
-	# turbo
-	var t0: int = kr._turbos
+	# item: todo mundo larga com um turbo na mão
+	check(str(kr.me.item) == "turbo" and kr.play_label() != "", "kart: começa com TURBO no botão amarelo")
 	kr.on_play()
-	check(kr._turbos == t0 - 1 and kr.me.boost > 0.0, "kart: botão amarelo = TURBO")
+	check(str(kr.me.item) == "" and kr.me.boost > 0.0, "kart: botão amarelo = usa o item (turbo)")
 	await _wait(0.6)
 	check(kr.me.v > kr.MAX_V, "kart: com turbo passa da velocidade máxima (%.1f)" % kr.me.v)
+	# itens por posição: líder ganha mais óleo, último ganha turbo triplo/foguete
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var lead_oil := 0
+	var last_good := 0
+	for i in 200:
+		if KartRace.roll_item(0.0, rng) == "oleo":
+			lead_oil += 1
+		if KartRace.roll_item(1.0, rng) in ["turbo3", "foguete"]:
+			last_good += 1
+	check(lead_oil > 100 and last_good > 120, "kart: itens equilibram (1º: %d óleos / último: %d turbos fortes)" % [lead_oil, last_good])
+	# nunca anda de ré nem ao contrário: frear para, virar para trás não passa de ~43°
+	var keep_s: float = kr.me.s
+	kr.me.v = 3.0
+	kr._brake_btn = true
+	await _wait(0.6)
+	check(kr.me.v >= 0.0 and kr.me.v < 0.5, "kart: freio só para (não anda de ré) (%.1f)" % kr.me.v)
+	kr._brake_btn = false
+	kr.me.h = 3.0
+	await _frames(2)
+	check(absf(kr.me.h) <= kr.MAX_H + 0.01, "kart: nunca fica virado ao contrário (%.2f rad)" % kr.me.h)
+	check(kr.me.s >= keep_s - 0.01, "kart: não volta para trás na pista")
+	kr.me.h = 0.0
+	# batida na mureta: quica para dentro e perde um pouco (não para de vez)
+	kr.me.boost = 0.0
+	kr.me.v = 20.0
+	kr.me.d = 3.6
+	kr.me.h = 0.6
+	await _frames(6)
+	check(float(kr.me.vd) < -0.5 or float(kr.me.d) < 3.6, "kart: bateu na mureta = quica para dentro")
+	check(kr.me.v > 10.0 and kr.me.v < 20.0, "kart: mureta tira velocidade mas não para (%.1f)" % kr.me.v)
+	kr.me.h = 0.0
+	# óleo: quem passa rodopia
+	var bot: Dictionary = kr.racers[1]
+	bot.oil_safe = 0.0
+	bot.spin = 0.0
+	bot.rocket = 0.0
+	bot.air_y = 0.0
+	kr._drop_oil(float(bot.s) + 0.3, float(bot.d))
+	await _frames(3)
+	check(float(bot.spin) > 0.0, "kart: passou no ÓLEO = rodopia")
+	# vácuo: logo atrás de outro kart carrega e dá velocidade
+	kr.me.slip = 0.0
+	bot.spin = 0.0
+	for i in 70:  # o colega fica uns 7 m na frente, na mesma faixa
+		bot.s = fposmod(float(kr.me.s) + 7.0, KartTrack.length())
+		bot.d = kr.me.d
+		bot.v = kr.me.v
+		await _frames(1)
+	check(float(kr.me.slip) >= kr.SLIP_CHARGE, "kart: atrás de alguém pega VÁCUO (vento aparece: %s)" % kr._wind.visible)
+	# batida entre karts: um não atravessa o outro
+	bot.s = kr.me.s
+	bot.d = float(kr.me.d) + 0.3
+	kr._collide(0.016)
+	check(absf(float(bot.d) - float(kr.me.d)) > 0.6, "kart: karts lado a lado se empurram (não atravessam)")
 	# derrapagem com miniturbo
 	kr.me.boost = 0.0
 	kr.me.d = -3.5

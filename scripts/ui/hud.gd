@@ -808,6 +808,8 @@ class _ResultStar extends Control:
 	var on := true
 
 	func _draw() -> void:
+		if size.x < 4.0:
+			return
 		var c := size * 0.5
 		var r := size.x * 0.48
 		var pts := PackedVector2Array()

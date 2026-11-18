@@ -29,7 +29,7 @@ func _col(key: String, def: Color) -> Color:
 
 
 func _draw() -> void:
-	if item.is_empty():
+	if item.is_empty() or size.x < 4.0 or size.y < 4.0:
 		return
 	var rar := ShopCatalog.rarity_of(item)
 	var rcol: Color = ShopCatalog.RARITY[rar][1]
@@ -277,14 +277,56 @@ func _vehicle(s: float, kind: String) -> void:
 
 
 func _kart(s: float, k: Dictionary) -> void:
-	var col := Color(str(k.get("color", "e53935")))
+	var col := Color(str(k.get("color", ""))) if str(k.get("color", "")) != "" else Color("e53935")
 	var acc := Color(str(k.get("accent", "ffffff")))
 	var style := str(k.get("style", ""))
+	var body := str(k.get("body", ""))
+	var rim := Color("ffcf3f") if body == "campeao" else (acc if body == "neon" else Color("cfd5dc"))
+	var rw := s * (0.29 if body in ["turbo", "campeao"] else 0.24)
 	# visto de lado: corpo, bico, aerofólio, rodas e piloto
-	draw_circle(Vector2(-s * 0.55, s * 0.35), s * 0.24, Color("1d1d1d"))
+	if body == "neon":
+		draw_line(Vector2(-s * 0.9, s * 0.32), Vector2(s * 0.95, s * 0.32), Color(acc, 0.35), s * 0.22)
+		draw_line(Vector2(-s * 0.9, s * 0.3), Vector2(s * 0.95, s * 0.3), acc, s * 0.07)
+	if body == "foguete":
+		draw_colored_polygon(PackedVector2Array([Vector2(-s * 1.0, -s * 0.05), Vector2(-s * 1.0, s * 0.2), Vector2(-s * 1.55, s * 0.08)]), Color("ff8a1f"))
+		draw_colored_polygon(PackedVector2Array([Vector2(-s * 1.0, s * 0.02), Vector2(-s * 1.0, s * 0.14), Vector2(-s * 1.3, s * 0.08)]), Color("ffe08a"))
+	draw_circle(Vector2(-s * 0.55, s * 0.35 - (rw - s * 0.24)), rw, Color("1d1d1d"))
 	draw_circle(Vector2(s * 0.6, s * 0.35), s * 0.24, Color("1d1d1d"))
+	draw_circle(Vector2(-s * 0.55, s * 0.35 - (rw - s * 0.24)), rw * 0.45, rim)
+	draw_circle(Vector2(s * 0.6, s * 0.35), s * 0.24 * 0.45, rim)
 	_o(PackedVector2Array([Vector2(-s * 0.95, s * 0.15), Vector2(-s * 0.85, -s * 0.15), Vector2(s * 0.3, -s * 0.15), Vector2(s * 1.0, s * 0.05), Vector2(s * 1.0, s * 0.25), Vector2(-s * 0.95, s * 0.25)]), col)
-	_o(PackedVector2Array([Vector2(-s * 1.0, -s * 0.45), Vector2(-s * 0.7, -s * 0.45), Vector2(-s * 0.75, -s * 0.15), Vector2(-s * 0.9, -s * 0.15)]), col.darkened(0.3))
+	match body:
+		"":
+			_o(PackedVector2Array([Vector2(-s * 1.0, -s * 0.45), Vector2(-s * 0.7, -s * 0.45), Vector2(-s * 0.75, -s * 0.15), Vector2(-s * 0.9, -s * 0.15)]), col.darkened(0.3))
+		"esportivo", "neon":
+			draw_line(Vector2(-s * 0.85, -s * 0.15), Vector2(-s * 0.85, -s * 0.55), Color("2b2d33"), s * 0.07)
+			_o(PackedVector2Array([Vector2(-s * 1.15, -s * 0.66), Vector2(-s * 0.6, -s * 0.6), Vector2(-s * 0.62, -s * 0.5), Vector2(-s * 1.12, -s * 0.52)]), acc if body == "esportivo" else col.lightened(0.2))
+			if body == "neon":
+				draw_line(Vector2(-s * 1.15, -s * 0.68), Vector2(-s * 0.6, -s * 0.62), acc, s * 0.05)
+			draw_line(Vector2(s * 0.75, s * 0.27), Vector2(s * 1.15, s * 0.27), Color("1d1d1d"), s * 0.06)
+		"turbo":
+			# carburadores cromados e asa gigante
+			for i in 3:
+				var x := -s * 0.62 + i * s * 0.11
+				draw_rect(Rect2(x, -s * 0.5, s * 0.08, s * 0.36), Color("d7dde4"))
+				draw_rect(Rect2(x - s * 0.015, -s * 0.54, s * 0.11, s * 0.06), Color("9aa5b1"))
+			draw_line(Vector2(-s * 0.95, -s * 0.15), Vector2(-s * 0.95, -s * 0.62), Color("2b2d33"), s * 0.08)
+			_o(PackedVector2Array([Vector2(-s * 1.4, -s * 0.8), Vector2(-s * 0.68, -s * 0.7), Vector2(-s * 0.7, -s * 0.57), Vector2(-s * 1.37, -s * 0.62)]), acc)
+			_o(PackedVector2Array([Vector2(-s * 1.42, -s * 0.95), Vector2(-s * 0.95, -s * 0.89), Vector2(-s * 0.97, -s * 0.81), Vector2(-s * 1.4, -s * 0.85)]), col)
+			draw_line(Vector2(-s * 0.95, s * 0.12), Vector2(-s * 1.25, s * 0.06), Color("d7dde4"), s * 0.09)
+			draw_line(Vector2(s * 0.7, s * 0.27), Vector2(s * 1.2, s * 0.27), Color("1d1d1d"), s * 0.07)
+		"foguete":
+			_o(PackedVector2Array([Vector2(s * 0.95, -s * 0.1), Vector2(s * 1.55, s * 0.08), Vector2(s * 0.95, s * 0.25)]), col)
+			draw_colored_polygon(PackedVector2Array([Vector2(s * 1.3, s * 0.0), Vector2(s * 1.55, s * 0.08), Vector2(s * 1.3, s * 0.15)]), acc)
+			_o(PackedVector2Array([Vector2(-s * 0.95, -s * 0.15), Vector2(-s * 0.85, -s * 0.75), Vector2(-s * 0.6, -s * 0.15)]), acc)
+			draw_line(Vector2(-s * 0.7, s * 0.05), Vector2(s * 0.5, s * 0.05), acc, s * 0.18)
+		"campeao":
+			_o(PackedVector2Array([Vector2(s * 0.9, s * 0.0), Vector2(s * 1.6, s * 0.12), Vector2(s * 1.6, s * 0.22), Vector2(s * 0.9, s * 0.22)]), col)
+			_o(PackedVector2Array([Vector2(s * 1.25, s * 0.28), Vector2(s * 1.7, s * 0.28), Vector2(s * 1.7, s * 0.34), Vector2(s * 1.25, s * 0.34)]), acc)
+			_o(PackedVector2Array([Vector2(-s * 0.55, -s * 0.15), Vector2(-s * 0.5, -s * 0.6), Vector2(-s * 0.3, -s * 0.6), Vector2(-s * 0.2, -s * 0.15)]), col)
+			draw_line(Vector2(-s * 0.95, -s * 0.15), Vector2(-s * 0.95, -s * 0.7), Color("2b2d33"), s * 0.07)
+			_o(PackedVector2Array([Vector2(-s * 1.25, -s * 0.86), Vector2(-s * 0.7, -s * 0.8), Vector2(-s * 0.72, -s * 0.7), Vector2(-s * 1.22, -s * 0.72)]), acc)
+			_o(PackedVector2Array([Vector2(-s * 1.28, -s * 1.0), Vector2(-s * 0.85, -s * 0.95), Vector2(-s * 0.87, -s * 0.88), Vector2(-s * 1.26, -s * 0.9)]), acc)
 	match style:
 		"listras":
 			draw_rect(Rect2(-s * 0.6, -s * 0.05, s * 1.5, s * 0.08), acc)

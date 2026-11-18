@@ -21,30 +21,33 @@ const STEP := 1.6
 ## Pontos de controle (x, altura, z), no sentido da corrida, começando na largada.
 const CTRL := [
 	Vector3(-103, 0, -6),
-	# chicane no lado oeste
-	Vector3(-103, 0, -20), Vector3(-97, 0, -36), Vector3(-109, 0, -56), Vector3(-103, 0, -74),
-	Vector3(-103, 0, -100), Vector3(-103, 0, -117),
+	# lado oeste: zigue-zague (S) até o fundo
+	Vector3(-103, 0, -16), Vector3(-98, 0, -36), Vector3(-108, 0, -58), Vector3(-98, 0, -80),
+	Vector3(-107, 0, -100), Vector3(-104, 0, -118),
 	# curva noroeste
-	Vector3(-100, 0, -130), Vector3(-90, 0, -138),
-	# fundos: morrinhos e o SALTO
-	Vector3(-74, 0, -138), Vector3(-60, 2.0, -138), Vector3(-46, 0, -138), Vector3(-32, 2.4, -138),
-	Vector3(-18, 0, -138), Vector3(-4, 0.4, -138), Vector3(8, 3.0, -138), Vector3(16, 0.8, -138),
-	Vector3(28, 0, -138), Vector3(44, 1.4, -140), Vector3(60, 0, -136), Vector3(76, 0, -138),
+	Vector3(-99, 0, -132), Vector3(-88, 0, -139),
+	# fundos: curvas com morrinhos e o SALTO no meio
+	Vector3(-66, 2.0, -133), Vector3(-44, 0, -143), Vector3(-24, 2.0, -134),
+	Vector3(-10, 0.4, -138), Vector3(2, 3.0, -138), Vector3(11, 0.8, -138),
+	Vector3(30, 0, -133), Vector3(51, 1.4, -143), Vector3(72, 0, -134),
 	# curva nordeste
-	Vector3(90, 0, -138), Vector3(100, 0, -130), Vector3(103, 0, -117),
-	# lado leste: S e SUBIDA para o viaduto
-	Vector3(103, 0, -96), Vector3(97, 0, -74), Vector3(109, 0, -52), Vector3(103, 0, -30),
-	Vector3(103, 0, -8), Vector3(103, 1.4, 12), Vector3(103, 4.4, 32), Vector3(103, 7.0, 50),
+	Vector3(89, 0, -139), Vector3(100, 0, -131), Vector3(104, 0, -117),
+	# lado leste: zigue-zague e SUBIDA para o viaduto
+	Vector3(98, 0, -98), Vector3(108, 0, -78), Vector3(98, 0, -56), Vector3(108, 0, -34),
+	Vector3(102, 0, -12), Vector3(103, 1.4, 10), Vector3(103, 4.4, 30), Vector3(103, 7.0, 49),
 	Vector3(103, 8.0, 61),
 	# curva sudeste (já no alto)
 	Vector3(100, 8.0, 70), Vector3(90, 8.0, 75),
-	# VIADUTO por cima do portão
-	Vector3(70, 8.0, 75), Vector3(46, 8.6, 75), Vector3(22, 7.6, 75), Vector3(0, 7.4, 75),
-	Vector3(-22, 7.6, 75), Vector3(-46, 8.6, 75), Vector3(-70, 8.0, 75), Vector3(-90, 8.0, 75),
+	# VIADUTO (com curvinhas) por cima do portão
+	Vector3(70, 8.0, 73), Vector3(50, 8.6, 77), Vector3(30, 7.8, 73), Vector3(14, 7.4, 75), Vector3(0, 7.4, 75),
+	Vector3(-14, 7.4, 75), Vector3(-30, 7.8, 77), Vector3(-50, 8.6, 73), Vector3(-70, 8.0, 77), Vector3(-90, 8.0, 75),
 	# curva sudoeste e a DESCIDA
 	Vector3(-100, 8.0, 70), Vector3(-103, 8.0, 61), Vector3(-103, 7.0, 50), Vector3(-103, 4.4, 32),
 	Vector3(-103, 1.4, 12),
 ]
+
+## Poças de ÓLEO fixas na pista (fração da volta, deslocamento lateral).
+const OIL_SPOTS := [[0.2, 2.6], [0.47, -2.4], [0.71, 2.4]]
 
 ## Placas de turbo (setas amarelas): distância ao longo da volta (fração).
 const BOOST_U := [0.06, 0.37, 0.5, 0.77]

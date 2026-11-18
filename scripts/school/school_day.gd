@@ -17,6 +17,9 @@ const ARRIVAL_LIMIT := 90.0
 const RETURN_LIMIT := 75.0  # 8 minutos de recreio
 const LESSON_SIZE := [7, 5]
 const MIN_CORRECT := [4, 3]
+## Moedas por tarefa da aula (acertou / tentou). As aulas pagam a loja E as brincadeiras.
+const COIN_RIGHT := 8
+const COIN_TRY := 2
 const PHASE_NAMES := ["Chegada", "Aula", "Recreio", "Volta para a sala", "Aula", "Saída"]
 
 var world: SchoolWorld
@@ -514,9 +517,10 @@ func _on_answered(ok: bool) -> void:
 		GameManager.add_stat("acertos")
 		npcs.teacher.visual.play("clap")
 		npcs.teacher.say(["Muito bem!", "Isso mesmo!", "Excelente!", "Parabéns!"].pick_random(), 2.0)
-		GameManager.add_rewards(10, 6)  # moedas vêm das aulas
+		GameManager.add_rewards(10, COIN_RIGHT)  # moedas vêm das aulas
 	else:
 		npcs.teacher.say(["Quase! Vamos tentar a próxima.", "Tudo bem, errar faz parte!", "Presta atenção na próxima!"].pick_random(), 2.4)
+		GameManager.add_rewards(2, COIN_TRY)  # quem tentou também ganha um pouquinho
 	Learning.record(ok)
 	task_finished.emit(ok)
 	hud.controls.visible = true
@@ -596,7 +600,7 @@ func _end_day() -> void:
 	ring_bell()
 	_set_phase(Phase.DAY_END)
 	npcs.begin_day_end()
-	var coins := day_correct * 5 + 10
+	var coins := day_correct * 6 + 15
 	var xp := day_correct * 10 + 20
 	var lvl_before := GameManager.level()
 	GameManager.add_rewards(xp, coins)
@@ -837,7 +841,7 @@ func _finish_find(ok: bool) -> void:
 	if ok:
 		day_correct += 1
 		GameManager.add_stat("acertos")
-		GameManager.add_rewards(15, 8)
+		GameManager.add_rewards(15, COIN_RIGHT + 2)
 		AudioManager.play_ui("ui_confirm")
 		npcs.teacher.visual.play("clap")
 	task_finished.emit(ok)

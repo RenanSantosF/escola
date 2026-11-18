@@ -28,6 +28,8 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
+	if size.x < 4.0 or size.y < 4.0:
+		return  # ainda sem tamanho (polígonos degenerados dão erro)
 	var c := size * 0.5
 	var r := minf(size.x, size.y) * 0.36
 	var wob := sin(_t * 3.0) * 0.04 if bounce else 0.0

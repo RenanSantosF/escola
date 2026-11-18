@@ -28,7 +28,7 @@ static func default_data() -> Dictionary:
 			"name": "Você",
 			"level": 1,
 			"xp": 0,
-			"coins": 50,
+			"coins": 0,  # as primeiras moedas vêm da primeira aula
 			"appearance": {},
 		},
 		"progress": {

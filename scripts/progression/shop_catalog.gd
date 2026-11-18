@@ -207,8 +207,6 @@ const DIAMOND_ITEMS := [
 	{"id": "aura_notas", "cat": "aura", "name": "Música no ar", "price": 0, "diamonds": 130, "lvl": 1, "rarity": "epico", "look": {"aura": "notas"}, "desc": "Notinhas musicais dançando ao seu redor."},
 	{"id": "emo_backflip", "cat": "emote", "name": "Mortal para trás", "price": 0, "diamonds": 90, "lvl": 1, "emote": "backflip", "rarity": "lendario", "animated": true, "desc": "Um mortal de verdade com estrela girando!"},
 	{"id": "emo_guitar", "cat": "emote", "name": "Guitarra imaginária", "price": 0, "diamonds": 80, "lvl": 1, "emote": "air_guitar", "rarity": "epico", "animated": true, "desc": "Solo de guitarra com notas musicais."},
-	{"id": "kart_dourado", "cat": "kart", "name": "Kart Dourado", "price": 0, "diamonds": 120, "lvl": 1, "rarity": "lendario", "kart": {"color": "ffcf3f", "accent": "ffffff", "style": "listras"}, "desc": "Kart de ouro com faixas brancas. Brilha na pista!"},
-	{"id": "kart_galaxia", "cat": "kart", "name": "Kart Galáxia", "price": 0, "diamonds": 180, "lvl": 1, "rarity": "lendario", "kart": {"color": "3b1f7a", "accent": "ffcf3f", "style": "estrelas"}, "desc": "Roxo-galáxia com estrelas douradas."},
 ]
 
 ## Mais roupas e skins com estampa (moedas).
@@ -225,12 +223,20 @@ const MORE_ITEMS := [
 		"look": {"shirt_color": "1c1c24", "shirt_trim": "e0263a", "shirt_logo": false, "shirt_pattern": "raio", "pants_color": "2b2b2b", "long_pants": true, "shoe_color": "1c1c24", "shoe_sole": "e0263a", "backpack": false, "cap": false, "glasses": true}},
 	{"id": "skin_tigre", "cat": "skin", "name": "Tigre", "price": 800, "lvl": 5, "rarity": "epico", "desc": "Laranja com listras pretas. Rawr!",
 		"look": {"shirt_color": "ff8a1f", "shirt_trim": "1d1d1d", "shirt_logo": false, "shirt_pattern": "listras", "pants_color": "ff8a1f", "long_pants": true, "sock_color": "1d1d1d", "shoe_color": "1d1d1d", "backpack": false, "cap": false}},
-	{"id": "kart_padrao", "cat": "kart", "name": "Kart Vermelho", "price": 0, "lvl": 1, "rarity": "comum", "kart": {"color": "e53935", "accent": "ffffff", "style": ""}},
-	{"id": "kart_azul", "cat": "kart", "name": "Kart Azul Turbo", "price": 250, "lvl": 1, "rarity": "raro", "kart": {"color": "2f80ed", "accent": "ffffff", "style": "listras"}},
-	{"id": "kart_verde", "cat": "kart", "name": "Kart Verde Limão", "price": 400, "lvl": 2, "rarity": "raro", "kart": {"color": "9be15d", "accent": "1d1d1d", "style": "xadrez"}},
-	{"id": "kart_chamas", "cat": "kart", "name": "Kart Chamas", "price": 900, "lvl": 4, "rarity": "epico", "kart": {"color": "1d1d1d", "accent": "ff7a1a", "style": "chamas"}},
-	{"id": "kart_arco", "cat": "kart", "name": "Kart Arco-íris", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "kart": {"color": "ffffff", "accent": "ff6fae", "style": "arco"}, "desc": "Exclusivo do passe!"},
-	{"id": "kart_neon", "cat": "kart", "name": "Kart Neon", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "kart": {"color": "263238", "accent": "00e5ff", "style": "listras"}, "desc": "Exclusivo do passe!"},
+	{"id": "kart_padrao", "cat": "kart", "name": "Kart da Escola", "price": 0, "lvl": 1, "rarity": "comum", "kart": {"color": "", "accent": "ffffff", "style": ""}, "desc": "O kart de todo mundo: na corrida ele ganha a cor do seu lugar no grid."},
+	# Karts com DESIGN só no Passe do Recreio (todos andam igual: é só beleza!)
+	{"id": "kart_turbo", "cat": "kart", "name": "Kart Turbo V8", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "kart": {"color": "e0263a", "accent": "ffd23f", "style": "listras", "body": "turbo"}, "desc": "Aerofólio gigante e carburadores cromados. Exclusivo do passe!"},
+	{"id": "kart_neon", "cat": "kart", "name": "Kart Neon", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "kart": {"color": "263238", "accent": "00e5ff", "style": "listras", "body": "neon"}, "desc": "Luz neon embaixo do kart e aerofólio iluminado. Exclusivo do passe!"},
+	{"id": "kart_foguete", "cat": "kart", "name": "Kart Foguete", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "kart": {"color": "eceff1", "accent": "e53935", "style": "", "body": "foguete"}, "desc": "Bico de foguete, aletas e turbina com fogo. Exclusivo do passe!"},
+	{"id": "kart_arco", "cat": "kart", "name": "Kart Arco-íris", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "kart": {"color": "ffffff", "accent": "ff6fae", "style": "arco", "body": "esportivo"}, "desc": "Exclusivo do passe!"},
+	{"id": "kart_campeao", "cat": "kart", "name": "Kart Campeão", "price": 0, "lvl": 1, "rarity": "lendario", "pass": true, "kart": {"color": "1d1d1d", "accent": "ffcf3f", "style": "xadrez", "body": "campeao"}, "desc": "Bico comprido, asa dupla e detalhes de ouro. Exclusivo do passe!"},
+	{"id": "kart_esportivo", "cat": "kart", "name": "Kart Esportivo", "price": 0, "lvl": 1, "rarity": "epico", "pass": true, "kart": {"color": "2f80ed", "accent": "ffffff", "style": "listras", "body": "esportivo"}, "desc": "Prêmio do último nível do passe (grátis)!"},
+	# karts antigos (quem já tinha continua com eles; não aparecem mais na loja)
+	{"id": "kart_azul", "cat": "kart", "name": "Kart Azul Turbo", "price": 0, "lvl": 1, "rarity": "raro", "legacy": true, "kart": {"color": "2f80ed", "accent": "ffffff", "style": "listras"}},
+	{"id": "kart_verde", "cat": "kart", "name": "Kart Verde Limão", "price": 0, "lvl": 1, "rarity": "raro", "legacy": true, "kart": {"color": "9be15d", "accent": "1d1d1d", "style": "xadrez"}},
+	{"id": "kart_chamas", "cat": "kart", "name": "Kart Chamas", "price": 0, "lvl": 1, "rarity": "epico", "legacy": true, "kart": {"color": "1d1d1d", "accent": "ff7a1a", "style": "chamas"}},
+	{"id": "kart_dourado", "cat": "kart", "name": "Kart Dourado", "price": 0, "lvl": 1, "rarity": "lendario", "legacy": true, "kart": {"color": "ffcf3f", "accent": "ffffff", "style": "listras"}},
+	{"id": "kart_galaxia", "cat": "kart", "name": "Kart Galáxia", "price": 0, "lvl": 1, "rarity": "lendario", "legacy": true, "kart": {"color": "3b1f7a", "accent": "ffcf3f", "style": "estrelas"}},
 ]
 
 static var ITEMS: Array = SKINS + PASS_SKINS + DIAMOND_ITEMS + MORE_ITEMS + BUNDLES + ITEMS_BASE + EMOTES + AURAS
@@ -264,7 +270,8 @@ static func ad_cost(id: String) -> int:
 
 
 static func by_cat(cat: String) -> Array:
-	return ITEMS.filter(func(i): return i.cat == cat)
+	# itens antigos ("legacy") só aparecem para quem já tem
+	return ITEMS.filter(func(i): return i.cat == cat and (not i.get("legacy", false) or Progression.owns(i.id)))
 
 
 static func get_item(id: String) -> Dictionary:

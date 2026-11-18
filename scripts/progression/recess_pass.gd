@@ -13,22 +13,22 @@ const TIER_XP := 250
 const DAYS := 30
 
 ## Prêmio: {"coins": n} | {"item": id} | {"packs": {"figurinha": n, "gude": n}}
+## Trilha GRÁTIS: poucos prêmios (o kart com design só no último nível).
 const FREE := {
-	1: {"coins": 30}, 2: {"packs": {"figurinha": 1}}, 4: {"coins": 40}, 6: {"packs": {"gude": 1}}, 8: {"coins": 50},
-	10: {"item": "emo_clap"}, 12: {"coins": 60}, 14: {"packs": {"figurinha": 2}}, 15: {"diamonds": 10}, 16: {"coins": 70},
-	18: {"packs": {"gude": 1}}, 20: {"coins": 80}, 22: {"packs": {"figurinha": 2}}, 24: {"coins": 90}, 25: {"diamonds": 10},
-	26: {"packs": {"gude": 2}}, 28: {"coins": 100}, 30: {"item": "emo_celebrate"},
+	3: {"coins": 20}, 6: {"packs": {"figurinha": 1}}, 10: {"item": "emo_clap"}, 14: {"coins": 30},
+	18: {"packs": {"gude": 1}}, 22: {"coins": 40}, 26: {"diamonds": 5}, 30: {"item": "kart_esportivo"},
 }
-## Trilha premium: um prêmio em TODO nível (e os melhores no fim, para valer a pena jogar).
+## Trilha premium: um prêmio em TODO nível — já começa com um kart com design
+## (aerofólio gigante e carburadores) e os melhores ficam no fim.
 const PREMIUM := {
-	1: {"item": "emo_floss"}, 2: {"diamonds": 20}, 3: {"item": "skin_pirata"}, 4: {"coins": 150},
-	5: {"item": "emo_dance"}, 6: {"item": "kart_neon"}, 7: {"item": "aura_fogo"}, 8: {"diamonds": 25},
-	9: {"item": "emo_laugh"}, 10: {"item": "skin_dragao"}, 11: {"coins": 200}, 12: {"item": "emo_flex"},
-	13: {"packs": {"figurinha": 4}}, 14: {"item": "aura_coracoes"}, 15: {"item": "emo_heart"}, 16: {"diamonds": 30},
-	17: {"item": "skin_neon"}, 18: {"item": "aura_raio"}, 19: {"item": "emo_guitar"}, 20: {"item": "emo_robot"},
-	21: {"coins": 300}, 22: {"item": "aura_estrelas"}, 23: {"item": "kart_arco"}, 24: {"item": "emo_spin"},
-	25: {"diamonds": 40}, 26: {"item": "aura_neve"}, 27: {"item": "emo_backflip"}, 28: {"coins": 500},
-	29: {"item": "aura_arco"}, 30: {"item": "skin_unicornio"},
+	1: {"item": "kart_turbo"}, 2: {"item": "emo_floss"}, 3: {"diamonds": 20}, 4: {"item": "skin_pirata"},
+	5: {"item": "emo_dance"}, 6: {"coins": 150}, 7: {"item": "aura_fogo"}, 8: {"diamonds": 25},
+	9: {"item": "kart_neon"}, 10: {"item": "skin_dragao"}, 11: {"item": "emo_laugh"}, 12: {"coins": 200},
+	13: {"item": "emo_flex"}, 14: {"item": "aura_coracoes"}, 15: {"item": "emo_heart"}, 16: {"item": "kart_foguete"},
+	17: {"item": "skin_neon"}, 18: {"item": "aura_raio"}, 19: {"item": "emo_guitar"}, 20: {"item": "aura_arco"},
+	21: {"item": "emo_robot"}, 22: {"item": "aura_estrelas"}, 23: {"item": "kart_arco"}, 24: {"item": "emo_spin"},
+	25: {"diamonds": 50}, 26: {"item": "aura_neve"}, 27: {"item": "emo_backflip"}, 28: {"coins": 400},
+	29: {"item": "kart_campeao"}, 30: {"item": "skin_unicornio"},
 }
 
 ## DESAFIOS DA SEMANA: 6 por semana (iguais para todos), cada um dá XP do passe.
@@ -179,6 +179,22 @@ static func pending() -> int:
 		if can_claim("prem", t):
 			n += 1
 	return n
+
+
+## Resumo do que a trilha premium dá (texto da chamada para comprar).
+static func premium_summary() -> String:
+	var n := {"skin": 0, "emote": 0, "aura": 0, "kart": 0}
+	var dia := 0
+	var coins := 0
+	for t in PREMIUM.keys():
+		var r: Dictionary = PREMIUM[t]
+		if r.has("item"):
+			var c := str(ShopCatalog.get_item(str(r.item)).get("cat", ""))
+			if n.has(c):
+				n[c] = int(n[c]) + 1
+		dia += int(r.get("diamonds", 0))
+		coins += int(r.get("coins", 0))
+	return "Com o passe: %d karts com design (já no nível 1!), %d skins exclusivas, %d emojis ANIMADOS, %d efeitos, %d diamantes e %d moedas!" % [n.kart, n.skin, n.emote, n.aura, dia, coins]
 
 
 ## Itens exclusivos que o passe premium traz (para a vitrine).
