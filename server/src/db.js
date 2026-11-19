@@ -358,6 +358,19 @@ class Database {
     return true;
   }
 
+  /** Valor qualquer guardado na tabela settings (ex.: 'invest'). */
+  async loadKey(key) {
+    if (!this.ready) return null;
+    const r = await this.pool.query('select value from settings where key = $1', [key]);
+    return r.rows.length ? r.rows[0].value : null;
+  }
+
+  async saveKey(key, value) {
+    if (!this.ready) return false;
+    await this.pool.query('insert into settings (key, value) values ($1, $2) on conflict (key) do update set value = excluded.value', [key, JSON.stringify(value)]);
+    return true;
+  }
+
   // ---------------------------------------------------------- perguntas das aulas
   async loadQuestions() {
     if (!this.ready) return [];

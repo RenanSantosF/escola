@@ -43,6 +43,7 @@ const { Database } = require('./db');
 const gameSettings = require('./settings');
 const { Friends } = require('./friends');
 const { QuestionBank } = require('./questions');
+const { analyze, cleanEntry, InvestStore } = require('./invest');
 
 const NEAR_DIST = 18; // metros do canal "Perto de mim"
 const EMOTES = new Set(['wave', 'celebrate', 'clap', 'sad', 'stretch', 'scratch_head', 'look_around', 'raise_hand',
@@ -83,6 +84,8 @@ function createServer(opts = {}) {
     onPlayer: (x) => dbSafe(db.upsertGamePlayer(x)),
     onEvent: (x) => dbSafe(db.insertGameEvent(x)),
   });
+  // investimento em divulgação x retorno (lançado pelo painel)
+  const invest = opts.invest || new InvestStore({ db, dataDir: db.enabled ? '' : (opts.dataDir ?? process.env.DATA_DIR ?? '') });
   const statsCache = new Map(); // chave -> {at, value}
   function cached(key, fn, ttl = 20000) {
     const c = statsCache.get(key);
@@ -105,6 +108,7 @@ function createServer(opts = {}) {
       friends.load(await db.loadFriends());
       questions.load(await db.loadQuestions().catch(() => []));
       gameSettings.apply(await db.loadSettings().catch(() => null));
+      invest.load(await db.loadKey('invest').catch(() => null));
       console.log('Banco de dados conectado: ' + analytics.events.length + ' eventos carregados');
       return true;
     } catch (e) {
@@ -250,6 +254,30 @@ function createServer(opts = {}) {
       const st = cached(id + ':' + days, () => computeGameStats(gameData(id), Date.now(), days));
       const info = GAMES.find((g) => g.id === id);
       return json(200, { ...st, game: info, generatedAt: new Date().toISOString(), live: id === 'escola' ? liveInfo() : null });
+    }
+    // ---------------------------------------------------------- investimentos
+    if (url === '/api/admin/invest') {
+      if (!isAdmin(req)) return json(403, { ok: false, error: 'token inválido' });
+      if (req.method === 'POST') {
+        const r = cleanEntry(await readJson(req), GAME_IDS);
+        if (r.error) return json(400, { ok: false, error: r.error });
+        const saved = await invest.upsert(r.entry);
+        return json(200, { ok: true, entry: r.entry, saved: !!saved });
+      }
+      if (req.method === 'DELETE') {
+        const id = String(new URL(req.url, 'http://x').searchParams.get('id') || '');
+        const r = await invest.remove(id);
+        return r === null ? json(404, { ok: false }) : json(200, { ok: true });
+      }
+      if (req.method === 'GET') {
+        const cmp = cached('compare', () => {
+          const data = {};
+          for (const g of GAMES) data[g.id] = gameData(g.id);
+          return compareGames(data);
+        });
+        const quality = Object.fromEntries(cmp.games.map((g) => [g.id, g.score]));
+        return json(200, { ok: true, storage: db.ready ? 'banco' : (invest.file ? 'arquivo' : 'memória'), ...analyze(invest.entries, GAMES, gameData, quality) });
+      }
     }
     // ---------------------------------------------------------- amigos
     if (url.startsWith('/api/friends')) {
