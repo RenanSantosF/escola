@@ -196,8 +196,9 @@ func show_tutorial(gid: String, on_done: Callable) -> void:
 	ov.done.connect(on_done)
 
 
+## Liberado para brincar: recreio, ou já terminou a atividade da aula.
 func is_recess() -> bool:
-	return day.phase == SchoolDay.Phase.RECESS
+	return day.free_to_play()
 
 
 func _on_phase(_p: int) -> void:
@@ -315,7 +316,8 @@ func _process(delta: float) -> void:
 		active.hint_tick(delta)
 		active.tick(delta)
 		return
-	if not is_recess() or day.dialogue.is_open():
+	# convites dos bots só no recreio de verdade (na aula eles estão sentados)
+	if day.phase != SchoolDay.Phase.RECESS or day.dialogue.is_open():
 		return
 	_invite_t -= delta
 	if _invite_t <= 0.0:

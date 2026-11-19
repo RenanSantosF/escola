@@ -155,7 +155,7 @@ func end_game(won: int, summary: String, coins: int, xp: int, extra := {}) -> vo
 		var m = mgr
 		again = func():
 			if not m.start(gid) and MinigameManager.can_pay(gid):
-				GameManager.show_toast("Agora não dá: brincadeiras só no recreio!" if not m.is_recess() else "Espere um pouquinho e tente de novo.")
+				GameManager.show_toast("Agora não: brinca no recreio ou depois de terminar a atividade!" if not m.is_recess() else "Espere um pouquinho e tente de novo.")
 	hud.show_result(title, head, summary, stars, xp, rec_txt, again)
 	if won > 0:
 		player.visual.play("celebrate")

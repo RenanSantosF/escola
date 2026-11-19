@@ -920,6 +920,7 @@ func show_toast(message: String) -> void:
 
 
 func _process(delta: float) -> void:
+	_update_reconnect(delta)
 	if _alert and _alert.visible and _alert.scale.x > 1.0:
 		_alert.scale = Vector2.ONE * maxf(1.0, _alert.scale.x - delta * 0.8)
 	if _objective_point != null or _mission_point != null or _game_point != null:
@@ -942,3 +943,41 @@ func _process(delta: float) -> void:
 	_fps.visible = bool(Settings.get_value("show_fps"))
 	if _fps.visible:
 		_fps.text = "%d FPS" % Engine.get_frames_per_second()
+
+
+# ------------------------------------------------- aviso de reconexão
+var _reconn: PanelContainer
+var _reconn_lbl: Label
+var _reconn_t := 0.0
+
+
+## Caiu a internet (ou voltou do app minimizado): mostra "Reconectando..."
+## no alto da tela até o servidor responder.
+func _update_reconnect(delta: float) -> void:
+	_reconn_t += delta
+	var show := NetworkManager.is_reconnecting()
+	if show and _reconn == null:
+		_reconn = PanelContainer.new()
+		_reconn.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sb := UITheme.box(Color(0.12, 0.13, 0.22, 0.88), 12)
+		sb.content_margin_left = 18
+		sb.content_margin_right = 18
+		sb.content_margin_top = 8
+		sb.content_margin_bottom = 8
+		_reconn.add_theme_stylebox_override("panel", sb)
+		_reconn_lbl = Label.new()
+		_reconn_lbl.add_theme_font_override("font", UITheme.bold_font())
+		_reconn_lbl.add_theme_font_size_override("font_size", 22)
+		_reconn_lbl.add_theme_color_override("font_color", Color.WHITE)
+		_reconn.add_child(_reconn_lbl)
+		_reconn.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		_reconn.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		_reconn.position.y = 64
+		add_child(_reconn)
+	if _reconn:
+		_reconn.visible = show
+		if show:
+			_reconn_lbl.text = "Reconectando" + ".".repeat(1 + int(_reconn_t * 2.0) % 3)
+			_reconn.reset_size()
+			_reconn.position.x = (size.x - _reconn.size.x) * 0.5
+			move_child(_reconn, -1)

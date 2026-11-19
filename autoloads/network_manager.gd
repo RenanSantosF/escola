@@ -113,6 +113,11 @@ func available() -> bool:
 	return server_url() != ""
 
 
+## Caiu a conexão e está tentando voltar (para mostrar "Reconectando...").
+func is_reconnecting() -> bool:
+	return _want_online and _ever_welcomed and not is_online()
+
+
 func is_online() -> bool:
 	return _ws != null and _ws.get_ready_state() == WebSocketPeer.STATE_OPEN and my_id != ""
 

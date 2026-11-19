@@ -111,6 +111,7 @@ func setup(w: SchoolWorld, m: NPCManager, p: PlayerController, h: HUD) -> void:
 	m.player_desk_changed.connect(_on_desk_changed)
 	m.turma_changed.connect(_on_turma_changed)
 	NetworkManager.clock_changed.connect(_on_clock)
+	GameManager.state_changed.connect(_on_game_state)
 	_marker = _make_marker()
 	w.add_child(_marker)
 	var info := npcs.class_info()
@@ -142,7 +143,7 @@ func _make_marker() -> Node3D:
 
 func start_day() -> void:
 	# online: quem manda é o relógio do servidor (entra na fase em que a sala está)
-	if NetworkManager.is_online() and not NetworkManager.clock.is_empty():
+	if NetworkManager.my_id != "" and not NetworkManager.clock.is_empty():
 		apply_clock(NetworkManager.clock)
 		return
 	_init_day()
@@ -224,13 +225,30 @@ const PHASE_IDS := ["arrival", "class1", "recess", "return", "class2", "end"]
 
 func _on_clock(st: Dictionary) -> void:
 	if not GameManager.is_playing():
+		# loja/pausa abertas ou app minimizado: guarda o sinal e aplica ao voltar
+		# (antes ele era jogado fora e a aula "voltava" com mais minutos)
+		_pending_clock = st
 		return
+	_pending_clock = {}
 	apply_clock(st)
+
+
+var _pending_clock: Dictionary = {}
+
+
+func _on_game_state(s: int) -> void:
+	if s != GameManager.State.PLAYING or _pending_clock.is_empty():
+		return
+	_pending_clock = {}
+	# usa o relógio MAIS RECENTE (pode ter trocado mais de uma vez lá dentro)
+	if NetworkManager.my_id != "" and not NetworkManager.clock.is_empty():
+		apply_clock(NetworkManager.clock)
 
 
 ## Recebe o relógio da sala. Na primeira vez (ou outra sala / outro dia no
 ## meio de uma fase) o jogador "entra" na fase atual; depois só segue as trocas.
 func apply_clock(st: Dictionary) -> void:
+	_pending_clock = {}
 	var p := PHASE_IDS.find(str(st.get("phase", "")))
 	if p < 0:
 		return
@@ -250,6 +268,7 @@ func apply_clock(st: Dictionary) -> void:
 
 ## Saiu do online: volta ao dia local (cada um no seu ritmo).
 func unsync() -> void:
+	_pending_clock = {}
 	synced = false
 	_sync_room = ""
 	_server_day = -1
@@ -447,6 +466,7 @@ func _begin_class(n: int) -> void:
 	_class_no = n
 	class_room = room_for_class(n)
 	_update_turma_class_rooms(n)
+	_class_done = false  # antes de trocar a fase: quem brinca é chamado de volta
 	_set_phase(Phase.CLASS_1 if n == 0 else Phase.CLASS_2)
 	npcs.begin_class()
 	_gen.level = Learning.level()
@@ -547,10 +567,18 @@ func _on_answered(ok: bool) -> void:
 func _finish_lesson_synced() -> void:
 	_class_done = true
 	_task_active = false
-	npcs.teacher.say("Muito bem! Pode descansar até o sinal.", 2.6)
+	_out_of_class = 0.0
+	hud.set_alert("")
+	npcs.teacher.say("Muito bem! Quem terminou pode ir brincar até o sinal.", 2.8)
 	if _board_label:
 		_board_label.text = "Muito bem, turma!"
-	_set_objective("Você terminou! Espere o sinal", null)
+	_set_objective("Terminou! Pode ir brincar até o sinal", null)
+	hud.show_banner("TERMINOU A ATIVIDADE!", "Pode ir para as brincadeiras até o sinal tocar.")
+
+
+## Pode brincar agora? No recreio, ou na aula depois de terminar a atividade.
+func free_to_play() -> bool:
+	return phase == Phase.RECESS or ((phase == Phase.CLASS_1 or phase == Phase.CLASS_2) and _class_done)
 
 
 func _end_class() -> void:
@@ -908,6 +936,12 @@ var _gift_offered := true
 
 func _process(delta: float) -> void:
 	if not GameManager.is_playing():
+		# na loja/mochila o relógio da escola continua contando (sem trocar de
+		# fase lá dentro: a troca acontece assim que a criança volta)
+		if GameManager.overlay_open and not synced and GameManager.state == GameManager.State.PAUSED:
+			_phase_time += delta
+			if phase == Phase.RECESS and not hold_recess:
+				recess_left -= delta
 		return
 	_phase_time += delta
 	# presente do dia: no recreio, assim que estiver livre (fora de brincadeira e de conversa)

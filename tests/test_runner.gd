@@ -2006,9 +2006,21 @@ func _test_relogio_servidor() -> void:
 	sd._on_answered(true)
 	await _wait(0.5)
 	check(sd.phase == SchoolDay.Phase.CLASS_1 and sd._class_done, "relógio: terminou as tarefas e espera o sinal da turma")
-	# o servidor toca o sinal: recreio para todos
-	sd.apply_clock(_fake_clock("recess", 4, 300.0))
+	check(main.minigames.is_recess() and sd.free_to_play(), "aula: quem terminou a atividade pode ir brincar")
+	if player.mode == PlayerController.Mode.SITTING:
+		player.force_stand()
+	player.global_position = Vector3(0, 0.1, 20)
+	sd._process(30.0)
+	check(not main.discipline.truant and sd._out_of_class <= 0.0, "aula: quem terminou e saiu não é 'matar aula'")
+	player.global_position = Vector3(0, 0.1, -2)
+	# o sinal do recreio chega com a LOJA aberta: não pode ser perdido
+	GameManager.set_state(GameManager.State.PAUSED)
+	NetworkManager.clock_changed.emit(_fake_clock("recess", 4, 300.0))
+	await _wait(0.2)
+	check(sd.phase == SchoolDay.Phase.CLASS_1, "relógio: com a loja aberta a fase espera")
+	GameManager.set_state(GameManager.State.PLAYING)
 	await _wait(0.3)
+	check(sd.phase == SchoolDay.Phase.RECESS and absf(sd.recess_left - 300.0) < 3.0, "relógio: fechou a loja e o sinal que chegou lá dentro vale", "fase=%d" % sd.phase)
 	check(sd.phase == SchoolDay.Phase.RECESS and absf(sd.recess_left - 300.0) < 3.0, "relógio: recreio com o tempo do servidor", "%.1f" % sd.recess_left)
 	sd._process(1.0)
 	check(sd.phase == SchoolDay.Phase.RECESS, "relógio: o recreio não acaba sozinho no celular")
@@ -2046,7 +2058,7 @@ func _test_relogio_servidor() -> void:
 	NetworkManager.room = "sala-outra"
 	sd.apply_clock(_fake_clock("recess", 1, 200.0))
 	await _wait(0.3)
-	check(sd.phase == SchoolDay.Phase.RECESS and player.global_position.z < 10.0, "relógio: trocou de sala e entrou no recreio dela")
+	check(sd.phase == SchoolDay.Phase.RECESS and player.global_position.z < 10.0, "relógio: trocou de sala e entrou no recreio dela", "%s modo=%d recon=%s fase=%d" % [str(player.global_position), player.mode, str(NetworkManager.reconnected), sd.phase])
 	# saiu do online: bots voltam e o dia volta a ser local
 	npcm.apply_desks({}, "")
 	sd.unsync()
@@ -3344,6 +3356,24 @@ func _test_contador_e_brilho() -> void:
 	await _frames(3)
 	var chip: Label = main.hud._timer_chip
 	check(chip != null and chip.visible and chip.text.begins_with("Aula em"), "contador: no recreio mostra quanto falta para a aula", chip.text if chip else "")
+	# loja aberta: o recreio continua contando (não "congela")
+	var rl := sd.recess_left
+	GameManager.overlay_open = true
+	GameManager.set_state(GameManager.State.PAUSED)
+	sd._process(10.0)
+	check(absf(sd.recess_left - (rl - 10.0)) < 0.01 and sd.phase == SchoolDay.Phase.RECESS, "loja aberta: o relógio do recreio continua contando", "%.1f -> %.1f" % [rl, sd.recess_left])
+	GameManager.overlay_open = false
+	GameManager.set_state(GameManager.State.PLAYING)
+	sd.recess_left = rl
+	# caiu a conexão: aparece "Reconectando..."
+	NetworkManager._want_online = true
+	NetworkManager._ever_welcomed = true
+	main.hud._update_reconnect(0.1)
+	check(main.hud._reconn != null and main.hud._reconn.visible and main.hud._reconn_lbl.text.begins_with("Reconectando"), "online: mostra 'Reconectando...' quando a conexão cai")
+	NetworkManager._want_online = false
+	NetworkManager._ever_welcomed = false
+	main.hud._update_reconnect(0.1)
+	check(not main.hud._reconn.visible, "online: o aviso some quando não está mais tentando")
 	main.school_day._start_return()
 	await _frames(3)
 	var glow: Node3D = sd._desk_glow
