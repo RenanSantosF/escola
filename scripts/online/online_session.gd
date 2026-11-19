@@ -226,6 +226,14 @@ func _on_remote_anim(r: Dictionary, before: String, now: String) -> void:
 			if d < bd:
 				bd = d
 				best = st
+		if best and best.occupant is NPC:
+			# um bot ia sentar (ou já estava): ele procura outro lugar
+			var n := best.occupant as NPC
+			if n.sitting and n.seat == best:
+				n.force_unseat()
+			else:
+				n.cancel_seat()
+			best.occupant = null
 		if best and best.occupant == null:
 			best.occupy(r.root)
 			r["seat"] = best
