@@ -122,6 +122,7 @@ func _ready() -> void:
 	_stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_stage.auto_emotes = false
 	_stage.podium_color = UITheme.ACCENT
+	_stage.rotate_only = true  # só gira (sem subir/descer a câmera)
 	_side.add_child(_stage)
 	_kart_stage = KartStage.new()
 	_kart_stage.custom_minimum_size = Vector2(SIDE_W - 36, 330)

@@ -270,9 +270,23 @@ static func ad_cost(id: String) -> int:
 	return int(AD_ITEMS.get(id, 0))
 
 
+## Itens que saíram da loja (menos coisas, mas bem feitas): quem já comprou
+## continua usando; para os outros eles não aparecem mais.
+const RETIRED := ["cam_uniforme_v", "cam_verde", "cam_azul_ceu", "cam_menta", "cam_xadrez", "cam_degrade",
+	"pen_raspado", "pen_franja", "tin_preto", "tin_verde",
+	"skin_explorador", "skin_chef", "skin_craque_neon",
+	"emo_scratch", "emo_look", "emo_stretch", "emo_sad",
+	"moc_verde", "moc_preta", "bon_verde", "bon_preto", "ten_verde", "ten_rosa",
+	"aura_notas", "cal_marrom"]
+
+
+static func is_retired(i: Dictionary) -> bool:
+	return i.get("legacy", false) or str(i.get("id", "")) in RETIRED
+
+
 static func by_cat(cat: String) -> Array:
-	# itens antigos ("legacy") só aparecem para quem já tem
-	return ITEMS.filter(func(i): return i.cat == cat and (not i.get("legacy", false) or Progression.owns(i.id)))
+	# itens antigos/aposentados só aparecem para quem já tem
+	return ITEMS.filter(func(i): return i.cat == cat and (not is_retired(i) or Progression.owns(i.id)))
 
 
 static func get_item(id: String) -> Dictionary:
@@ -307,7 +321,7 @@ static func deals(date_key := "") -> Dictionary:
 		date_key = Time.get_date_string_from_system()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("ofertas-" + date_key)
-	var pool := ITEMS.filter(func(i): return int(i.get("price", 0)) >= 50 and not i.get("consumable", false) and i.cat != "veiculo")
+	var pool := ITEMS.filter(func(i): return int(i.get("price", 0)) >= 50 and not i.get("consumable", false) and i.cat != "veiculo" and not is_retired(i))
 	var out := {}
 	var tries := 0
 	while out.size() < 4 and tries < 60:

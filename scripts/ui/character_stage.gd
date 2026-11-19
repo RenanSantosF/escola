@@ -15,6 +15,8 @@ var podium_color := Color("ffcf3f")
 var zoom_min := 2.0
 var zoom_max := 4.2
 var base_dist := 2.85  ## distância da câmera (corpo todo)
+## Só gira o personagem (sem subir/descer a câmera nem aproximar) — menu.
+var rotate_only := false
 
 var _vp: SubViewport
 var _cam: Camera3D
@@ -181,7 +183,7 @@ func _gui_input(event: InputEvent) -> void:
 		else:
 			_touches.erase(event.index)
 		_pinch_d = 0.0
-	if event is InputEventScreenDrag and _touches.size() >= 2:
+	if event is InputEventScreenDrag and _touches.size() >= 2 and not rotate_only:
 		_touches[event.index] = event.position
 		var ps: Array = _touches.values()
 		var d: float = (ps[0] as Vector2).distance_to(ps[1])
@@ -201,6 +203,8 @@ func _gui_input(event: InputEvent) -> void:
 					_on_tap()
 				_drag = false
 			accept_event()
+		elif rotate_only:
+			pass
 		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_target_dist = clampf(_target_dist - 0.25, zoom_min, zoom_max)
 			accept_event()
@@ -212,7 +216,8 @@ func _gui_input(event: InputEvent) -> void:
 		_drag_moved += absf(mm.relative.x) + absf(mm.relative.y)
 		_yaw += mm.relative.x * 0.012
 		_yaw_vel = mm.relative.x * 0.012 / maxf(get_process_delta_time(), 0.001)
-		_target_look_y = clampf(_target_look_y - mm.relative.y * 0.003, 0.6, 1.45)
+		if not rotate_only:
+			_target_look_y = clampf(_target_look_y - mm.relative.y * 0.003, 0.6, 1.45)
 		_idle_t = 0.0
 		accept_event()
 

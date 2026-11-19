@@ -449,6 +449,7 @@ func _build_menu() -> void:
 	_lobby_stage.anchor_bottom = 1.0
 	_lobby_stage.offset_bottom = -6
 	_lobby_stage.podium_color = Color("c7cdfb")
+	_lobby_stage.rotate_only = true  # no menu só gira o personagem
 	lobby.add_child(_lobby_stage)
 	_lobby_stage.tapped.connect(func():
 		if is_instance_valid(_tap_hint):
